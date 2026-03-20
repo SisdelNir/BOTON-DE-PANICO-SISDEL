@@ -35,6 +35,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Si es modo admin → ir directo al formulario de registro (nuevo vecino)
     if (modoAdmin && instId) {
         mostrarPaso('paso-registro');
+        // Mostrar botón de listado de vecinos
+        const btnVV = document.getElementById('btn-ver-vecinos');
+        if (btnVV) btnVV.style.display = 'inline-flex';
         return;
     }
 
@@ -386,4 +389,72 @@ async function enviarAlerta() {
 
 function ocultarConfirmacion() {
     document.getElementById('overlay-enviado').style.display='none';
+}
+
+// ── LISTA DE VECINOS (solo admin) ─────────────────────────
+
+let _todosVecinos = [];
+
+async function abrirListaVecinos() {
+    const params = new URLSearchParams(window.location.search);
+    const instId = params.get('inst');
+    if (!instId) return;
+
+    // Nombre instón en cabecera
+    const nombreEl = document.getElementById('modal-inst-nombre');
+    if (instData) nombreEl.textContent = instData.nombre_institucion || '';
+
+    // Limpiar
+    document.getElementById('buscar-vecino-lista').value = '';
+    document.getElementById('vecinos-tbody').innerHTML = '<tr><td colspan="8" style="text-align:center;padding:1.5rem;color:#6b7294;">Cargando...</td></tr>';
+    document.getElementById('modal-vecinos').style.display = 'block';
+    document.body.style.overflow = 'hidden';
+
+    try {
+        const res = await fetch(`${API}/api/vecinos/${instId}`);
+        _todosVecinos = await res.json();
+        renderTablaVecinos(_todosVecinos);
+    } catch {
+        document.getElementById('vecinos-tbody').innerHTML = '<tr><td colspan="8" style="text-align:center;color:#ff3b3b;padding:1rem;">Error al cargar vecinos</td></tr>';
+    }
+}
+
+function renderTablaVecinos(lista) {
+    const tbody = document.getElementById('vecinos-tbody');
+    const vacio = document.getElementById('vecinos-vacio');
+    if (!lista.length) {
+        tbody.innerHTML = '';
+        vacio.style.display = 'block';
+        return;
+    }
+    vacio.style.display = 'none';
+    tbody.innerHTML = lista.map((v, i) => `
+        <tr style="border-bottom:1px solid #1a1f3e; ${i%2===0 ? 'background:rgba(30,35,70,.4)' : ''}">
+            <td style="padding:.55rem .8rem; color:#4da6ff; font-weight:700;">${i+1}</td>
+            <td style="padding:.55rem .8rem; font-weight:600;">${v.nombre}</td>
+            <td style="padding:.55rem .8rem; font-family:monospace; color:#7c5cfc;">${v.num_identificacion}</td>
+            <td style="padding:.55rem .8rem;">${v.telefono}</td>
+            <td style="padding:.55rem .8rem; text-align:center;">${v.sexo || '—'}</td>
+            <td style="padding:.55rem .8rem; text-align:center;">${v.edad || '—'}</td>
+            <td style="padding:.55rem .8rem; color:#6b7294;">${v.direccion || '—'}</td>
+            <td style="padding:.55rem .8rem; font-family:monospace; font-weight:800; color:#00d68f; letter-spacing:3px;">${v.codigo_vecino || '—'}</td>
+        </tr>
+    `).join('');
+}
+
+function filtrarVecinos() {
+    const q = document.getElementById('buscar-vecino-lista').value.toLowerCase().trim();
+    if (!q) { renderTablaVecinos(_todosVecinos); return; }
+    const filtrados = _todosVecinos.filter(v =>
+        (v.nombre||'').toLowerCase().includes(q) ||
+        (v.num_identificacion||'').toLowerCase().includes(q) ||
+        (v.telefono||'').toLowerCase().includes(q) ||
+        (v.codigo_vecino||'').toLowerCase().includes(q)
+    );
+    renderTablaVecinos(filtrados);
+}
+
+function cerrarListaVecinos() {
+    document.getElementById('modal-vecinos').style.display = 'none';
+    document.body.style.overflow = '';
 }

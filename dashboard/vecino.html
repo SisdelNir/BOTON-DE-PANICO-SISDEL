@@ -59,6 +59,11 @@
         <div class="v-logo">
             <h2>📋 Mis Datos</h2>
             <p>Completa tu información para continuar</p>
+            <!-- Botón Ver Vecinos (solo admin) -->
+            <button id="btn-ver-vecinos" onclick="abrirListaVecinos()"
+                style="display:none; margin-top:.6rem; background:linear-gradient(135deg,#4da6ff,#7c5cfc); color:#fff; border:none; border-radius:10px; padding:.5rem 1.2rem; font-size:.85rem; font-weight:700; cursor:pointer; gap:.4rem;">
+                👥 Ver Vecinos Registrados
+            </button>
         </div>
         <div class="v-card" style="padding:1.5rem 1.75rem;">
             <div class="v-form-grid">
@@ -174,5 +179,35 @@
 </div>
 
 <script src="js/vecino.js"></script>
+<!-- ══ MODAL LISTADO DE VECINOS ══════════════════════ -->
+<div id="modal-vecinos" style="display:none; position:fixed; inset:0; background:rgba(10,13,30,.97); z-index:9999; overflow-y:auto; padding:1.5rem;">
+    <div style="max-width:900px; margin:0 auto;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+            <h2 style="color:#fff; font-size:1.3rem;">👥 Vecinos Registrados — <span id="modal-inst-nombre"></span></h2>
+            <button onclick="cerrarListaVecinos()" style="background:#ff3b3b; color:#fff; border:none; border-radius:8px; padding:.4rem .9rem; font-size:.9rem; cursor:pointer;">✕ Cerrar</button>
+        </div>
+        <input id="buscar-vecino-lista" type="text" placeholder="🔍 Buscar por nombre, documento, teléfono..." oninput="filtrarVecinos()"
+            style="width:100%; padding:.7rem 1rem; background:#1a1f3e; border:1px solid #2d3366; border-radius:10px; color:#fff; font-size:.9rem; margin-bottom:1rem; box-sizing:border-box;">
+        <div id="vecinos-lista-tabla" style="overflow-x:auto;">
+            <table style="width:100%; border-collapse:collapse; font-size:.85rem; color:#ccd6f6;">
+                <thead>
+                    <tr style="background:#1a1f3e; color:#4da6ff; text-transform:uppercase; font-size:.72rem;">
+                        <th style="padding:.6rem .8rem; text-align:left;">#</th>
+                        <th style="padding:.6rem .8rem; text-align:left;">Nombre</th>
+                        <th style="padding:.6rem .8rem; text-align:left;">Documento</th>
+                        <th style="padding:.6rem .8rem; text-align:left;">Teléfono</th>
+                        <th style="padding:.6rem .8rem; text-align:left;">Sexo</th>
+                        <th style="padding:.6rem .8rem; text-align:left;">Edad</th>
+                        <th style="padding:.6rem .8rem; text-align:left;">Dirección</th>
+                        <th style="padding:.6rem .8rem; text-align:left;">Código</th>
+                    </tr>
+                </thead>
+                <tbody id="vecinos-tbody"></tbody>
+            </table>
+            <p id="vecinos-vacio" style="display:none; text-align:center; color:#6b7294; margin-top:2rem;">No hay vecinos registrados.</p>
+        </div>
+    </div>
+</div>
+
 </body>
 </html>
