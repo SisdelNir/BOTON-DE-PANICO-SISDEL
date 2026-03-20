@@ -10,6 +10,7 @@ let gpsLat       = null;
 let gpsLon       = null;
 let holdInterval = null;
 let holdProgress = 0;
+let modoVecinoLogin = false;  // true cuando vecino accede con su código
 const HOLD_MS    = 3000;
 
 // ── INIT ──────────────────────────────────────────
@@ -41,40 +42,26 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
 
-    // Si es modo vecino → cargar datos y bloquear campos
+    // Si es modo vecino → cargar datos e ir al botón de pánico
     const modoVecino = params.get('vecino') === '1';
     const numIdParam = params.get('numid');
     if (modoVecino && instId && numIdParam) {
-        mostrarPaso('paso-registro');
+        modoVecinoLogin = true;
         try {
             const res = await fetch(`${API}/api/vecinos/buscar/${instId}/${encodeURIComponent(numIdParam)}`);
             if (res.ok) {
                 const v = await res.json();
-                document.getElementById('reg-id').value       = v.num_identificacion || '';
-                document.getElementById('reg-nombre').value   = v.nombre || '';
-                document.getElementById('reg-telefono').value = v.telefono || '';
-                document.getElementById('reg-dir').value      = v.direccion || '';
-                document.getElementById('reg-correo').value   = v.correo || '';
-                document.getElementById('reg-sexo').value     = v.sexo || '';
-                document.getElementById('reg-edad').value     = v.edad || '';
-                // Bloquear campos que no se pueden modificar
-                document.getElementById('reg-id').readOnly = true;
-                document.getElementById('reg-id').style.opacity = '0.5';
-                document.getElementById('reg-nombre').readOnly = true;
-                document.getElementById('reg-nombre').style.opacity = '0.5';
-                document.getElementById('reg-correo').readOnly = true;
-                document.getElementById('reg-correo').style.opacity = '0.5';
-                document.getElementById('reg-sexo').disabled = true;
-                document.getElementById('reg-sexo').style.opacity = '0.5';
-                document.getElementById('reg-edad').readOnly = true;
-                document.getElementById('reg-edad').style.opacity = '0.5';
-                // Cambiar texto del botón
-                const btn = document.querySelector('.btn-registrar');
-                if (btn) btn.textContent = '💾 Actualizar Datos';
-                // Ocultar hint
-                document.getElementById('hint-id').style.display = 'none';
+                vecinoData = v;
+                instData   = instData || { id_institucion: instId };
+                sessionStorage.setItem('sisdel_vecino', JSON.stringify(vecinoData));
+                mostrarPaso('paso-panico');
+                iniciarPasoParanica();
+            } else {
+                mostrarPaso('paso-registro');
             }
-        } catch { /* sin servidor */ }
+        } catch {
+            mostrarPaso('paso-registro');
+        }
         return;
     }
 
@@ -260,7 +247,14 @@ async function registrarVecino() {
     if (instId) localStorage.setItem(`sisdel_vecino_${instId}`, JSON.stringify(vecinoData));
     if (instData) sessionStorage.setItem('sisdel_vecino_inst', JSON.stringify(instData));
 
-    // Mostrar código generado si existe
+    // Si es vecino actualizando → volver al botón de pánico
+    if (modoVecinoLogin) {
+        mostrarPaso('paso-panico');
+        iniciarPasoParanica();
+        return;
+    }
+
+    // Mostrar código generado si existe (solo en primer registro)
     const codigo = vecinoData.codigo_vecino || '';
     if (codigo) {
         document.getElementById('codigo-generado-val').textContent = codigo;
@@ -312,6 +306,20 @@ function editarDatos() {
         document.getElementById('reg-sexo').value     = vecinoData.sexo || '';
         document.getElementById('reg-edad').value     = vecinoData.edad || '';
     }
+
+    // Si vino del login como vecino → bloquear campos de identidad
+    if (modoVecinoLogin) {
+        ['reg-id','reg-nombre','reg-correo','reg-edad'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) { el.readOnly = true; el.style.opacity = '0.5'; }
+        });
+        const sexoEl = document.getElementById('reg-sexo');
+        if (sexoEl) { sexoEl.disabled = true; sexoEl.style.opacity = '0.5'; }
+        document.getElementById('hint-id').style.display = 'none';
+        const btn = document.querySelector('.btn-registrar');
+        if (btn) btn.textContent = '💾 Actualizar Datos';
+    }
+
     // Reset UI
     document.getElementById('codigo-generado-box').style.display = 'none';
     const btnGuardar = document.querySelector('.btn-registrar');
