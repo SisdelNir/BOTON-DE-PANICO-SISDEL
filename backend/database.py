@@ -11,8 +11,10 @@ from contextlib import contextmanager
 CLAVE_PROGRAMADOR = "1122"
 NOMBRE_SISTEMA    = "Botón de Pánico SISDEL"
 
-# Ruta del archivo SQLite (junto al backend)
-DB_PATH = os.path.join(os.path.dirname(__file__), "sisdel.db")
+# Ruta del archivo SQLite
+# En Render usa disco persistente /data/, en local usa carpeta del backend
+_DATA_DIR = "/data" if os.path.isdir("/data") else os.path.dirname(__file__)
+DB_PATH = os.path.join(_DATA_DIR, "sisdel.db")
 
 
 def generar_clave_6(nombre: str = None) -> str:
