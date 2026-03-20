@@ -282,17 +282,34 @@ function iniciarPasoParanica() {
 
 function obtenerGPS() {
     const statusEl = document.getElementById('gps-status');
-    const dot = document.getElementById('gps-dot');
-    if (!navigator.geolocation) { statusEl.textContent='GPS no disponible'; return; }
-    statusEl.textContent = 'Obteniendo ubicación...';
-    navigator.geolocation.getCurrentPosition(
+    const dot      = document.getElementById('gps-dot');
+
+    if (!navigator.geolocation) {
+        statusEl.textContent = '⚠️ GPS no disponible en este dispositivo';
+        return;
+    }
+
+    statusEl.textContent = '📡 Solicitando permiso de ubicación...';
+
+    // watchPosition → coordenadas siempre actualizadas mientras la página esté abierta
+    navigator.geolocation.watchPosition(
         pos => {
-            gpsLat = pos.coords.latitude; gpsLon = pos.coords.longitude;
-            statusEl.textContent = `📍 ${gpsLat.toFixed(5)}, ${gpsLon.toFixed(5)}`;
-            dot.classList.add('ok');
+            gpsLat = pos.coords.latitude;
+            gpsLon = pos.coords.longitude;
+            const acc = pos.coords.accuracy ? ` (±${Math.round(pos.coords.accuracy)}m)` : '';
+            statusEl.textContent = `📍 ${gpsLat.toFixed(5)}, ${gpsLon.toFixed(5)}${acc}`;
+            dot.style.background = '#00d68f';
         },
-        () => { statusEl.textContent='GPS no disponible — alerta sin coordenadas'; dot.style.background='#ff8c00'; },
-        { enableHighAccuracy:true, timeout:10000 }
+        err => {
+            gpsLat = null; gpsLon = null;
+            if (err.code === 1) {
+                statusEl.innerHTML = '🔴 Ubicación bloqueada — activa el GPS en ajustes del celular';
+            } else {
+                statusEl.textContent = '🟡 Sin señal GPS — la alerta se enviará sin coordenadas';
+            }
+            dot.style.background = '#ff8c00';
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
     );
 }
 

@@ -9,6 +9,8 @@ let mapaL = null;
 let marcadores = {};
 let alertaActual = null;
 let filtro = 'todas';
+let _alertasVistas = new Set();   // IDs de emergencias ya vistas
+let _audioCtx = null;             // Web Audio para alarma
 
 // ── INIT ──────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
@@ -21,10 +23,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     iniciarReloj();
     iniciarMapa();
+    pedirPermisoNotificacion();
     cargarAlertas();
     cargarVecinos();
+    // Refresco cada 5 segundos
     setInterval(() => { cargarAlertas(); }, 5000);
+    // Keep-alive: ping a Render cada 4 minutos para evitar que duerma
+    setInterval(() => { fetch(`${API}/health`).catch(()=>{}); }, 4 * 60 * 1000);
 });
+
 
 function logout() { sessionStorage.clear(); window.location.href = 'index.html'; }
 
@@ -45,11 +52,12 @@ function iniciarReloj() {
 
 // ── MAPA ──────────────────────────────────────────
 function iniciarMapa() {
-    mapaL = L.map('mapa').setView([19.4326,-99.1332],12);
+    // Centro: Guatemala (ajusta según tu país)
+    mapaL = L.map('mapa').setView([14.6349, -90.5069], 12);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
         {attribution:'© OpenStreetMap'}).addTo(mapaL);
 }
-function centrarMapa() { if(mapaL) mapaL.setView([19.4326,-99.1332],12); }
+function centrarMapa() { if(mapaL) mapaL.setView([14.6349,-90.5069],12); }
 
 function ponerMarcador(e) {
     if (!mapaL || !e.gps_latitud || !e.gps_longitud) return;
@@ -64,15 +72,65 @@ function ponerMarcador(e) {
         .addTo(mapaL);
 }
 
+// ── ALARMA SONORA ─────────────────────────────────
+function pedirPermisoNotificacion() {
+    if ('Notification' in window && Notification.permission === 'default')
+        Notification.requestPermission();
+}
+
+function sonarAlarma() {
+    try {
+        if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        [0, 0.3, 0.6].forEach(t => {
+            const osc = _audioCtx.createOscillator();
+            const gain = _audioCtx.createGain();
+            osc.connect(gain); gain.connect(_audioCtx.destination);
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(880, _audioCtx.currentTime + t);
+            gain.gain.setValueAtTime(0.4, _audioCtx.currentTime + t);
+            gain.gain.exponentialRampToValueAtTime(0.001, _audioCtx.currentTime + t + 0.25);
+            osc.start(_audioCtx.currentTime + t);
+            osc.stop(_audioCtx.currentTime + t + 0.25);
+        });
+    } catch {}
+}
+
+function notificarNuevaEmergencia(nombre) {
+    sonarAlarma();
+    let n = 0, orig = document.title;
+    const iv = setInterval(() => {
+        document.title = n++ % 2 === 0 ? '🚨 ¡NUEVA ALERTA!' : orig;
+        if (n >= 12) { clearInterval(iv); document.title = orig; }
+    }, 500);
+    if ('Notification' in window && Notification.permission === 'granted')
+        new Notification('🚨 ALERTA DE PÁNICO', { body: nombre, icon: '/favicon.ico' });
+}
+
+function setConexion(ok) {
+    const el = document.getElementById('conexion-status');
+    if (!el) return;
+    el.textContent = ok ? '🟢 Conectado' : '🔴 Sin conexión';
+    el.style.color  = ok ? '#00d68f' : '#ff3b3b';
+}
+
 // ── ALERTAS ───────────────────────────────────────
 async function cargarAlertas() {
     try {
         const res = await fetch(`${API}/api/emergencias/${INST.id_institucion}`);
         const alertas = await res.json();
+
+        // Detectar nuevas ACTIVAS no vistas antes
+        const nuevas = alertas.filter(a => a.estatus === 'ACTIVA' && !_alertasVistas.has(a.id_emergencia));
+        if (nuevas.length > 0 && _alertasVistas.size > 0) {
+            nuevas.forEach(a => notificarNuevaEmergencia(a.nombre_vecino));
+        }
+        alertas.forEach(a => _alertasVistas.add(a.id_emergencia));
+
         renderAlertas(alertas);
         alertas.forEach(ponerMarcador);
         actualizarStats(alertas);
-    } catch { /* sin conexión */ }
+        setConexion(true);
+    } catch { setConexion(false); }
 }
 
 function actualizarStats(alertas) {
