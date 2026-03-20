@@ -3,7 +3,7 @@
  * Soporta: acceso con clave personal ó acceso directo con link (?inst=...)
  */
 
-const API = window.location.protocol === 'file:' ? 'http://localhost:8000' : '';  // Detecta si es local o nube
+const API = (window.location.hostname === 'localhost' || window.location.protocol === 'file:') ? 'http://localhost:8000' : 'https://boton-de-panico-sisdel.onrender.com';  // Local o Render
 let vecinoData   = null;   // datos del vecino
 let instData     = null;   // datos de la institución (del URL o de la clave)
 let gpsLat       = null;

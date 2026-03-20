@@ -3,7 +3,7 @@
  * Login/Logout de operadores del Centro de Monitoreo
  */
 
-const API_BASE = ''; // Usa el origin actual relativo
+const API_BASE = (window.location.hostname === 'localhost' || window.location.protocol === 'file:') ? 'http://localhost:8000' : 'https://boton-de-panico-sisdel.onrender.com';  // Local o Render
 let currentOperator = null;
 let authToken = null;
 

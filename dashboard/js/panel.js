@@ -3,7 +3,7 @@
  * Scoped por institución desde sessionStorage
  */
 
-const API = window.location.protocol === 'file:' ? 'http://localhost:8000' : '';  // Detecta si es local o nube
+const API = (window.location.hostname === 'localhost' || window.location.protocol === 'file:') ? 'http://localhost:8000' : 'https://boton-de-panico-sisdel.onrender.com';  // Local o Render
 let INST  = null;
 let mapaL = null;
 let marcadores = {};
