@@ -1,0 +1,239 @@
+/**
+ * Panel Central JS — Botón de Pánico SISDEL
+ * Scoped por institución desde sessionStorage
+ */
+
+const API = window.location.protocol === 'file:' ? 'http://localhost:8000' : '';  // Detecta si es local o nube
+let INST  = null;
+let mapaL = null;
+let marcadores = {};
+let alertaActual = null;
+let filtro = 'todas';
+
+// ── INIT ──────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+    if (sessionStorage.getItem('sisdel_tipo') !== 'institucion') {
+        window.location.href = 'index.html'; return;
+    }
+    INST = JSON.parse(sessionStorage.getItem('sisdel_inst'));
+    document.getElementById('inst-name-label').textContent = INST.nombre_institucion;
+    document.title = `🚨 ${INST.nombre_institucion} — Panel SISDEL`;
+
+    iniciarReloj();
+    iniciarMapa();
+    cargarAlertas();
+    cargarVecinos();
+    setInterval(() => { cargarAlertas(); }, 5000);
+});
+
+function logout() { sessionStorage.clear(); window.location.href = 'index.html'; }
+
+function abrirRegistroVecino() {
+    const base = window.location.pathname.replace('panel.html','');
+    const url = `${base}vecino.html?inst=${INST.id_institucion}&admin=1`;
+    window.open(url, '_blank');
+}
+
+// ── RELOJ ─────────────────────────────────────────
+function iniciarReloj() {
+    const tick = () => {
+        document.getElementById('clock').textContent =
+            new Date().toLocaleTimeString('es-MX',{hour12:false});
+    };
+    tick(); setInterval(tick,1000);
+}
+
+// ── MAPA ──────────────────────────────────────────
+function iniciarMapa() {
+    mapaL = L.map('mapa').setView([19.4326,-99.1332],12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        {attribution:'© OpenStreetMap'}).addTo(mapaL);
+}
+function centrarMapa() { if(mapaL) mapaL.setView([19.4326,-99.1332],12); }
+
+function ponerMarcador(e) {
+    if (!mapaL || !e.gps_latitud || !e.gps_longitud) return;
+    if (marcadores[e.id_emergencia]) mapaL.removeLayer(marcadores[e.id_emergencia]);
+    const c = e.estatus==='ACTIVA'?'#ff3b3b':e.estatus==='EN_CAMINO'?'#ff8c00':'#00d68f';
+    const icon = L.divIcon({
+        html:`<div style="background:${c};width:14px;height:14px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 8px ${c}"></div>`,
+        iconSize:[14,14], className:''
+    });
+    marcadores[e.id_emergencia] = L.marker([e.gps_latitud,e.gps_longitud],{icon})
+        .bindPopup(`<b>🚨 ${e.nombre_vecino}</b><br>📱 ${e.telefono_vecino}<br>📍 ${e.direccion_aproximada||'Sin coords'}`)
+        .addTo(mapaL);
+}
+
+// ── ALERTAS ───────────────────────────────────────
+async function cargarAlertas() {
+    try {
+        const res = await fetch(`${API}/api/emergencias/${INST.id_institucion}`);
+        const alertas = await res.json();
+        renderAlertas(alertas);
+        alertas.forEach(ponerMarcador);
+        actualizarStats(alertas);
+    } catch { /* sin conexión */ }
+}
+
+function actualizarStats(alertas) {
+    document.getElementById('sp-activas').textContent = alertas.filter(a=>a.estatus==='ACTIVA').length;
+    document.getElementById('sp-camino').textContent  = alertas.filter(a=>a.estatus==='EN_CAMINO').length;
+    document.getElementById('sp-atend').textContent   = alertas.filter(a=>a.estatus==='ATENDIDA').length;
+}
+
+function setFiltro(f,btn) {
+    filtro=f;
+    document.querySelectorAll('.ftab').forEach(t=>t.classList.remove('active'));
+    btn.classList.add('active');
+    cargarAlertas();
+}
+
+function renderAlertas(alertas) {
+    let lista = filtro==='todas' ? alertas : alertas.filter(a=>a.estatus===filtro);
+    const tbody = document.getElementById('alertas-tbody');
+
+    if (!lista.length) {
+        tbody.innerHTML=`<tr><td colspan="9"><div class="empty-state"><span style="font-size:2rem">🛡️</span><p>Sin emergencias ${filtro!=='todas'?'con este estado':''}</p></div></td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = lista.map((a,i) => {
+        const rowCls = a.estatus==='ACTIVA'?'row-activa':a.estatus==='EN_CAMINO'?'row-camino':a.estatus==='ATENDIDA'?'row-atendida':'';
+        const hora   = new Date(a.fecha_creacion).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
+        const gps    = a.gps_latitud ? `${a.gps_latitud.toFixed(4)},${a.gps_longitud.toFixed(4)}` : '—';
+        return `<tr class="${rowCls}">
+            <td>${i+1}</td>
+            <td><span class="badge badge-${a.estatus}">${a.estatus.replace('_',' ')}</span></td>
+            <td><strong>${a.nombre_vecino}</strong></td>
+            <td>${a.telefono_vecino}</td>
+            <td>${a.num_identificacion}</td>
+            <td>${a.direccion_vecino||a.direccion_aproximada||'—'}</td>
+            <td style="font-family:monospace;font-size:.72rem">${gps}</td>
+            <td style="font-size:.72rem">${hora}</td>
+            <td><button class="btn-ver" onclick="verDet('${a.id_emergencia}')">Ver</button></td>
+        </tr>`;
+    }).join('');
+}
+
+// ── DETALLE ───────────────────────────────────────
+async function verDet(id) {
+    try {
+        const res = await fetch(`${API}/api/emergencias/${INST.id_institucion}`);
+        const lista = await res.json();
+        alertaActual = lista.find(a=>a.id_emergencia===id);
+    } catch { return; }
+    if (!alertaActual) return;
+    const a = alertaActual;
+    const mUrl = a.gps_latitud ? `https://maps.google.com/?q=${a.gps_latitud},${a.gps_longitud}` : null;
+
+    document.getElementById('det-body').innerHTML = `
+    <div class="det-grid">
+        <div class="det-item"><div class="det-label">Vecino</div><div class="det-val">👤 ${a.nombre_vecino}</div></div>
+        <div class="det-item"><div class="det-label">Teléfono</div><div class="det-val">📱 ${a.telefono_vecino}</div></div>
+        <div class="det-item"><div class="det-label">Identificación</div><div class="det-val">🪪 ${a.num_identificacion}</div></div>
+        <div class="det-item"><div class="det-label">Estado</div><div class="det-val"><span class="badge badge-${a.estatus}">${a.estatus.replace('_',' ')}</span></div></div>
+        <div class="det-item det-full"><div class="det-label">Dirección</div><div class="det-val">${a.direccion_vecino||'—'} ${a.direccion_aproximada||''}</div></div>
+        <div class="det-item det-full">
+            <div class="det-label">Coordenadas GPS</div>
+            <div class="det-val">📍 ${a.gps_latitud?`${a.gps_latitud.toFixed(6)}, ${a.gps_longitud.toFixed(6)}`:'No disponible'}</div>
+            ${mUrl?`<a class="map-link" href="${mUrl}" target="_blank">🗺️ Abrir en Google Maps</a>`:''}
+        </div>
+        <div class="det-item"><div class="det-label">Fecha / Hora</div><div class="det-val">${new Date(a.fecha_creacion).toLocaleString('es-MX')}</div></div>
+        ${a.notas_operador?`<div class="det-item"><div class="det-label">Notas</div><div class="det-val">${a.notas_operador}</div></div>`:''}
+    </div>`;
+
+    document.getElementById('modal-det').style.display='flex';
+    if (mapaL && a.gps_latitud) { mapaL.setView([a.gps_latitud,a.gps_longitud],16); if(marcadores[id]) marcadores[id].openPopup(); }
+}
+function closeDet(e) {
+    if (e && e.target!==document.getElementById('modal-det')) return;
+    document.getElementById('modal-det').style.display='none'; alertaActual=null;
+}
+async function cambiarEstatus(estatus) {
+    if (!alertaActual) return;
+    try {
+        await fetch(`${API}/api/emergencias/${alertaActual.id_emergencia}/estatus`,{
+            method:'PATCH', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({estatus})
+        });
+        closeDet(); await cargarAlertas();
+    } catch { alert('Error al actualizar.'); }
+}
+
+// ── VECINOS ───────────────────────────────────────
+async function cargarVecinos() {
+    try {
+        const res = await fetch(`${API}/api/vecinos/${INST.id_institucion}`);
+        const vec = await res.json();
+        document.getElementById('sp-vec').textContent = vec.length;
+        const tbody = document.getElementById('vecinos-tbody');
+        if (!vec.length) { tbody.innerHTML=`<tr><td colspan="6"><div class="empty-state"><p>Sin vecinos registrados</p></div></td></tr>`; return; }
+        tbody.innerHTML = vec.map((v,i)=>`
+            <tr>
+                <td>${i+1}</td>
+                <td><strong>${v.nombre}</strong></td>
+                <td>${v.telefono}</td>
+                <td>${v.num_identificacion}</td>
+                <td>${v.direccion||'—'}</td>
+                <td style="font-size:.72rem">${new Date(v.fecha_registro).toLocaleDateString('es-MX')}</td>
+            </tr>`).join('');
+    } catch { document.getElementById('vecinos-tbody').innerHTML=`<tr><td colspan="6"><div class="empty-state"><p>Sin conexión</p></div></td></tr>`; }
+}
+
+// ── CLAVES ────────────────────────────────────────
+function abrirClaves() {
+    const base = window.location.origin + window.location.pathname.replace('panel.html','');
+    const link = `${base}vecino.html?inst=${INST.id_institucion}`;
+    document.getElementById('link-vecino-val').textContent = link;
+    document.getElementById('clave-box').style.display='none';
+    document.getElementById('modal-claves').style.display='flex';
+    cargarClaves();
+}
+function closeClaves(e) {
+    if (e && e.target!==document.getElementById('modal-claves')) return;
+    document.getElementById('modal-claves').style.display='none';
+}
+function copiarLink() {
+    const v = document.getElementById('link-vecino-val').textContent;
+    navigator.clipboard.writeText(v).catch(()=>prompt('Copie:',v));
+}
+
+async function generarClave() {
+    const desc = document.getElementById('clave-desc').value.trim();
+    try {
+        const res = await fetch(`${API}/api/vecinos/claves`,{
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({id_institucion:INST.id_institucion, descripcion:desc})
+        });
+        const c = await res.json();
+        document.getElementById('clave-val').textContent = c.clave;
+        document.getElementById('clave-box').style.display='block';
+        document.getElementById('clave-desc').value='';
+        await cargarClaves();
+    } catch { alert('Error al generar clave.'); }
+}
+function copiarClave() {
+    const v = document.getElementById('clave-val').textContent;
+    navigator.clipboard.writeText(v).catch(()=>prompt('Copie:',v));
+}
+
+async function cargarClaves() {
+    try {
+        const res = await fetch(`${API}/api/vecinos/claves/${INST.id_institucion}`);
+        const claves = await res.json();
+        const el = document.getElementById('claves-list');
+        if (!claves.length) { el.innerHTML='<p style="color:#6b7294;font-size:.82rem;">No hay claves generadas aún.</p>'; return; }
+        el.innerHTML = claves.map(c=>`
+            <div class="clave-item">
+                <span class="clave-code">${c.clave}</span>
+                <span class="clave-desc">${c.descripcion||'Sin descripción'}</span>
+                <span class="${c.usada?'badge-usada':'badge-libre'}">${c.usada?'Usada':'Libre'}</span>
+                <button class="btn-del" onclick="eliminarClave(${c.id_clave})">🗑</button>
+            </div>`).join('');
+    } catch { document.getElementById('claves-list').innerHTML='<p style="color:#6b7294;font-size:.82rem;">Sin conexión.</p>'; }
+}
+async function eliminarClave(id) {
+    if (!confirm('¿Eliminar clave?')) return;
+    try { await fetch(`${API}/api/vecinos/claves/${id}`,{method:'DELETE'}); await cargarClaves(); }
+    catch { alert('Error al eliminar.'); }
+}

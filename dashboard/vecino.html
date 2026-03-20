@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>🚨 Botón de Pánico SISDEL</title>
+    <meta name="theme-color" content="#0b0d17">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=JetBrains+Mono:wght@400;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/vecino.css">
+</head>
+<body>
+
+<!-- ══ PASO 1A: INGRESO CON CLAVE ══════════════════ -->
+<div id="paso-clave" class="paso">
+    <div class="vcenter">
+        <div class="v-logo">
+            <div class="v-icon">
+                <svg width="44" height="44" viewBox="0 0 44 44" fill="none">
+                    <circle cx="22" cy="22" r="19" stroke="#ff3b3b" stroke-width="2.5" fill="none" opacity=".4"/>
+                    <circle cx="22" cy="22" r="8" fill="#ff3b3b">
+                        <animate attributeName="r" values="8;11;8" dur="2s" repeatCount="indefinite"/>
+                    </circle>
+                </svg>
+            </div>
+            <h1>Botón de Pánico</h1>
+            <p id="inst-nombre-label">SISDEL</p>
+        </div>
+
+        <div class="v-card">
+            <h2>Ingresar con tu Clave</h2>
+            <p class="v-desc">Tu coordinador de colonia te entregó una clave de 6 caracteres</p>
+            <input type="text" id="inp-clave" placeholder="· · · · · ·" maxlength="6"
+                   autocomplete="off" oninput="this.value=this.value.toUpperCase()">
+            <button class="btn-clave-ok" id="btn-validar" onclick="validarClave()">Continuar →</button>
+            <div class="v-error" id="error-clave" style="display:none;"></div>
+        </div>
+
+        <div style="text-align:center;margin-top:.75rem;">
+            <span style="font-size:.75rem;color:#6b7294;">¿No tienes clave? </span>
+            <button onclick="accederSinClave()" style="background:none;border:none;color:#4da6ff;font-size:.78rem;cursor:pointer;text-decoration:underline;">
+                Ingresar solo con el link
+            </button>
+        </div>
+
+        <a href="index.html" class="link-admin">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>
+            </svg>
+            Soy administrador
+        </a>
+    </div>
+</div>
+
+<!-- ══ PASO 2: REGISTRO ════════════════════════════ -->
+<div id="paso-registro" class="paso" style="display:none;">
+    <div class="vcenter" style="max-width:680px;">
+        <div class="v-logo">
+            <h2>📋 Mis Datos</h2>
+            <p>Completa tu información para continuar</p>
+        </div>
+        <div class="v-card" style="padding:1.5rem 1.75rem;">
+            <div class="v-form-grid">
+                <!-- Fila 1: IDENTIFICACIÓN (full width, destacado) -->
+                <div class="v-field v-field-full">
+                    <label>🪪 Documento de Identificación <span style="color:#ff3b3b;font-size:.65rem;font-weight:900;">(LLAVE PRIMARIA)</span></label>
+                    <input type="text" id="reg-id" placeholder="DPI / INE / Cédula — Ingrese primero este dato"
+                           autocomplete="off" onblur="buscarVecinoPorId()"
+                           style="border-color:#4da6ff; font-size:1.1rem; font-weight:700;">
+                    <span class="v-hint" id="hint-id" style="display:none;"></span>
+                </div>
+                <!-- Fila 2: Nombre + Teléfono -->
+                <div class="v-field">
+                    <label>👤 Nombre Completo</label>
+                    <input type="text" id="reg-nombre" placeholder="Juan García López" autocomplete="name">
+                </div>
+                <!-- Fila 2 -->
+                <div class="v-field">
+                    <label>📱 Teléfono</label>
+                    <input type="tel" id="reg-telefono" placeholder="5551234567" autocomplete="tel">
+                </div>
+                <div class="v-field">
+                    <label>📧 Correo Electrónico <span style="color:#6b7294;font-size:.65rem;">(opcional)</span></label>
+                    <input type="email" id="reg-correo" placeholder="correo@ejemplo.com" autocomplete="email">
+                </div>
+                <!-- Fila 3 -->
+                <div class="v-field">
+                    <label>⚥ Sexo</label>
+                    <select id="reg-sexo" class="v-select">
+                        <option value="">— Seleccionar —</option>
+                        <option value="M">Masculino</option>
+                        <option value="F">Femenino</option>
+                    </select>
+                </div>
+                <div class="v-field">
+                    <label>🎂 Edad</label>
+                    <input type="number" id="reg-edad" placeholder="Ej: 35" min="1" max="150" autocomplete="off">
+                </div>
+                <!-- Fila 4: full width -->
+                <div class="v-field v-field-full">
+                    <label>🏠 Dirección <span style="color:#6b7294;font-size:.65rem;">(opcional)</span></label>
+                    <input type="text" id="reg-dir" placeholder="Calle, Número, Colonia, Ciudad" autocomplete="street-address">
+                </div>
+            </div>
+
+            <button class="btn-registrar" onclick="registrarVecino()">Guardar y Continuar</button>
+            <div class="v-error" id="error-registro" style="display:none;"></div>
+
+            <!-- CÓDIGO GENERADO (se muestra tras registro) -->
+            <div id="codigo-generado-box" style="display:none; margin-top:1.25rem; background:rgba(0,214,143,.07); border:1px solid rgba(0,214,143,.35); border-radius:14px; padding:1.2rem; text-align:center;">
+                <p style="color:#00d68f; font-size:.82rem; font-weight:700; margin-bottom:.5rem;">✅ Registro exitoso — Tu código personal:</p>
+                <div id="codigo-generado-val" style="font-family:'JetBrains Mono',monospace; font-size:2.2rem; font-weight:900; letter-spacing:10px; color:#fff; background:#111325; border-radius:10px; padding:.6rem 1rem;"></div>
+                <p style="color:#6b7294; font-size:.72rem; margin-top:.5rem;">Guárdalo. Lo necesitarás para ingresar la próxima vez.</p>
+                <button onclick="continuarDespuesRegistro()" class="btn-registrar" style="margin-top:.8rem; background:linear-gradient(135deg,#00d68f,#4da6ff);">Continuar al Botón de Pánico →</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══ PASO 3: BOTÓN DE PÁNICO ═════════════════════ -->
+<div id="paso-panico" class="paso paso-panico" style="display:none;">
+
+    <div class="vecino-info-bar">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>
+        </svg>
+        <span id="vecino-nombre-bar">Vecino</span>
+        <button class="btn-editar-datos" onclick="editarDatos()">✏️ Editar</button>
+    </div>
+
+    <div class="gps-bar" id="gps-bar">
+        <div class="gps-dot" id="gps-dot"></div>
+        <span id="gps-status">Obteniendo ubicación...</span>
+    </div>
+
+    <div class="panico-area">
+        <p class="instruccion">EN CASO DE EMERGENCIA</p>
+        <p class="instruccion-sub">Mantén presionado 3 segundos para enviar alerta</p>
+
+        <div class="panic-btn-container">
+            <div class="panic-ring ring3"></div>
+            <div class="panic-ring ring2"></div>
+            <div class="panic-ring ring1"></div>
+            <button id="btn-panico" class="btn-panico"
+                ontouchstart="iniciarPanico(event)" ontouchend="cancelarPanico(event)"
+                onmousedown="iniciarPanico(event)" onmouseup="cancelarPanico(event)"
+                onmouseleave="cancelarPanico(event)">
+                <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.5">
+                    <path d="M12 9v4M12 17h.01"/>
+                    <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                </svg>
+                <span>PÁNICO</span>
+            </button>
+        </div>
+
+        <div class="hold-bar-wrap" id="hold-bar-wrap" style="display:none;">
+            <div class="hold-bar" id="hold-bar"></div>
+        </div>
+        <p class="hint-panico" id="hint-panico">Mantén presionado 3 segundos para enviar alerta</p>
+    </div>
+</div>
+
+<!-- ══ OVERLAY CONFIRMACIÓN ════════════════════════ -->
+<div id="overlay-enviado" class="overlay-enviado" style="display:none;">
+    <div class="enviado-card">
+        <div class="enviado-icon">📡</div>
+        <h2>¡ALERTA ENVIADA!</h2>
+        <p>El panel central recibió tu señal de emergencia.</p>
+        <p id="env-coords" class="enviado-coords"></p>
+        <p><strong>Mantén la calma. Ayuda está en camino.</strong></p>
+        <button onclick="ocultarConfirmacion()" class="btn-ok-enviado">OK</button>
+    </div>
+</div>
+
+<script src="js/vecino.js"></script>
+</body>
+</html>
