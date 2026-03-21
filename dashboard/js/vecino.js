@@ -369,9 +369,56 @@ function continuarDespuesRegistro() {
     iniciarPasoParanica();
 }
 
+// ── SOLICITAR PERMISO ─────────────────────────────
+function requestLocationPermission() {
+    if (navigator.permissions) {
+        navigator.permissions.query({ name: 'geolocation' }).then(result => {
+            if (result.state === 'prompt') {
+                navigator.geolocation.getCurrentPosition(() => {}, () => {}, { enableHighAccuracy: true });
+            } else if (result.state === 'denied') {
+                alert('Activa la ubicación en los ajustes de tu dispositivo para que el botón de pánico funcione correctamente.');
+            }
+        }).catch(() => {
+            navigator.geolocation.getCurrentPosition(() => {}, () => {});
+        });
+    } else {
+        navigator.geolocation.getCurrentPosition(() => {}, () => {});
+    }
+}
+
+let locationReady = false;
+function ensureLocation() {
+    return new Promise((resolve, reject) => {
+        if (gpsLat !== undefined && gpsLat !== null && gpsLon !== undefined && gpsLon !== null) {
+            locationReady = true;
+            return resolve();
+        }
+        navigator.geolocation.getCurrentPosition(pos => {
+            gpsLat = pos.coords.latitude;
+            gpsLon = pos.coords.longitude;
+            locationReady = true;
+            resolve();
+        }, () => {
+            const timeout = setTimeout(() => reject('timeout'), 8000);
+            const watchId = navigator.geolocation.watchPosition(p => {
+                gpsLat = p.coords.latitude;
+                gpsLon = p.coords.longitude;
+                locationReady = true;
+                clearTimeout(timeout);
+                navigator.geolocation.clearWatch(watchId);
+                resolve();
+            }, e => {
+                clearTimeout(timeout);
+                reject(e);
+            }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
+        }, { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 });
+    });
+}
+
 // ── PASO 3: PÁNICO ────────────────────────────────
 function iniciarPasoParanica() {
     if (!vecinoData) return;
+    requestLocationPermission();
     document.getElementById('vecino-nombre-bar').textContent = vecinoData.nombre || 'Vecino';
     // Cargar WhatsApp de emergencia guardado
     vecinoData.whatsapp_emergencia = sessionStorage.getItem('sisdel_wa') || vecinoData.whatsapp_emergencia || '';
@@ -523,6 +570,12 @@ async function enviarAlerta() {
     if (_alertaCount >= 10) {
         alert('Has enviado 10 alertas. El panel ya fue notificado. Mantén la calma.');
         return;
+    }
+
+    try {
+        await ensureLocation();
+    } catch (e) {
+        console.warn('Alerta enviada sin señal GPS:', e);
     }
 
     _alertaCount++;
