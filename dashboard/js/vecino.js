@@ -704,31 +704,37 @@ async function guardarSoloContactos() {
 }
 
 // ── BOTÓN WHATSAPP MASIVO ────────────────────────────────
+// ── BOTONES WHATSAPP INDIVIDUALES (PANTALLA PRINCIPAL) ──────────────────
 function mostrarBotonWAmasivo() {
     const familiares = JSON.parse(sessionStorage.getItem('sisdel_familiares') || '[]');
     if (familiares.length === 0) return;
-    const btn  = document.getElementById('btn-wa-masivo');
+    
+    const container = document.getElementById('wa-botones-main');
     const hint = document.getElementById('wa-masivo-hint');
-    if (btn)  btn.style.display  = 'flex';
-    if (hint) hint.style.display = 'block';
-}
+    
+    if (container) {
+        const nombre = vecinoData?.nombre || 'Un vecino';
+        const loc = gpsLat ? `https://maps.google.com/?q=${gpsLat},${gpsLon}` : 'Sin GPS disponible';
+        const texto  = `🚨‼️ ME URGE AYUDA ‼️🚨\n⚠️ AMENAZA DE VIOLENCIA ⚠️\n\n${nombre} necesita ayuda URGENTE.\n📍 Ubicación: ${loc}\n📱 Tel: ${vecinoData?.telefono || ''}\n\n🆘 POR FAVOR LLAMA O VEN DE INMEDIATO 🆘`;
 
-function enviarWAmasivo() {
-    const familiares = JSON.parse(sessionStorage.getItem('sisdel_familiares') || '[]');
-    if (!familiares.length) {
-        alert('Aún no tienes familiares registrados. Ve a Editar para agregarlos.');
-        return;
+        container.innerHTML = familiares.map(fam => {
+            const url = `whatsapp://send?phone=${fam.telefono}&text=${encodeURIComponent(texto)}`;
+            return `<a href="${url}" target="_blank" rel="noopener"
+                style="display:flex; align-items:center; justify-content:center; gap:.5rem;
+                       background:#25d366; color:#fff; padding:.8rem 1rem;
+                       border-radius:12px; font-weight:800; font-size:1rem; text-decoration:none;
+                       box-shadow:0 4px 15px rgba(37,211,102,0.3); transition:transform 0.1s;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
+                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
+                    <path d="M12 0C5.373 0 0 5.373 0 12c0 2.127.558 4.126 1.533 5.857L.057 23.704a.75.75 0 00.92.92l5.847-1.476A11.943 11.943 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.75a9.693 9.693 0 01-4.944-1.355l-.354-.21-3.668.926.944-3.565-.23-.366A9.693 9.693 0 012.25 12C2.25 6.615 6.615 2.25 12 2.25S21.75 6.615 21.75 12 17.385 21.75 12 21.75z"/>
+                </svg>
+                Avisar a ${fam.nombre || fam.telefono}
+            </a>`;
+        }).join('');
+        
+        container.style.display = 'flex';
     }
-    const nombre = vecinoData?.nombre || 'Un vecino';
-    const loc    = gpsLat
-        ? `https://maps.google.com/?q=${gpsLat},${gpsLon}`
-        : 'Sin GPS disponible';
-    const texto  = `🚨‼️ ME URGE AYUDA ‼️🚨\n⚠️ AMENAZA DE VIOLENCIA ⚠️\n\n${nombre} necesita ayuda URGENTE.\n📍 Ubicación: ${loc}\n📱 Tel: ${vecinoData?.telefono || ''}\n\n🆘 POR FAVOR LLAMA O VEN DE INMEDIATO 🆘`;
-
-    // Abrir WhatsApp en modo selección de contactos.
-    // Esto abrirá la aplicación normal y permitirá marcar a varios familiares a la vez.
-    const url = `whatsapp://send?text=${encodeURIComponent(texto)}`;
-    window.open(url, '_blank');
+    if (hint) hint.style.display = 'block';
 }
 
 // ── LISTA DE VECINOS (solo admin) ─────────────────────────
