@@ -60,6 +60,20 @@ function iniciarMapa() {
 }
 function centrarMapa() { if(mapaL) mapaL.setView([14.6349,-90.5069],12); }
 
+function abrirMapa() {
+    document.getElementById('modal-mapa').style.display='flex';
+    if(mapaL) {
+        setTimeout(() => {
+            mapaL.invalidateSize();
+            centrarMapa();
+        }, 100);
+    }
+}
+function cerrarMapa(e) {
+    if (e && e.target!==document.getElementById('modal-mapa')) return;
+    document.getElementById('modal-mapa').style.display='none';
+}
+
 function ponerMarcador(e) {
     if (!mapaL || !e.gps_latitud || !e.gps_longitud) return;
     if (marcadores[e.id_emergencia]) mapaL.removeLayer(marcadores[e.id_emergencia]);

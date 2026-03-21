@@ -38,7 +38,7 @@ body { font-family:'Inter',sans-serif; }
 .btn-sm-red:hover { background:rgba(255,59,59,.1);border-color:#ff3b3b; }
 
 /* MAIN GRID */
-.panel-body { display:grid; grid-template-columns:1fr 360px; flex:1; overflow:hidden; }
+.panel-body { display:flex; flex-direction:column; flex:1; overflow:hidden; }
 
 /* ALERTS SECTION */
 .alerts-col { display:flex; flex-direction:column; overflow:hidden; border-right:1px solid #2a2d45; }
