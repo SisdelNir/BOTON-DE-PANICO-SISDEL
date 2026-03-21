@@ -299,17 +299,30 @@ async function registrarVecino() {
     sessionStorage.setItem('sisdel_vecino', JSON.stringify(vecinoData));
     if (instId) localStorage.setItem(`sisdel_vecino_${instId}`, JSON.stringify(vecinoData));
     if (instData) sessionStorage.setItem('sisdel_vecino_inst', JSON.stringify(instData));
-    // Guardar contactos de emergencia en backend + sessionStorage
+
+    // ── Guardar contactos de emergencia ──────────────────────────
     const contactosFam = leerContactosFamiliares();
+    // Siempre guardar en sessionStorage y localStorage (respaldo local)
     if (contactosFam.length) {
         sessionStorage.setItem('sisdel_familiares', JSON.stringify(contactosFam));
-        // Guardar en PostgreSQL
-        if (vecinoData.id_vecino) {
-            fetch(`${API}/api/vecinos/${vecinoData.id_vecino}/contactos`, {
-                method: 'POST', headers: {'Content-Type':'application/json'},
-                body: JSON.stringify(contactosFam)
-            }).catch(() => {});
-        }
+        if (instId) localStorage.setItem(`sisdel_familiares_${instId}`, JSON.stringify(contactosFam));
+    }
+    // Guardar en PostgreSQL (con reintentos si el servidor está inicializando)
+    const idVecino = vecinoData.id_vecino;
+    if (idVecino && contactosFam.length) {
+        const guardarContactosBackend = async (intentos = 3) => {
+            for (let i = 0; i < intentos; i++) {
+                try {
+                    const r = await fetch(`${API}/api/vecinos/${idVecino}/contactos`, {
+                        method: 'POST', headers: {'Content-Type':'application/json'},
+                        body: JSON.stringify(contactosFam)
+                    });
+                    if (r.ok) return; // éxito
+                } catch {}
+                if (i < intentos - 1) await new Promise(res => setTimeout(res, 2000)); // espera 2s antes de reintentar
+            }
+        };
+        guardarContactosBackend();
     }
 
     // Si es vecino actualizando → volver al botón de pánico
@@ -345,6 +358,12 @@ function iniciarPasoParanica() {
     // Cargar WhatsApp de emergencia guardado
     vecinoData.whatsapp_emergencia = sessionStorage.getItem('sisdel_wa') || vecinoData.whatsapp_emergencia || '';
     // Cargar contactos de emergencia desde backend
+    const yaEnSession = sessionStorage.getItem('sisdel_familiares');
+    // Si no están en sessionStorage, buscar en localStorage como respaldo
+    if (!yaEnSession && instData?.id_institucion) {
+        const localFam = localStorage.getItem(`sisdel_familiares_${instData.id_institucion}`);
+        if (localFam) sessionStorage.setItem('sisdel_familiares', localFam);
+    }
     if (vecinoData.id_vecino && !sessionStorage.getItem('sisdel_familiares')) {
         fetch(`${API}/api/vecinos/${vecinoData.id_vecino}/contactos`)
             .then(r => r.ok ? r.json() : [])
