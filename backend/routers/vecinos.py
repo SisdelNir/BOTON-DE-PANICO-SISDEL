@@ -51,11 +51,13 @@ async def buscar_vecino(id_institucion: str, num_identificacion: str):
 
 @router.post("/registro", response_model=VecinoResponse, status_code=201)
 async def registrar_vecino(data: VecinoCreate):
-    # Si tiene clave, validarla; si no, aceptar (acceso por link)
-    if data.clave_acceso:
-        clave_obj = db.validar_clave_vecino(data.clave_acceso, data.id_institucion)
-        if not clave_obj:
-            raise HTTPException(403, "Clave de acceso inválida para esta institución")
+    # Si tiene clave, validarla solo si el vecino no está registrado aún
+    existing = db.buscar_vecino_por_identificacion(data.num_identificacion, data.id_institucion)
+    if not existing:
+        if data.clave_acceso:
+            clave_obj = db.validar_clave_vecino(data.clave_acceso, data.id_institucion)
+            if not clave_obj:
+                raise HTTPException(403, "Clave de acceso inválida para esta institución")
     return db.registrar_vecino(data.model_dump())
 
 
