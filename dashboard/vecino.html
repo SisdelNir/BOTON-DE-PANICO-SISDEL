@@ -252,6 +252,13 @@
         <p>El panel central recibió tu señal de emergencia.</p>
         <p id="env-coords" class="enviado-coords"></p>
         <p><strong>Mantén la calma. Ayuda está en camino.</strong></p>
+
+        <!-- Botones WhatsApp para cada familiar (se llenan dinámicamente) -->
+        <div id="wa-familiares" style="display:none; margin:.6rem 0; border-top:1px solid rgba(255,255,255,.1); padding-top:.7rem;">
+            <p style="font-size:.78rem; color:#6b7294; margin-bottom:.4rem;">💬 Avisar a familiares por WhatsApp:</p>
+            <div id="wa-botones" style="display:flex; flex-direction:column; gap:.4rem;"></div>
+        </div>
+
         <p id="env-countdown" style="color:#6b7294; font-size:.85rem; margin-top:.25rem;"></p>
         <div style="display:flex; gap:.75rem; justify-content:center; flex-wrap:wrap; margin-top:.5rem;">
             <button onclick="enviarOtraAlerta()" id="btn-otra-alerta" class="btn-ok-enviado"

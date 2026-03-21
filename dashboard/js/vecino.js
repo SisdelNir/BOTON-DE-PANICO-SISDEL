@@ -528,22 +528,30 @@ async function enviarAlerta() {
         localStorage.setItem('sisdel_pendientes', JSON.stringify(pendientes));
     }
 
-    // WhatsApp a TODOS los contactos de emergencia
-    if (_alertaCount === 1) {
-        const loc       = gpsLat ? `https://maps.google.com/?q=${gpsLat},${gpsLon}` : 'Sin GPS';
-        const texto     = `🚨 EMERGENCIA 🚨\n${vecinoData.nombre} ha activado el botón de pánico.\n📍 Ubicación: ${loc}\n📱 Tel: ${vecinoData.telefono}`;
-        const familiares = JSON.parse(sessionStorage.getItem('sisdel_familiares') || '[]');
-        // Enviar a contactos de emergencia
-        familiares.forEach((fam, idx) => {
-            setTimeout(() => {
-                window.open(`https://wa.me/${fam.telefono}?text=${encodeURIComponent(texto)}`, '_blank');
-            }, 1200 + idx * 800);
-        });
-        // Respaldo: campo WhatsApp antiguo
-        const waNumber = vecinoData.whatsapp_emergencia;
-        if (waNumber && !familiares.length) {
-            setTimeout(() => window.open(`https://wa.me/${waNumber}?text=${encodeURIComponent(texto)}`, '_blank'), 1000);
-        }
+    // WhatsApp: mostrar botones directos en el overlay (evita bloqueador de pop-ups)
+    const loc        = gpsLat ? `https://maps.google.com/?q=${gpsLat},${gpsLon}` : 'Sin GPS';
+    const textoWA    = `🚨 EMERGENCIA 🚨\n${vecinoData.nombre} ha activado el botón de pánico.\n📍 Ubicación: ${loc}\n📱 Tel: ${vecinoData.telefono}`;
+    const familiares = JSON.parse(sessionStorage.getItem('sisdel_familiares') || '[]');
+    const waNumber   = vecinoData.whatsapp_emergencia;
+
+    // Construir lista de contactos a notificar
+    const contactosWA = [...familiares];
+    if (waNumber && !familiares.length) contactosWA.push({ nombre: 'Familiar', telefono: waNumber });
+
+    const waBotones = document.getElementById('wa-botones');
+    const waSection = document.getElementById('wa-familiares');
+    if (waBotones && contactosWA.length > 0) {
+        waBotones.innerHTML = contactosWA.map(fam => {
+            const url = `https://wa.me/${fam.telefono}?text=${encodeURIComponent(textoWA)}`;
+            return `<a href="${url}" target="_blank" rel="noopener"
+                style="display:block;background:#25d366;color:#fff;text-align:center;padding:.5rem 1rem;
+                       border-radius:10px;font-weight:700;font-size:.88rem;text-decoration:none;">
+                💬 Avisar a ${fam.nombre || fam.telefono}
+            </a>`;
+        }).join('');
+        if (waSection) waSection.style.display = 'block';
+    } else if (waSection) {
+        waSection.style.display = 'none';
     }
 }
 
