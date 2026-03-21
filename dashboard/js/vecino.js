@@ -70,9 +70,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Si es modo admin → ir directo al formulario de registro (nuevo vecino)
     if (modoAdmin && instId) {
         mostrarPaso('paso-registro');
-        // Mostrar botón de listado de vecinos
+        // Mostrar botón Ver Vecinos y botón X
         const btnVV = document.getElementById('btn-ver-vecinos');
         if (btnVV) btnVV.style.display = 'inline-flex';
+        const btnX = document.getElementById('btn-cerrar-form');
+        if (btnX) btnX.style.display = 'flex';
         return;
     }
 
@@ -218,10 +220,24 @@ async function buscarVecinoPorId() {
             hintEl.textContent = '✅ Vecino encontrado — datos auto-rellenados';
             hintEl.className = 'v-hint found';
             hintEl.style.display = 'block';
+            // Guardar id_vecino para poder Modificar/Eliminar
+            window._vecinoEditId = v.id_vecino;
+            // Mostrar botones si es admin
+            const modoAdmin = new URLSearchParams(window.location.search).get('admin') === '1';
+            if (modoAdmin) {
+                document.getElementById('btn-guardar')?.setAttribute('style','flex:2;display:none');
+                document.getElementById('btn-modificar')?.style.setProperty('display','inline-flex');
+                document.getElementById('btn-eliminar')?.style.setProperty('display','inline-flex');
+            }
         } else {
             hintEl.textContent = 'Nuevo vecino — complete todos los campos';
             hintEl.className = 'v-hint notfound';
             hintEl.style.display = 'block';
+            window._vecinoEditId = null;
+            // Restaurar botón guardar
+            document.getElementById('btn-guardar')?.removeAttribute('style');
+            document.getElementById('btn-modificar')?.style.setProperty('display','none');
+            document.getElementById('btn-eliminar')?.style.setProperty('display','none');
         }
     } catch {
         hintEl.style.display = 'none';
@@ -611,4 +627,82 @@ function filtrarVecinos() {
 function cerrarListaVecinos() {
     document.getElementById('modal-vecinos').style.display = 'none';
     document.body.style.overflow = '';
+}
+
+// ── BOTÓN X / CERRAR FORMULARIO ─────────────────────────
+function cerrarFormulario() {
+    if (vecinoData) {
+        // Vecino vuelve al botón de pánico
+        mostrarPaso('paso-panico');
+        iniciarPasoParanica();
+    } else {
+        // Admin: cerrar pestaña o ir atrás
+        if (window.history.length > 1) window.history.back();
+        else window.close();
+    }
+}
+
+// ── MODIFICAR VECINO (admin) ─────────────────────────────
+async function modificarVecino() {
+    const id = window._vecinoEditId;
+    if (!id) { alert('Busca primero al vecino por su documento.'); return; }
+
+    const lada   = document.getElementById('reg-pais')?.value || '502';
+    const telRaw = document.getElementById('reg-telefono').value.replace(/\D/g,'');
+    const data   = {
+        nombre:    document.getElementById('reg-nombre').value.trim(),
+        telefono:  lada + telRaw,
+        direccion: document.getElementById('reg-dir').value.trim(),
+        sexo:      document.getElementById('reg-sexo').value,
+        edad:      parseInt(document.getElementById('reg-edad').value) || 0,
+        correo:    document.getElementById('reg-correo').value.trim()
+    };
+
+    try {
+        const res = await fetch(`${API}/api/vecinos/${id}`, {
+            method: 'PUT', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify(data)
+        });
+        if (res.ok) {
+            const hintEl = document.getElementById('hint-id');
+            hintEl.textContent = '✅ Datos actualizados correctamente';
+            hintEl.style.color = '#00d68f';
+            hintEl.style.display = 'block';
+            setTimeout(() => hintEl.style.display = 'none', 3000);
+        } else {
+            alert('Error al modificar el vecino.');
+        }
+    } catch {
+        alert('Sin conexión al servidor.');
+    }
+}
+
+// ── ELIMINAR VECINO (admin) ──────────────────────────────
+async function eliminarVecino() {
+    const id     = window._vecinoEditId;
+    const nombre = document.getElementById('reg-nombre').value || 'este vecino';
+    if (!id) { alert('Busca primero al vecino por su documento.'); return; }
+    if (!confirm(`⚠️ ¿Eliminar permanentemente a ${nombre}?\n\nEsta acción no se puede deshacer.`)) return;
+
+    try {
+        const res = await fetch(`${API}/api/vecinos/${id}`, { method: 'DELETE' });
+        if (res.ok) {
+            alert(`✅ ${nombre} eliminado correctamente.`);
+            // Limpiar formulario
+            ['reg-id','reg-nombre','reg-telefono','reg-dir','reg-correo','reg-edad'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.value = '';
+            });
+            document.getElementById('reg-sexo').value = '';
+            window._vecinoEditId = null;
+            document.getElementById('btn-guardar')?.removeAttribute('style');
+            document.getElementById('btn-modificar')?.style.setProperty('display','none');
+            document.getElementById('btn-eliminar')?.style.setProperty('display','none');
+            document.getElementById('hint-id').style.display = 'none';
+        } else {
+            alert('Error al eliminar. Intente de nuevo.');
+        }
+    } catch {
+        alert('Sin conexión al servidor.');
+    }
 }

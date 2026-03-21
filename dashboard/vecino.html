@@ -56,9 +56,14 @@
 <!-- ══ PASO 2: REGISTRO ════════════════════════════ -->
 <div id="paso-registro" class="paso" style="display:none;">
     <div class="vcenter" style="max-width:680px;">
-        <div class="v-logo">
+        <div class="v-logo" style="position:relative;">
             <h2>📋 Mis Datos</h2>
             <p>Completa tu información para continuar</p>
+            <!-- Botón X para salir (vecino vuelve al pánico, admin cierra pestaña/va al panel) -->
+            <button id="btn-cerrar-form" onclick="cerrarFormulario()"
+                style="position:absolute;top:0;right:0;background:rgba(255,59,59,.15);border:1px solid rgba(255,59,59,.4);color:#ff3b3b;border-radius:50%;width:32px;height:32px;font-size:1.1rem;font-weight:900;cursor:pointer;line-height:1;display:none;">
+                ✕
+            </button>
             <!-- Botón Ver Vecinos (solo admin) -->
             <button id="btn-ver-vecinos" onclick="abrirListaVecinos()"
                 style="display:none; margin-top:.6rem; background:linear-gradient(135deg,#4da6ff,#7c5cfc); color:#fff; border:none; border-radius:10px; padding:.5rem 1.2rem; font-size:.85rem; font-weight:700; cursor:pointer; gap:.4rem;">
@@ -175,10 +180,12 @@
                 </div>
             </div>
 
-            <div style="display:flex;gap:.75rem;margin-top:1rem;flex-wrap:wrap;">
-                <button class="btn-registrar" onclick="registrarVecino()" style="flex:2;">💾 Guardar y Continuar</button>
-                <button class="btn-registrar" onclick="editarDatos()" id="btn-editar-form"
-                    style="flex:1;background:rgba(77,166,255,.15);border:1px solid #4da6ff;display:none;">✏️ Editar</button>
+            <div style="display:flex;gap:.75rem;margin-top:1rem;flex-wrap:wrap;" id="form-botones">
+                <button class="btn-registrar" onclick="registrarVecino()" id="btn-guardar" style="flex:2;">💾 Guardar y Continuar</button>
+                <button class="btn-registrar" onclick="modificarVecino()" id="btn-modificar"
+                    style="flex:1;background:linear-gradient(135deg,#4da6ff,#4da6ff80);display:none;">✏️ Modificar</button>
+                <button class="btn-registrar" onclick="eliminarVecino()" id="btn-eliminar"
+                    style="flex:1;background:rgba(255,59,59,.15);border:1px solid rgba(255,59,59,.5);color:#ff3b3b;display:none;">🗑️ Eliminar</button>
             </div>
             <div class="v-error" id="error-registro" style="display:none;"></div>
 

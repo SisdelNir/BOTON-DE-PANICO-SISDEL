@@ -342,6 +342,23 @@ class Database:
             ).fetchall()
         return [dict(r) | {"activo": bool(r["activo"])} for r in rows]
 
+    def eliminar_vecino(self, id_vecino: str) -> bool:
+        with get_conn() as conn:
+            cur = conn.execute("DELETE FROM vecinos WHERE id_vecino=?", (id_vecino,))
+        return cur.rowcount > 0
+
+    def actualizar_vecino(self, id_vecino: str, data: dict) -> Optional[dict]:
+        campos = ["nombre","telefono","direccion","sexo","edad","correo"]
+        sets   = [f"{c}=?" for c in campos if c in data]
+        vals   = [data[c] for c in campos if c in data]
+        if not sets:
+            return None
+        vals.append(id_vecino)
+        with get_conn() as conn:
+            conn.execute(f"UPDATE vecinos SET {', '.join(sets)} WHERE id_vecino=?", vals)
+            row = conn.execute("SELECT * FROM vecinos WHERE id_vecino=?", (id_vecino,)).fetchone()
+        return dict(row) | {"activo": bool(row["activo"])} if row else None
+
     # ── EMERGENCIAS ──────────────────────────────────────────
 
     def crear_emergencia(self, data: dict) -> dict:

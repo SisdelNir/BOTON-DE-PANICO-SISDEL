@@ -62,3 +62,18 @@ async def registrar_vecino(data: VecinoCreate):
 @router.get("/{id_institucion}", response_model=list[VecinoResponse])
 async def listar_vecinos(id_institucion: str):
     return db.listar_vecinos(id_institucion)
+
+
+@router.put("/{id_vecino}")
+async def actualizar_vecino(id_vecino: str, data: dict):
+    resultado = db.actualizar_vecino(id_vecino, data)
+    if not resultado:
+        raise HTTPException(404, "Vecino no encontrado o sin cambios")
+    return resultado
+
+
+@router.delete("/{id_vecino}")
+async def eliminar_vecino(id_vecino: str):
+    if not db.eliminar_vecino(id_vecino):
+        raise HTTPException(404, "Vecino no encontrado")
+    return {"mensaje": "Vecino eliminado correctamente"}
