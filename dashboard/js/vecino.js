@@ -409,7 +409,7 @@ function obtenerGPS() {
 
     statusEl.textContent = '📡 Solicitando conexión a satélites GPS...';
 
-    // FASE 1: posición rápida obligatoria de alta precisión para evitar IP celulares falsas
+    // FASE 1: posición ultra-rápida (acepta antenas wifi/celular sin visión directa al satélite, ideal bajo techo)
     navigator.geolocation.getCurrentPosition(
         pos => {
             gpsLat = pos.coords.latitude;
@@ -418,7 +418,7 @@ function obtenerGPS() {
             dot.style.background = '#ff8c00';
         },
         () => {}, 
-        { enableHighAccuracy: true, timeout: 8000, maximumAge: 10000 }
+        { enableHighAccuracy: false, timeout: 5000, maximumAge: 30000 }
     );
 
     // FASE 2: seguimiento continuo y estricto
