@@ -82,6 +82,17 @@ class VecinoCreate(BaseModel):
     edad:              int = Field(default=0, ge=0, le=150)
     correo:            str = Field(default="", max_length=150)
     clave_acceso:      str = Field(default="", max_length=6)   # opcional (link directo)
+    # Familiares de emergencia (directamente en el vecino)
+    fam_nombre_1:      str = ""
+    fam_tel_1:         str = ""
+    fam_nombre_2:      str = ""
+    fam_tel_2:         str = ""
+    fam_nombre_3:      str = ""
+    fam_tel_3:         str = ""
+    fam_nombre_4:      str = ""
+    fam_tel_4:         str = ""
+    fam_nombre_5:      str = ""
+    fam_tel_5:         str = ""
 
 class VecinoResponse(BaseModel):
     id_vecino:         str
@@ -96,6 +107,17 @@ class VecinoResponse(BaseModel):
     codigo_vecino:     str = ""
     activo:            bool
     fecha_registro:    str
+    # Familiares de emergencia
+    fam_nombre_1:      str = ""
+    fam_tel_1:         str = ""
+    fam_nombre_2:      str = ""
+    fam_tel_2:         str = ""
+    fam_nombre_3:      str = ""
+    fam_tel_3:         str = ""
+    fam_nombre_4:      str = ""
+    fam_tel_4:         str = ""
+    fam_nombre_5:      str = ""
+    fam_tel_5:         str = ""
     class Config: from_attributes = True
 
 

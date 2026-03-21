@@ -155,6 +155,16 @@ def init_db():
                 clave_acceso       TEXT DEFAULT '',
                 activo             BOOLEAN DEFAULT TRUE,
                 fecha_registro     TEXT NOT NULL,
+                fam_nombre_1       TEXT DEFAULT '',
+                fam_tel_1          TEXT DEFAULT '',
+                fam_nombre_2       TEXT DEFAULT '',
+                fam_tel_2          TEXT DEFAULT '',
+                fam_nombre_3       TEXT DEFAULT '',
+                fam_tel_3          TEXT DEFAULT '',
+                fam_nombre_4       TEXT DEFAULT '',
+                fam_tel_4          TEXT DEFAULT '',
+                fam_nombre_5       TEXT DEFAULT '',
+                fam_tel_5          TEXT DEFAULT '',
                 UNIQUE (id_institucion, num_identificacion)
             );
 
@@ -222,6 +232,16 @@ def init_db():
                 clave_acceso       TEXT DEFAULT '',
                 activo             INTEGER DEFAULT 1,
                 fecha_registro     TEXT NOT NULL,
+                fam_nombre_1       TEXT DEFAULT '',
+                fam_tel_1          TEXT DEFAULT '',
+                fam_nombre_2       TEXT DEFAULT '',
+                fam_tel_2          TEXT DEFAULT '',
+                fam_nombre_3       TEXT DEFAULT '',
+                fam_tel_3          TEXT DEFAULT '',
+                fam_nombre_4       TEXT DEFAULT '',
+                fam_tel_4          TEXT DEFAULT '',
+                fam_nombre_5       TEXT DEFAULT '',
+                fam_tel_5          TEXT DEFAULT '',
                 FOREIGN KEY (id_institucion) REFERENCES instituciones(id_institucion),
                 UNIQUE (id_institucion, num_identificacion)
             );
@@ -259,8 +279,31 @@ def init_db():
         if count and count["cnt"] == 0:
             _seed_demo(conn)
 
+    # Migración: agregar columnas de familiares si no existen (para DBs ya creadas)
+    _migrar_columnas_familiares()
+
     # Restaurar instituciones desde env var
     _seed_from_env()
+
+
+def _migrar_columnas_familiares():
+    """Agrega columnas fam_nombre/fam_tel 1-5 a tabla vecinos si no existen."""
+    cols = ['fam_nombre_1','fam_tel_1','fam_nombre_2','fam_tel_2',
+            'fam_nombre_3','fam_tel_3','fam_nombre_4','fam_tel_4',
+            'fam_nombre_5','fam_tel_5']
+    with get_conn() as conn:
+        for col in cols:
+            try:
+                if USE_PG:
+                    _execute(conn, f"ALTER TABLE vecinos ADD COLUMN IF NOT EXISTS {col} TEXT DEFAULT ''")
+                else:
+                    # SQLite no soporta IF NOT EXISTS en ALTER TABLE
+                    existing = _fetchall(conn, "PRAGMA table_info(vecinos)")
+                    col_names = [r['name'] for r in existing]
+                    if col not in col_names:
+                        _execute(conn, f"ALTER TABLE vecinos ADD COLUMN {col} TEXT DEFAULT ''")
+            except Exception:
+                pass  # columna ya existe
 
 
 def _seed_demo(conn):
@@ -442,8 +485,14 @@ class Database:
 
     def registrar_vecino(self, data: dict) -> dict:
         existente = self.buscar_vecino_por_identificacion(data["num_identificacion"], data["id_institucion"])
+        FAM_COLS = ['fam_nombre_1','fam_tel_1','fam_nombre_2','fam_tel_2',
+                    'fam_nombre_3','fam_tel_3','fam_nombre_4','fam_tel_4',
+                    'fam_nombre_5','fam_tel_5']
         if existente:
-            campos_editar = {k: data[k] for k in ("nombre","telefono","direccion","sexo","edad","correo") if k in data}
+            # Actualizar datos + familiares
+            campos_editar = {k: data[k] for k in
+                ("nombre","telefono","direccion","sexo","edad","correo") + tuple(FAM_COLS)
+                if k in data}
             sets = [f"{k}={PH}" for k in campos_editar]
             vals = list(campos_editar.values()) + [existente["id_vecino"]]
             if sets:
@@ -465,16 +514,33 @@ class Database:
             "clave_acceso":       data.get("clave_acceso", ""),
             "activo":             True,
             "fecha_registro":     datetime.now().isoformat(),
+            # Familiares
+            "fam_nombre_1": data.get("fam_nombre_1", ""),
+            "fam_tel_1":    data.get("fam_tel_1", ""),
+            "fam_nombre_2": data.get("fam_nombre_2", ""),
+            "fam_tel_2":    data.get("fam_tel_2", ""),
+            "fam_nombre_3": data.get("fam_nombre_3", ""),
+            "fam_tel_3":    data.get("fam_tel_3", ""),
+            "fam_nombre_4": data.get("fam_nombre_4", ""),
+            "fam_tel_4":    data.get("fam_tel_4", ""),
+            "fam_nombre_5": data.get("fam_nombre_5", ""),
+            "fam_tel_5":    data.get("fam_tel_5", ""),
         }
         with get_conn() as conn:
             _execute(conn, _ph("""
                 INSERT INTO vecinos
-                (id_vecino,id_institucion,nombre,telefono,num_identificacion,direccion,sexo,edad,correo,codigo_vecino,clave_acceso,activo,fecha_registro)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+                (id_vecino,id_institucion,nombre,telefono,num_identificacion,direccion,sexo,edad,correo,codigo_vecino,clave_acceso,activo,fecha_registro,
+                 fam_nombre_1,fam_tel_1,fam_nombre_2,fam_tel_2,fam_nombre_3,fam_tel_3,fam_nombre_4,fam_tel_4,fam_nombre_5,fam_tel_5)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """), (vecino["id_vecino"], vecino["id_institucion"], vecino["nombre"], vecino["telefono"],
                    vecino["num_identificacion"], vecino["direccion"], vecino["sexo"], vecino["edad"],
                    vecino["correo"], vecino["codigo_vecino"], vecino["clave_acceso"],
-                   True if USE_PG else 1, vecino["fecha_registro"]))
+                   True if USE_PG else 1, vecino["fecha_registro"],
+                   vecino["fam_nombre_1"], vecino["fam_tel_1"],
+                   vecino["fam_nombre_2"], vecino["fam_tel_2"],
+                   vecino["fam_nombre_3"], vecino["fam_tel_3"],
+                   vecino["fam_nombre_4"], vecino["fam_tel_4"],
+                   vecino["fam_nombre_5"], vecino["fam_tel_5"]))
             if data.get("clave_acceso"):
                 _execute(conn, _ph(
                     "UPDATE claves_vecinos SET usada=?, id_vecino=? WHERE UPPER(clave)=UPPER(?)"
@@ -512,7 +578,10 @@ class Database:
         return cur.rowcount > 0
 
     def actualizar_vecino(self, id_vecino: str, data: dict) -> Optional[dict]:
-        campos = ["nombre","telefono","direccion","sexo","edad","correo"]
+        campos = ["nombre","telefono","direccion","sexo","edad","correo",
+                  "fam_nombre_1","fam_tel_1","fam_nombre_2","fam_tel_2",
+                  "fam_nombre_3","fam_tel_3","fam_nombre_4","fam_tel_4",
+                  "fam_nombre_5","fam_tel_5"]
         sets   = [f"{c}={PH}" for c in campos if c in data]
         vals   = [data[c] for c in campos if c in data]
         if not sets: return None
@@ -522,31 +591,34 @@ class Database:
             row = _fetchone(conn, _ph("SELECT * FROM vecinos WHERE id_vecino=?"), (id_vecino,))
         return row | {"activo": bool(row["activo"])} if row else None
 
-    # ── CONTACTOS DE EMERGENCIA ──────────────────────────────
+    # ── CONTACTOS DE EMERGENCIA (guardados en tabla vecinos) ──
 
     def guardar_contactos_emergencia(self, id_vecino: str, contactos: list) -> list:
-        """Reemplaza todos los contactos de emergencia de un vecino."""
+        """Actualiza los familiares directamente en la tabla vecinos."""
+        data = {}
+        for i in range(5):
+            c = contactos[i] if i < len(contactos) else {}
+            data[f"fam_nombre_{i+1}"] = c.get("nombre", "")
+            data[f"fam_tel_{i+1}"]    = c.get("telefono", "")
+        sets = [f"{k}={PH}" for k in data]
+        vals = list(data.values()) + [id_vecino]
         with get_conn() as conn:
-            _execute(conn, _ph("DELETE FROM contactos_emergencia WHERE id_vecino=?"), (id_vecino,))
-            for i, c in enumerate(contactos[:5]):  # máximo 5
-                tel = c.get("telefono", "").strip()
-                if not tel:
-                    continue
-                _execute(conn, _ph("""
-                    INSERT INTO contactos_emergencia (id_vecino, nombre, telefono, posicion)
-                    VALUES (?,?,?,?)
-                """), (id_vecino, c.get("nombre",""), tel, i+1))
-            rows = _fetchall(conn, _ph(
-                "SELECT * FROM contactos_emergencia WHERE id_vecino=? ORDER BY posicion"
-            ), (id_vecino,))
-        return rows
+            _execute(conn, f"UPDATE vecinos SET {', '.join(sets)} WHERE id_vecino={PH}", vals)
+        return self.obtener_contactos_emergencia(id_vecino)
 
     def obtener_contactos_emergencia(self, id_vecino: str) -> list:
+        """Lee los familiares desde la tabla vecinos y los devuelve en formato lista."""
         with get_conn() as conn:
-            rows = _fetchall(conn, _ph(
-                "SELECT * FROM contactos_emergencia WHERE id_vecino=? ORDER BY posicion"
-            ), (id_vecino,))
-        return rows
+            row = _fetchone(conn, _ph("SELECT * FROM vecinos WHERE id_vecino=?"), (id_vecino,))
+        if not row:
+            return []
+        resultado = []
+        for i in range(1, 6):
+            nombre = row.get(f"fam_nombre_{i}", "") or ""
+            tel    = row.get(f"fam_tel_{i}", "") or ""
+            if tel.strip():
+                resultado.append({"nombre": nombre, "telefono": tel, "posicion": i})
+        return resultado
 
     # ── EMERGENCIAS ──────────────────────────────────────────
 

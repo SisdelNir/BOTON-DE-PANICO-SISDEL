@@ -222,18 +222,15 @@ async function buscarVecinoPorId() {
             hintEl.style.display = 'block';
             // Guardar id_vecino para poder Modificar/Eliminar
             window._vecinoEditId = v.id_vecino;
-            // ⭐ Cargar contactos de emergencia y mostrarlos en el formulario
-            if (v.id_vecino) {
-                try {
-                    const rc = await fetch(`${API}/api/vecinos/${v.id_vecino}/contactos`);
-                    if (rc.ok) {
-                        const contactos = await rc.json();
-                        cargarContactosFamiliaresEnForm(contactos);
-                        if (contactos.length) {
-                            sessionStorage.setItem('sisdel_familiares', JSON.stringify(contactos));
-                        }
-                    }
-                } catch {}
+            // ⭐ Los familiares vienen directamente en el objeto vecino
+            const contactosDelVecino = [];
+            for (let i = 1; i <= 5; i++) {
+                const tel = (v[`fam_tel_${i}`] || '').trim();
+                if (tel) contactosDelVecino.push({ nombre: v[`fam_nombre_${i}`] || '', telefono: tel });
+            }
+            cargarContactosFamiliaresEnForm(contactosDelVecino);
+            if (contactosDelVecino.length) {
+                sessionStorage.setItem('sisdel_familiares', JSON.stringify(contactosDelVecino));
             }
             // Mostrar botones si es admin
             const modoAdmin = new URLSearchParams(window.location.search).get('admin') === '1';
@@ -289,6 +286,13 @@ async function registrarVecino() {
         direccion: dir, sexo, edad, correo,
         clave_acceso: clave
     };
+    // Incluir familiares directamente en el payload del vecino
+    const contactosFam = leerContactosFamiliares();
+    for (let i = 0; i < 5; i++) {
+        const c = contactosFam[i] || {};
+        payload[`fam_nombre_${i+1}`] = c.nombre   || '';
+        payload[`fam_tel_${i+1}`]    = c.telefono || '';
+    }
     // Guardar WhatsApp localmente (no se envía al backend)
     if (waNum) sessionStorage.setItem('sisdel_wa', waNum);
 
@@ -320,29 +324,11 @@ async function registrarVecino() {
     if (instId) localStorage.setItem(`sisdel_vecino_${instId}`, JSON.stringify(vecinoData));
     if (instData) sessionStorage.setItem('sisdel_vecino_inst', JSON.stringify(instData));
 
-    // ── Guardar contactos de emergencia ──────────────────────────
-    const contactosFam = leerContactosFamiliares();
-    // Siempre guardar en sessionStorage y localStorage (respaldo local)
-    if (contactosFam.length) {
-        sessionStorage.setItem('sisdel_familiares', JSON.stringify(contactosFam));
-        if (instId) localStorage.setItem(`sisdel_familiares_${instId}`, JSON.stringify(contactosFam));
-    }
-    // Guardar en PostgreSQL (con reintentos si el servidor está inicializando)
-    const idVecino = vecinoData.id_vecino;
-    if (idVecino && contactosFam.length) {
-        const guardarContactosBackend = async (intentos = 3) => {
-            for (let i = 0; i < intentos; i++) {
-                try {
-                    const r = await fetch(`${API}/api/vecinos/${idVecino}/contactos`, {
-                        method: 'POST', headers: {'Content-Type':'application/json'},
-                        body: JSON.stringify(contactosFam)
-                    });
-                    if (r.ok) return; // éxito
-                } catch {}
-                if (i < intentos - 1) await new Promise(res => setTimeout(res, 2000)); // espera 2s antes de reintentar
-            }
-        };
-        guardarContactosBackend();
+    // Guardar contactos en caché local (ya se enviaron en el payload al backend)
+    const famCache = leerContactosFamiliares();
+    if (famCache.length) {
+        sessionStorage.setItem('sisdel_familiares', JSON.stringify(famCache));
+        if (instId) localStorage.setItem(`sisdel_familiares_${instId}`, JSON.stringify(famCache));
     }
 
     // Si es vecino actualizando → volver al botón de pánico
