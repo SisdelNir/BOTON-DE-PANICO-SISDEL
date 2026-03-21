@@ -285,14 +285,13 @@ function obtenerGPS() {
     const dot      = document.getElementById('gps-dot');
 
     if (!navigator.geolocation) {
-        statusEl.textContent = '⚠️ GPS no disponible en este dispositivo';
+        usarGeolocalizacionIP(statusEl, dot);
         return;
     }
 
     statusEl.textContent = '📡 Solicitando ubicación...';
 
     // FASE 1: posición rápida (acepta caché de hasta 30 seg, baja precisión)
-    // Esto da coordenadas inmediatamente mientras el GPS de alta precisión calienta
     navigator.geolocation.getCurrentPosition(
         pos => {
             gpsLat = pos.coords.latitude;
@@ -304,7 +303,7 @@ function obtenerGPS() {
         { enableHighAccuracy: false, timeout: 5000, maximumAge: 30000 }
     );
 
-    // FASE 2: seguimiento continuo de alta precisión (sin timeout, espera todo lo necesario)
+    // FASE 2: seguimiento continuo de alta precisión
     navigator.geolocation.watchPosition(
         pos => {
             gpsLat = pos.coords.latitude;
@@ -315,8 +314,8 @@ function obtenerGPS() {
         },
         err => {
             if (err.code === 1) {
-                statusEl.innerHTML = '🔴 Ubicación bloqueada — activa el GPS en ajustes del celular';
-                dot.style.background = '#ff3b3b';
+                // Permiso denegado → usar IP como respaldo automático
+                usarGeolocalizacionIP(statusEl, dot);
             } else if (!gpsLat) {
                 statusEl.textContent = '🟡 Sin señal GPS — la alerta se enviará sin coordenadas';
                 dot.style.background = '#ff8c00';
@@ -324,6 +323,27 @@ function obtenerGPS() {
         },
         { enableHighAccuracy: true, maximumAge: 10000 }
     );
+}
+
+async function usarGeolocalizacionIP(statusEl, dot) {
+    // Respaldo automático: geolocalización por IP (no requiere permiso)
+    statusEl.textContent = '🌐 Obteniendo ubicación por red...';
+    dot.style.background = '#ff8c00';
+    try {
+        const res  = await fetch('https://ipapi.co/json/');
+        const data = await res.json();
+        if (data.latitude && data.longitude) {
+            gpsLat = parseFloat(data.latitude);
+            gpsLon = parseFloat(data.longitude);
+            const ciudad = data.city || data.region || 'Ciudad';
+            statusEl.textContent = `🌐 ${ciudad} (${gpsLat.toFixed(3)}, ${gpsLon.toFixed(3)}) — aprox. por red`;
+            dot.style.background = '#ff8c00';
+        } else {
+            statusEl.textContent = '⚠️ Sin ubicación — alerta se enviará sin coordenadas';
+        }
+    } catch {
+        statusEl.textContent = '⚠️ Sin ubicación — alerta se enviará sin coordenadas';
+    }
 }
 
 function editarDatos() {
