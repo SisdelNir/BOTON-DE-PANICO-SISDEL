@@ -10,6 +10,40 @@ let gpsLat       = null;
 let gpsLon       = null;
 let holdInterval = null;
 let holdProgress = 0;
+
+// ── LADA / PAÍS ────────────────────────────────
+function actualizarLada() {
+    const codigo = document.getElementById('reg-pais')?.value || '502';
+    const badge  = document.getElementById('lada-badge');
+    if (badge) badge.textContent = '+' + codigo;
+    document.querySelectorAll('.lada-fam').forEach(el => el.textContent = '+' + codigo);
+}
+
+function leerContactosFamiliares() {
+    const codigo = document.getElementById('reg-pais')?.value || '502';
+    const contactos = [];
+    for (let i = 1; i <= 5; i++) {
+        const nombre = document.getElementById(`fam-nombre-${i}`)?.value.trim() || '';
+        const tel    = (document.getElementById(`fam-tel-${i}`)?.value || '').replace(/\D/g,'');
+        if (tel) contactos.push({ nombre, telefono: codigo + tel });
+    }
+    return contactos;
+}
+
+function cargarContactosFamiliaresEnForm(contactos) {
+    if (!contactos) return;
+    for (let i = 0; i < 5; i++) {
+        const c = contactos[i] || {};
+        const nombreEl = document.getElementById(`fam-nombre-${i+1}`);
+        const telEl    = document.getElementById(`fam-tel-${i+1}`);
+        if (nombreEl) nombreEl.value = c.nombre || '';
+        // Quitar lada del tel al mostrarlo en el campo
+        if (telEl && c.telefono) {
+            const codigo = document.getElementById('reg-pais')?.value || '502';
+            telEl.value = c.telefono.replace(new RegExp('^' + codigo), '');
+        }
+    }
+}
 let modoVecinoLogin = false;  // true cuando vecino accede con su código
 const HOLD_MS    = 3000;
 
@@ -249,6 +283,9 @@ async function registrarVecino() {
     sessionStorage.setItem('sisdel_vecino', JSON.stringify(vecinoData));
     if (instId) localStorage.setItem(`sisdel_vecino_${instId}`, JSON.stringify(vecinoData));
     if (instData) sessionStorage.setItem('sisdel_vecino_inst', JSON.stringify(instData));
+    // Guardar contactos de emergencia familiares
+    const contactosFam = leerContactosFamiliares();
+    if (contactosFam.length) sessionStorage.setItem('sisdel_familiares', JSON.stringify(contactosFam));
 
     // Si es vecino actualizando → volver al botón de pánico
     if (modoVecinoLogin) {
@@ -475,14 +512,22 @@ async function enviarAlerta() {
         localStorage.setItem('sisdel_pendientes', JSON.stringify(pendientes));
     }
 
-    // WhatsApp a contacto de emergencia (si está registrado)
-    const waNumber = vecinoData.whatsapp_emergencia;
-    if (waNumber && _alertaCount === 1) {
-        const loc   = gpsLat ? `https://maps.google.com/?q=${gpsLat},${gpsLon}` : 'Sin GPS';
-        const msg   = encodeURIComponent(
-            `🚨 EMERGENCIA 🚨\n${vecinoData.nombre} ha activado el botón de pánico.\n📍 Ubicación: ${loc}\n📱 Tel: ${vecinoData.telefono}`
-        );
-        setTimeout(() => window.open(`https://wa.me/${waNumber}?text=${msg}`, '_blank'), 1000);
+    // WhatsApp a TODOS los contactos de emergencia
+    if (_alertaCount === 1) {
+        const loc       = gpsLat ? `https://maps.google.com/?q=${gpsLat},${gpsLon}` : 'Sin GPS';
+        const texto     = `🚨 EMERGENCIA 🚨\n${vecinoData.nombre} ha activado el botón de pánico.\n📍 Ubicación: ${loc}\n📱 Tel: ${vecinoData.telefono}`;
+        const familiares = JSON.parse(sessionStorage.getItem('sisdel_familiares') || '[]');
+        // Enviar a contactos de emergencia
+        familiares.forEach((fam, idx) => {
+            setTimeout(() => {
+                window.open(`https://wa.me/${fam.telefono}?text=${encodeURIComponent(texto)}`, '_blank');
+            }, 1200 + idx * 800);
+        });
+        // Respaldo: campo WhatsApp antiguo
+        const waNumber = vecinoData.whatsapp_emergencia;
+        if (waNumber && !familiares.length) {
+            setTimeout(() => window.open(`https://wa.me/${waNumber}?text=${encodeURIComponent(texto)}`, '_blank'), 1000);
+        }
     }
 }
 
