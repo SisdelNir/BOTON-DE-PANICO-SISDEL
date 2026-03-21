@@ -152,6 +152,16 @@
     </div>
 </div>
 
+<!-- MODAL AVISAR FAMILIAS -->
+<div class="modal-overlay" id="modal-avisar" style="display:none;" onclick="cerrarAvisar(event)">
+    <div class="modal-box" style="width:90%; max-width:400px;" onclick="event.stopPropagation()">
+        <div class="modal-hdr"><h3>💬 Avisar a Familiares</h3><button class="modal-close" onclick="cerrarAvisar()">✕</button></div>
+        <div class="modal-body" id="avisar-body" style="display:flex; flex-direction:column; gap:.5rem;">
+            <!-- Buttons dynamically inserted here -->
+        </div>
+    </div>
+</div>
+
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="js/panel.js"></script>
 </body>
