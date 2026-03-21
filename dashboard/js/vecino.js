@@ -552,7 +552,7 @@ async function enviarAlerta() {
 
     // WhatsApp: mostrar botones directos en el overlay (evita bloqueador de pop-ups)
     const loc        = gpsLat ? `https://maps.google.com/?q=${gpsLat},${gpsLon}` : 'Sin GPS';
-    const textoWA    = `🚨 EMERGENCIA 🚨\n${vecinoData.nombre} ha activado el botón de pánico.\n📍 Ubicación: ${loc}\n📱 Tel: ${vecinoData.telefono}`;
+    const textoWA    = `🚨‼️ ME URGE AYUDA ‼️🚨\n⚠️ AMENAZA DE VIOLENCIA ⚠️\n\n${vecinoData.nombre} necesita ayuda URGENTE.\n📍 Ubicación: ${loc}\n📱 Tel: ${vecinoData.telefono}\n\n🆘 POR FAVOR LLAMA O VEN DE INMEDIATO 🆘`;
     const familiares = JSON.parse(sessionStorage.getItem('sisdel_familiares') || '[]');
     const waNumber   = vecinoData.whatsapp_emergencia;
 
@@ -611,7 +611,7 @@ function enviarWAmasivo() {
     const loc    = gpsLat
         ? `https://maps.google.com/?q=${gpsLat},${gpsLon}`
         : 'Sin GPS disponible';
-    const texto  = `🚨 EMERGENCIA 🚨\n${nombre} ha activado el botón de pánico SISDEL.\n📍 Ubicación: ${loc}\n📱 Tel: ${vecinoData?.telefono || ''}`;
+    const texto  = `🚨‼️ ME URGE AYUDA ‼️🚨\n⚠️ AMENAZA DE VIOLENCIA ⚠️\n\n${nombre} necesita ayuda URGENTE.\n📍 Ubicación: ${loc}\n📱 Tel: ${vecinoData?.telefono || ''}\n\n🆘 POR FAVOR LLAMA O VEN DE INMEDIATO 🆘`;
 
     // Abrir WhatsApp para cada familiar con un pequeño retraso entre cada uno
     familiares.forEach((fam, i) => {
