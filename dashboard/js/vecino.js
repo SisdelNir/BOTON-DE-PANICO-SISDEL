@@ -610,6 +610,66 @@ function ocultarConfirmacion() {
     document.getElementById('overlay-enviado').style.display='none';
 }
 
+// ── GUARDAR SOLO CONTACTOS DE EMERGENCIA ─────────────────
+async function guardarSoloContactos() {
+    const btn       = document.getElementById('btn-guardar-contactos');
+    const statusEl  = document.getElementById('contactos-status');
+    const contactos = leerContactosFamiliares();
+
+    if (!contactos.length) {
+        statusEl.textContent = '⚠️ Agrega al menos un contacto con teléfono';
+        statusEl.style.color = '#ff8c00';
+        statusEl.style.display = 'block';
+        setTimeout(() => statusEl.style.display = 'none', 3000);
+        return;
+    }
+
+    // Feedback visual: cargando
+    btn.textContent = '⏳ Guardando...';
+    btn.style.opacity = '0.7';
+
+    // Guardar siempre en sessionStorage y localStorage (respaldo)
+    sessionStorage.setItem('sisdel_familiares', JSON.stringify(contactos));
+    const params = new URLSearchParams(window.location.search);
+    const instId = params.get('inst') || instData?.id_institucion || '';
+    if (instId) localStorage.setItem(`sisdel_familiares_${instId}`, JSON.stringify(contactos));
+
+    // Guardar en backend si tenemos id_vecino
+    const idVecino = vecinoData?.id_vecino || window._vecinoEditId;
+    if (idVecino) {
+        try {
+            const r = await fetch(`${API}/api/vecinos/${idVecino}/contactos`, {
+                method: 'POST', headers: {'Content-Type':'application/json'},
+                body: JSON.stringify(contactos)
+            });
+            if (r.ok) {
+                btn.textContent = '✅ ¡Contactos Guardados!';
+                btn.style.background = 'linear-gradient(135deg,#00d68f,#00a870)';
+                btn.style.opacity = '1';
+                statusEl.textContent = `✅ ${contactos.length} contacto(s) guardados permanentemente en la nube`;
+                statusEl.style.color = '#00d68f';
+                statusEl.style.display = 'block';
+                setTimeout(() => {
+                    btn.textContent = '💾 Guardar Contactos de Emergencia';
+                    statusEl.style.display = 'none';
+                }, 3000);
+                return;
+            }
+        } catch {}
+    }
+
+    // Sin backend (guardado solo local)
+    btn.textContent = '✅ Guardado localmente';
+    btn.style.opacity = '1';
+    statusEl.textContent = `💾 ${contactos.length} contacto(s) guardados en este dispositivo`;
+    statusEl.style.color = '#4da6ff';
+    statusEl.style.display = 'block';
+    setTimeout(() => {
+        btn.textContent = '💾 Guardar Contactos de Emergencia';
+        statusEl.style.display = 'none';
+    }, 3000);
+}
+
 // ── BOTÓN WHATSAPP MASIVO ────────────────────────────────
 function mostrarBotonWAmasivo() {
     const familiares = JSON.parse(sessionStorage.getItem('sisdel_familiares') || '[]');

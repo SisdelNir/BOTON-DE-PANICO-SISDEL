@@ -178,6 +178,19 @@
                         </div>
                     </div>
                 </div>
+                <!-- ══ BOTÓN GUARDAR CONTACTOS (independiente) ══ -->
+                <div class="v-field v-field-full" style="margin-top:.25rem;">
+                    <button onclick="guardarSoloContactos()" id="btn-guardar-contactos"
+                        style="width:100%; background:linear-gradient(135deg,#00d68f,#00a870);
+                               border:none; border-radius:14px; padding:1rem; color:#fff;
+                               font-size:1rem; font-weight:900; cursor:pointer;
+                               box-shadow:0 6px 20px rgba(0,214,143,0.35);
+                               display:flex; align-items:center; justify-content:center; gap:.5rem;
+                               transition:transform .15s, box-shadow .15s;">
+                        💾 Guardar Contactos de Emergencia
+                    </button>
+                    <p id="contactos-status" style="display:none; text-align:center; font-size:.82rem; margin-top:.5rem; font-weight:700;"></p>
+                </div>
             </div>
 
             <div style="display:flex;gap:.75rem;margin-top:1rem;flex-wrap:wrap;" id="form-botones">
