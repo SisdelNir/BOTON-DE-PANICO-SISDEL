@@ -369,54 +369,74 @@ function continuarDespuesRegistro() {
     iniciarPasoParanica();
 }
 
-// ── SOLICITAR PERMISO ─────────────────────────────
+// ── GPS ENGINE v3 — ROBUSTO CON REINTENTOS ───────────────
+let _gpsRetryTimer = null;
+let _watchId = null;
+
 function requestLocationPermission() {
     if (navigator.permissions) {
         navigator.permissions.query({ name: 'geolocation' }).then(result => {
             if (result.state === 'prompt') {
                 navigator.geolocation.getCurrentPosition(() => {}, () => {}, { enableHighAccuracy: false });
             } else if (result.state === 'denied') {
-                alert('Activa la ubicación en los ajustes de tu teléfono para que el botón de pánico pueda enviar tus coordenadas reales a la central.');
+                alert('⚠️ IMPORTANTE: Activa la ubicación en los ajustes de tu teléfono para que el botón de pánico pueda enviar tus coordenadas reales a la central.');
             }
-        }).catch(() => {});
+        }).catch(() => {
+            navigator.geolocation.getCurrentPosition(() => {}, () => {}, { enableHighAccuracy: false });
+        });
     } else {
         navigator.geolocation.getCurrentPosition(() => {}, () => {}, { enableHighAccuracy: false });
     }
 }
 
-let locationReady = false;
+function _actualizarBarraGPS(lat, lon, accuracy) {
+    const statusEl = document.getElementById('gps-status');
+    const dot      = document.getElementById('gps-dot');
+    if (!statusEl || !dot) return;
+    const acc = accuracy ? ` (±${Math.round(accuracy)}m)` : '';
+    statusEl.textContent = `📍 ${lat.toFixed(5)}, ${lon.toFixed(5)}${acc}`;
+    dot.style.background = '#00d68f';
+}
+
+function _errorBarraGPS(msg) {
+    const statusEl = document.getElementById('gps-status');
+    const dot      = document.getElementById('gps-dot');
+    if (!statusEl || !dot) return;
+    statusEl.textContent = msg;
+    dot.style.background = '#ff8c00';
+}
+
 function ensureLocation() {
     return new Promise((resolve) => {
-        // Si ya tenemos coordenadas de obtenerGPS(), pasamos de inmediato
-        if (gpsLat !== undefined && gpsLat !== null && gpsLon !== undefined && gpsLon !== null) {
-            locationReady = true;
+        // Ya tenemos coordenadas -> resolver inmediatamente
+        if (gpsLat !== null && gpsLon !== null) {
             return resolve();
         }
 
-        // Intento súper rápido usando Antenas de Celular y WiFi (ideal bajo techo)
+        // Intento directo SIN caché y SIN alta precisión (usa WiFi/celular, funciona bajo techo)
         navigator.geolocation.getCurrentPosition(
             pos => {
                 gpsLat = pos.coords.latitude;
                 gpsLon = pos.coords.longitude;
-                locationReady = true;
+                _actualizarBarraGPS(gpsLat, gpsLon, pos.coords.accuracy);
                 resolve();
-            }, 
+            },
             () => {
-                // Si el intento rápido falla, esperamos máximo 4 segundos a que la Fase 2 (satélite puro) la capte
-                let waitTime = 0;
-                let fallbackInt = setInterval(() => {
-                    waitTime += 500;
-                    if (gpsLat !== undefined && gpsLat !== null) {
-                        clearInterval(fallbackInt);
-                        locationReady = true;
+                // Último recurso: esperar hasta 6 segundos a que watchPosition capture algo
+                let waited = 0;
+                const poll = setInterval(() => {
+                    waited += 500;
+                    if (gpsLat !== null && gpsLon !== null) {
+                        clearInterval(poll);
                         resolve();
-                    } else if (waitTime >= 4000) {
-                        clearInterval(fallbackInt); // Se acabó el tiempo límite, enviamos aunque esté en blanco
-                        resolve();
+                    } else if (waited >= 6000) {
+                        clearInterval(poll);
+                        console.warn('GPS: se agotó el tiempo máximo de espera');
+                        resolve(); // enviar sin coordenadas como última opción
                     }
                 }, 500);
-            }, 
-            { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
+            },
+            { enableHighAccuracy: false, timeout: 8000, maximumAge: 0 }
         );
     });
 }
@@ -426,11 +446,8 @@ function iniciarPasoParanica() {
     if (!vecinoData) return;
     requestLocationPermission();
     document.getElementById('vecino-nombre-bar').textContent = vecinoData.nombre || 'Vecino';
-    // Cargar WhatsApp de emergencia guardado
     vecinoData.whatsapp_emergencia = sessionStorage.getItem('sisdel_wa') || vecinoData.whatsapp_emergencia || '';
-    // Cargar contactos de emergencia desde backend
     const yaEnSession = sessionStorage.getItem('sisdel_familiares');
-    // Si no están en sessionStorage, buscar en localStorage como respaldo
     if (!yaEnSession && instData?.id_institucion) {
         const localFam = localStorage.getItem(`sisdel_familiares_${instData.id_institucion}`);
         if (localFam) sessionStorage.setItem('sisdel_familiares', localFam);
@@ -455,46 +472,85 @@ function obtenerGPS() {
     const dot      = document.getElementById('gps-dot');
 
     if (!navigator.geolocation) {
-        statusEl.textContent = '⚠️ GPS no soportado. Alerta se enviará sin ubicación exacta.';
-        dot.style.background = '#ff3b3b';
+        if (statusEl) statusEl.textContent = '⚠️ GPS no soportado en este navegador.';
+        if (dot) dot.style.background = '#ff3b3b';
         return;
     }
 
-    statusEl.textContent = '📡 Solicitando conexión a satélites GPS...';
+    if (statusEl) statusEl.textContent = '📡 Obteniendo ubicación...';
+    if (dot) dot.style.background = '#ff8c00';
 
-    // FASE 1: posición ultra-rápida (acepta antenas wifi/celular sin visión directa al satélite, ideal bajo techo)
+    // ═══ CAPA 1: Posición rápida (WiFi / antenas celulares) ═══
     navigator.geolocation.getCurrentPosition(
         pos => {
             gpsLat = pos.coords.latitude;
             gpsLon = pos.coords.longitude;
-            statusEl.textContent = `📍 ${gpsLat.toFixed(5)}, ${gpsLon.toFixed(5)} (ajustando...)`;
-            dot.style.background = '#ff8c00';
+            _actualizarBarraGPS(gpsLat, gpsLon, pos.coords.accuracy);
+            console.log('GPS Capa 1 OK:', gpsLat, gpsLon);
         },
-        () => {}, 
-        { enableHighAccuracy: false, timeout: 5000, maximumAge: 30000 }
+        err => {
+            console.warn('GPS Capa 1 falló:', err.message || err.code);
+            _errorBarraGPS('🟡 Buscando señal GPS...');
+            // Reintentar Capa 1 automáticamente
+            _programarReintentoGPS();
+        },
+        { enableHighAccuracy: false, timeout: 10000, maximumAge: 30000 }
     );
 
-    // FASE 2: seguimiento continuo y estricto
-    navigator.geolocation.watchPosition(
+    // ═══ CAPA 2: Rastreo continuo por satélite (más preciso pero más lento) ═══
+    if (_watchId !== null) {
+        navigator.geolocation.clearWatch(_watchId);
+    }
+    _watchId = navigator.geolocation.watchPosition(
         pos => {
             gpsLat = pos.coords.latitude;
             gpsLon = pos.coords.longitude;
-            const acc = pos.coords.accuracy ? ` (±${Math.round(pos.coords.accuracy)}m)` : '';
-            statusEl.textContent = `📍 ${gpsLat.toFixed(5)}, ${gpsLon.toFixed(5)}${acc}`;
-            dot.style.background = '#00d68f';
+            _actualizarBarraGPS(gpsLat, gpsLon, pos.coords.accuracy);
+            // Si teníamos reintentos programados, los cancelamos porque ya tenemos señal
+            if (_gpsRetryTimer) { clearInterval(_gpsRetryTimer); _gpsRetryTimer = null; }
         },
         err => {
+            console.warn('GPS Capa 2 error:', err.message || err.code);
             if (err.code === 1) {
-                // Permiso denegado por el dispositivo
-                statusEl.textContent = '⚠️ Permiso GPS denegado. Alerta se enviará sin exactitud.';
-                dot.style.background = '#ff3b3b';
-            } else if (!gpsLat) {
-                statusEl.textContent = '🟡 Buscando señal GPS... presione el botón si hay peligro';
-                dot.style.background = '#ff8c00';
+                // Permiso denegado
+                if (statusEl) statusEl.textContent = '⚠️ Permiso de ubicación denegado. Actívalo en ajustes.';
+                if (dot) dot.style.background = '#ff3b3b';
+            } else if (gpsLat === null) {
+                _errorBarraGPS('🟡 Buscando señal GPS... presione el botón si hay peligro');
+                _programarReintentoGPS();
             }
         },
-        { enableHighAccuracy: true, maximumAge: 10000 }
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 }
     );
+}
+
+function _programarReintentoGPS() {
+    // Solo programar si no hay reintentos activos y no tenemos coordenadas
+    if (_gpsRetryTimer || (gpsLat !== null && gpsLon !== null)) return;
+    
+    _gpsRetryTimer = setInterval(() => {
+        if (gpsLat !== null && gpsLon !== null) {
+            // Ya tenemos coordenadas, cancelar reintentos
+            clearInterval(_gpsRetryTimer);
+            _gpsRetryTimer = null;
+            return;
+        }
+        console.log('GPS: reintentando obtener ubicación...');
+        navigator.geolocation.getCurrentPosition(
+            pos => {
+                gpsLat = pos.coords.latitude;
+                gpsLon = pos.coords.longitude;
+                _actualizarBarraGPS(gpsLat, gpsLon, pos.coords.accuracy);
+                clearInterval(_gpsRetryTimer);
+                _gpsRetryTimer = null;
+                console.log('GPS reintento OK:', gpsLat, gpsLon);
+            },
+            err => {
+                console.warn('GPS reintento falló:', err.message || err.code);
+            },
+            { enableHighAccuracy: false, timeout: 8000, maximumAge: 0 }
+        );
+    }, 5000);
 }
 
 function editarDatos() {
