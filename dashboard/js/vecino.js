@@ -222,15 +222,27 @@ async function buscarVecinoPorId() {
             hintEl.style.display = 'block';
             // Guardar id_vecino para poder Modificar/Eliminar
             window._vecinoEditId = v.id_vecino;
-            // ⭐ Los familiares vienen directamente en el objeto vecino
+            // ⭐ Cargar familiares: primero del objeto vecino (nuevo backend),
+            // si no están disponibles, llamar al endpoint /contactos (backend viejo)
             const contactosDelVecino = [];
             for (let i = 1; i <= 5; i++) {
                 const tel = (v[`fam_tel_${i}`] || '').trim();
                 if (tel) contactosDelVecino.push({ nombre: v[`fam_nombre_${i}`] || '', telefono: tel });
             }
-            cargarContactosFamiliaresEnForm(contactosDelVecino);
-            if (contactosDelVecino.length) {
+            if (contactosDelVecino.length > 0) {
+                // Nuevo backend: datos vienen en el objeto vecino
+                cargarContactosFamiliaresEnForm(contactosDelVecino);
                 sessionStorage.setItem('sisdel_familiares', JSON.stringify(contactosDelVecino));
+            } else if (v.id_vecino) {
+                // Viejo backend: pedir los contactos por separado
+                fetch(`${API}/api/vecinos/${v.id_vecino}/contactos`)
+                    .then(r => r.ok ? r.json() : [])
+                    .then(contactos => {
+                        if (Array.isArray(contactos) && contactos.length) {
+                            cargarContactosFamiliaresEnForm(contactos);
+                            sessionStorage.setItem('sisdel_familiares', JSON.stringify(contactos));
+                        }
+                    }).catch(() => {});
             }
             // Mostrar botones si es admin
             const modoAdmin = new URLSearchParams(window.location.search).get('admin') === '1';
@@ -904,6 +916,11 @@ async function modificarVecino() {
                 sessionStorage.setItem('sisdel_familiares', JSON.stringify(familiares));
                 if (instId) localStorage.setItem(`sisdel_familiares_${instId}`, JSON.stringify(familiares));
             }
+            // También guardar via endpoint /contactos (compatibilidad con backend viejo)
+            fetch(`${API}/api/vecinos/${id}/contactos`, {
+                method: 'POST', headers: {'Content-Type':'application/json'},
+                body: JSON.stringify(familiares)
+            }).catch(() => {});
             const hintEl = document.getElementById('hint-id');
             hintEl.textContent = '✅ Datos y familiares guardados correctamente';
             hintEl.style.color = '#00d68f';
