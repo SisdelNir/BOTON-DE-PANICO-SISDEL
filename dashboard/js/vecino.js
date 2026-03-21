@@ -374,44 +374,50 @@ function requestLocationPermission() {
     if (navigator.permissions) {
         navigator.permissions.query({ name: 'geolocation' }).then(result => {
             if (result.state === 'prompt') {
-                navigator.geolocation.getCurrentPosition(() => {}, () => {}, { enableHighAccuracy: true });
+                navigator.geolocation.getCurrentPosition(() => {}, () => {}, { enableHighAccuracy: false });
             } else if (result.state === 'denied') {
-                alert('Activa la ubicación en los ajustes de tu dispositivo para que el botón de pánico funcione correctamente.');
+                alert('Activa la ubicación en los ajustes de tu teléfono para que el botón de pánico pueda enviar tus coordenadas reales a la central.');
             }
-        }).catch(() => {
-            navigator.geolocation.getCurrentPosition(() => {}, () => {});
-        });
+        }).catch(() => {});
     } else {
-        navigator.geolocation.getCurrentPosition(() => {}, () => {});
+        navigator.geolocation.getCurrentPosition(() => {}, () => {}, { enableHighAccuracy: false });
     }
 }
 
 let locationReady = false;
 function ensureLocation() {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
+        // Si ya tenemos coordenadas de obtenerGPS(), pasamos de inmediato
         if (gpsLat !== undefined && gpsLat !== null && gpsLon !== undefined && gpsLon !== null) {
             locationReady = true;
             return resolve();
         }
-        navigator.geolocation.getCurrentPosition(pos => {
-            gpsLat = pos.coords.latitude;
-            gpsLon = pos.coords.longitude;
-            locationReady = true;
-            resolve();
-        }, () => {
-            const timeout = setTimeout(() => reject('timeout'), 8000);
-            const watchId = navigator.geolocation.watchPosition(p => {
-                gpsLat = p.coords.latitude;
-                gpsLon = p.coords.longitude;
+
+        // Intento súper rápido usando Antenas de Celular y WiFi (ideal bajo techo)
+        navigator.geolocation.getCurrentPosition(
+            pos => {
+                gpsLat = pos.coords.latitude;
+                gpsLon = pos.coords.longitude;
                 locationReady = true;
-                clearTimeout(timeout);
-                navigator.geolocation.clearWatch(watchId);
                 resolve();
-            }, e => {
-                clearTimeout(timeout);
-                reject(e);
-            }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
-        }, { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 });
+            }, 
+            () => {
+                // Si el intento rápido falla, esperamos máximo 4 segundos a que la Fase 2 (satélite puro) la capte
+                let waitTime = 0;
+                let fallbackInt = setInterval(() => {
+                    waitTime += 500;
+                    if (gpsLat !== undefined && gpsLat !== null) {
+                        clearInterval(fallbackInt);
+                        locationReady = true;
+                        resolve();
+                    } else if (waitTime >= 4000) {
+                        clearInterval(fallbackInt); // Se acabó el tiempo límite, enviamos aunque esté en blanco
+                        resolve();
+                    }
+                }, 500);
+            }, 
+            { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
+        );
     });
 }
 
