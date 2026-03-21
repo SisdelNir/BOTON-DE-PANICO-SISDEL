@@ -77,3 +77,16 @@ async def eliminar_vecino(id_vecino: str):
     if not db.eliminar_vecino(id_vecino):
         raise HTTPException(404, "Vecino no encontrado")
     return {"mensaje": "Vecino eliminado correctamente"}
+
+
+# ── CONTACTOS DE EMERGENCIA ────────────────────────────────
+
+@router.post("/{id_vecino}/contactos")
+async def guardar_contactos(id_vecino: str, contactos: list[dict]):
+    """Guarda/actualiza los contactos de emergencia de un vecino."""
+    return db.guardar_contactos_emergencia(id_vecino, contactos)
+
+
+@router.get("/{id_vecino}/contactos")
+async def obtener_contactos(id_vecino: str):
+    return db.obtener_contactos_emergencia(id_vecino)

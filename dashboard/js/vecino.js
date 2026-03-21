@@ -299,9 +299,18 @@ async function registrarVecino() {
     sessionStorage.setItem('sisdel_vecino', JSON.stringify(vecinoData));
     if (instId) localStorage.setItem(`sisdel_vecino_${instId}`, JSON.stringify(vecinoData));
     if (instData) sessionStorage.setItem('sisdel_vecino_inst', JSON.stringify(instData));
-    // Guardar contactos de emergencia familiares
+    // Guardar contactos de emergencia en backend + sessionStorage
     const contactosFam = leerContactosFamiliares();
-    if (contactosFam.length) sessionStorage.setItem('sisdel_familiares', JSON.stringify(contactosFam));
+    if (contactosFam.length) {
+        sessionStorage.setItem('sisdel_familiares', JSON.stringify(contactosFam));
+        // Guardar en PostgreSQL
+        if (vecinoData.id_vecino) {
+            fetch(`${API}/api/vecinos/${vecinoData.id_vecino}/contactos`, {
+                method: 'POST', headers: {'Content-Type':'application/json'},
+                body: JSON.stringify(contactosFam)
+            }).catch(() => {});
+        }
+    }
 
     // Si es vecino actualizando → volver al botón de pánico
     if (modoVecinoLogin) {
@@ -335,6 +344,16 @@ function iniciarPasoParanica() {
     document.getElementById('vecino-nombre-bar').textContent = vecinoData.nombre || 'Vecino';
     // Cargar WhatsApp de emergencia guardado
     vecinoData.whatsapp_emergencia = sessionStorage.getItem('sisdel_wa') || vecinoData.whatsapp_emergencia || '';
+    // Cargar contactos de emergencia desde backend
+    if (vecinoData.id_vecino && !sessionStorage.getItem('sisdel_familiares')) {
+        fetch(`${API}/api/vecinos/${vecinoData.id_vecino}/contactos`)
+            .then(r => r.ok ? r.json() : [])
+            .then(contactos => {
+                if (contactos.length) {
+                    sessionStorage.setItem('sisdel_familiares', JSON.stringify(contactos));
+                }
+            }).catch(() => {});
+    }
     obtenerGPS();
 }
 

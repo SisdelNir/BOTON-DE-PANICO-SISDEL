@@ -174,6 +174,14 @@ def init_db():
                 fecha_creacion       TEXT NOT NULL,
                 fecha_atencion       TEXT
             );
+
+            CREATE TABLE IF NOT EXISTS contactos_emergencia (
+                id_contacto     SERIAL PRIMARY KEY,
+                id_vecino       TEXT NOT NULL REFERENCES vecinos(id_vecino) ON DELETE CASCADE,
+                nombre          TEXT DEFAULT '',
+                telefono        TEXT NOT NULL,
+                posicion        INTEGER DEFAULT 1
+            );
             """)
         else:
             conn.executescript("""
@@ -234,6 +242,15 @@ def init_db():
                 fecha_creacion       TEXT NOT NULL,
                 fecha_atencion       TEXT,
                 FOREIGN KEY (id_institucion) REFERENCES instituciones(id_institucion)
+            );
+
+            CREATE TABLE IF NOT EXISTS contactos_emergencia (
+                id_contacto     INTEGER PRIMARY KEY AUTOINCREMENT,
+                id_vecino       TEXT NOT NULL,
+                nombre          TEXT DEFAULT '',
+                telefono        TEXT NOT NULL,
+                posicion        INTEGER DEFAULT 1,
+                FOREIGN KEY (id_vecino) REFERENCES vecinos(id_vecino)
             );
             """)
 
@@ -504,6 +521,32 @@ class Database:
             _execute(conn, f"UPDATE vecinos SET {', '.join(sets)} WHERE id_vecino={PH}", vals)
             row = _fetchone(conn, _ph("SELECT * FROM vecinos WHERE id_vecino=?"), (id_vecino,))
         return row | {"activo": bool(row["activo"])} if row else None
+
+    # ── CONTACTOS DE EMERGENCIA ──────────────────────────────
+
+    def guardar_contactos_emergencia(self, id_vecino: str, contactos: list) -> list:
+        """Reemplaza todos los contactos de emergencia de un vecino."""
+        with get_conn() as conn:
+            _execute(conn, _ph("DELETE FROM contactos_emergencia WHERE id_vecino=?"), (id_vecino,))
+            for i, c in enumerate(contactos[:5]):  # máximo 5
+                tel = c.get("telefono", "").strip()
+                if not tel:
+                    continue
+                _execute(conn, _ph("""
+                    INSERT INTO contactos_emergencia (id_vecino, nombre, telefono, posicion)
+                    VALUES (?,?,?,?)
+                """), (id_vecino, c.get("nombre",""), tel, i+1))
+            rows = _fetchall(conn, _ph(
+                "SELECT * FROM contactos_emergencia WHERE id_vecino=? ORDER BY posicion"
+            ), (id_vecino,))
+        return rows
+
+    def obtener_contactos_emergencia(self, id_vecino: str) -> list:
+        with get_conn() as conn:
+            rows = _fetchall(conn, _ph(
+                "SELECT * FROM contactos_emergencia WHERE id_vecino=? ORDER BY posicion"
+            ), (id_vecino,))
+        return rows
 
     # ── EMERGENCIAS ──────────────────────────────────────────
 
