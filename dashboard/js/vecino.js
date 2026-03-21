@@ -289,9 +289,22 @@ function obtenerGPS() {
         return;
     }
 
-    statusEl.textContent = '📡 Solicitando permiso de ubicación...';
+    statusEl.textContent = '📡 Solicitando ubicación...';
 
-    // watchPosition → coordenadas siempre actualizadas mientras la página esté abierta
+    // FASE 1: posición rápida (acepta caché de hasta 30 seg, baja precisión)
+    // Esto da coordenadas inmediatamente mientras el GPS de alta precisión calienta
+    navigator.geolocation.getCurrentPosition(
+        pos => {
+            gpsLat = pos.coords.latitude;
+            gpsLon = pos.coords.longitude;
+            statusEl.textContent = `📍 ${gpsLat.toFixed(5)}, ${gpsLon.toFixed(5)} (ajustando...)`;
+            dot.style.background = '#ff8c00';
+        },
+        () => {}, // silencioso si falla fase 1
+        { enableHighAccuracy: false, timeout: 5000, maximumAge: 30000 }
+    );
+
+    // FASE 2: seguimiento continuo de alta precisión (sin timeout, espera todo lo necesario)
     navigator.geolocation.watchPosition(
         pos => {
             gpsLat = pos.coords.latitude;
@@ -301,15 +314,15 @@ function obtenerGPS() {
             dot.style.background = '#00d68f';
         },
         err => {
-            gpsLat = null; gpsLon = null;
             if (err.code === 1) {
                 statusEl.innerHTML = '🔴 Ubicación bloqueada — activa el GPS en ajustes del celular';
-            } else {
+                dot.style.background = '#ff3b3b';
+            } else if (!gpsLat) {
                 statusEl.textContent = '🟡 Sin señal GPS — la alerta se enviará sin coordenadas';
+                dot.style.background = '#ff8c00';
             }
-            dot.style.background = '#ff8c00';
         },
-        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+        { enableHighAccuracy: true, maximumAge: 10000 }
     );
 }
 

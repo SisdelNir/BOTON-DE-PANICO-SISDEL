@@ -43,11 +43,12 @@ function abrirRegistroVecino() {
 
 // ── RELOJ ─────────────────────────────────────────
 function iniciarReloj() {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone; // zona del dispositivo
     const tick = () => {
         document.getElementById('clock').textContent =
-            new Date().toLocaleTimeString('es-MX',{hour12:false});
+            new Date().toLocaleTimeString([], { hour12: false, timeZone: tz });
     };
-    tick(); setInterval(tick,1000);
+    tick(); setInterval(tick, 1000);
 }
 
 // ── MAPA ──────────────────────────────────────────
@@ -157,7 +158,8 @@ function renderAlertas(alertas) {
 
     tbody.innerHTML = lista.map((a,i) => {
         const rowCls = a.estatus==='ACTIVA'?'row-activa':a.estatus==='EN_CAMINO'?'row-camino':a.estatus==='ATENDIDA'?'row-atendida':'';
-        const hora   = new Date(a.fecha_creacion).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
+        const tz   = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        const hora = new Date(a.fecha_creacion + 'Z').toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: tz });
         const gps    = a.gps_latitud ? `${a.gps_latitud.toFixed(4)},${a.gps_longitud.toFixed(4)}` : '—';
         return `<tr class="${rowCls}">
             <td>${i+1}</td>
@@ -196,7 +198,7 @@ async function verDet(id) {
             <div class="det-val">📍 ${a.gps_latitud?`${a.gps_latitud.toFixed(6)}, ${a.gps_longitud.toFixed(6)}`:'No disponible'}</div>
             ${mUrl?`<a class="map-link" href="${mUrl}" target="_blank">🗺️ Abrir en Google Maps</a>`:''}
         </div>
-        <div class="det-item"><div class="det-label">Fecha / Hora</div><div class="det-val">${new Date(a.fecha_creacion).toLocaleString('es-MX')}</div></div>
+        <div class="det-item"><div class="det-label">Fecha / Hora</div><div class="det-val">${new Date(a.fecha_creacion + 'Z').toLocaleString([], { timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone })}</div></div>
         ${a.notas_operador?`<div class="det-item"><div class="det-label">Notas</div><div class="det-val">${a.notas_operador}</div></div>`:''}
     </div>`;
 
@@ -233,7 +235,7 @@ async function cargarVecinos() {
                 <td>${v.telefono}</td>
                 <td>${v.num_identificacion}</td>
                 <td>${v.direccion||'—'}</td>
-                <td style="font-size:.72rem">${new Date(v.fecha_registro).toLocaleDateString('es-MX')}</td>
+                <td style="font-size:.72rem">${new Date(v.fecha_registro + 'Z').toLocaleDateString([], { timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone })}</td>
             </tr>`).join('');
     } catch { document.getElementById('vecinos-tbody').innerHTML=`<tr><td colspan="6"><div class="empty-state"><p>Sin conexión</p></div></td></tr>`; }
 }
