@@ -146,8 +146,8 @@ html, body {
     gap: 1rem;
 }
 
-.instruccion { font-size: 0.75rem; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: var(--muted); }
-.instruccion-sub { font-size: 0.85rem; color: var(--muted); }
+.instruccion { font-size: 1rem; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: var(--muted); }
+.instruccion-sub { font-size: 1rem; color: var(--muted); }
 
 /* ── BOTÓN PÁNICO ────────────────────────────────── */
 .panic-btn-container { position: relative; display: flex; align-items: center; justify-content: center; margin: 1.5rem 0; }
@@ -176,7 +176,7 @@ html, body {
     transition: transform 0.1s, box-shadow 0.15s;
     touch-action: none;
 }
-.btn-panico span { font-size: 1.1rem; font-weight: 900; letter-spacing: 3px; }
+.btn-panico span { font-size: 1.6rem; font-weight: 900; letter-spacing: 4px; }
 .btn-panico:active,
 .btn-panico.pressing {
     transform: scale(0.93);
@@ -191,7 +191,7 @@ html, body {
 .hold-bar-wrap { width: 180px; height: 6px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden; }
 .hold-bar { height: 100%; width: 0%; background: linear-gradient(90deg, var(--orange), var(--red)); border-radius: 4px; transition: width 0.1s linear; }
 
-.hint-panico { font-size: 0.78rem; color: var(--muted); text-align: center; max-width: 220px; line-height: 1.4; }
+.hint-panico { font-size: 0.92rem; color: var(--muted); text-align: center; max-width: 240px; line-height: 1.4; }
 
 /* ── MIS ALERTAS ─────────────────────────────────── */
 .mis-alertas { width: 100%; padding: 0 1rem 1.5rem; }

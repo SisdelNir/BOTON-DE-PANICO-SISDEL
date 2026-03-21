@@ -202,6 +202,7 @@ async function registrarVecino() {
     const sexo     = document.getElementById('reg-sexo').value;
     const edad     = parseInt(document.getElementById('reg-edad').value) || 0;
     const correo   = document.getElementById('reg-correo').value.trim();
+    const waNum    = (document.getElementById('reg-whatsapp')?.value || '').replace(/\D/g,'');
 
     if (!nombre || !telefono || !numId) {
         mostrarError('error-registro','Nombre, teléfono e identificación son obligatorios');
@@ -218,6 +219,8 @@ async function registrarVecino() {
         direccion: dir, sexo, edad, correo,
         clave_acceso: clave
     };
+    // Guardar WhatsApp localmente (no se envía al backend)
+    if (waNum) sessionStorage.setItem('sisdel_wa', waNum);
 
     try {
         const res = await fetch(`${API}/api/vecinos/registro`, {
@@ -277,6 +280,8 @@ function continuarDespuesRegistro() {
 function iniciarPasoParanica() {
     if (!vecinoData) return;
     document.getElementById('vecino-nombre-bar').textContent = vecinoData.nombre || 'Vecino';
+    // Cargar WhatsApp de emergencia guardado
+    vecinoData.whatsapp_emergencia = sessionStorage.getItem('sisdel_wa') || vecinoData.whatsapp_emergencia || '';
     obtenerGPS();
 }
 
@@ -402,9 +407,17 @@ function cancelarPanico(e) {
     }
 }
 
+let _alertaCount = 0;          // cuántas alertas se han enviado
+let _countdownInterval = null; // temporizador auto-cierre
+
 async function enviarAlerta() {
     if (!vecinoData) return;
+    if (_alertaCount >= 10) {
+        alert('Has enviado 10 alertas. El panel ya fue notificado. Mantén la calma.');
+        return;
+    }
 
+    _alertaCount++;
     const instId = vecinoData.id_institucion || new URLSearchParams(window.location.search).get('inst') || '';
 
     const payload = {
@@ -421,10 +434,28 @@ async function enviarAlerta() {
 
     if (navigator.vibrate) navigator.vibrate([200,100,200,100,500]);
 
-    // Mostrar confirmación inmediata
+    // Mostrar overlay con contador
+    document.getElementById('env-alerta-num').textContent = `Alerta #${_alertaCount} de 10`;
     document.getElementById('env-coords').textContent =
         gpsLat ? `📍 ${gpsLat.toFixed(6)}, ${gpsLon.toFixed(6)}` : '📍 Sin coordenadas GPS';
+    // Mostrar/ocultar botón "enviar otra"
+    const btnOtra = document.getElementById('btn-otra-alerta');
+    if (btnOtra) btnOtra.style.display = _alertaCount < 10 ? 'inline-block' : 'none';
+
     document.getElementById('overlay-enviado').style.display='flex';
+
+    // Auto-cierre en 5 segundos
+    let secs = 5;
+    const cdEl = document.getElementById('env-countdown');
+    if (_countdownInterval) clearInterval(_countdownInterval);
+    if (cdEl) {
+        cdEl.textContent = `Cerrando en ${secs}s...`;
+        _countdownInterval = setInterval(() => {
+            secs--;
+            if (secs <= 0) { clearInterval(_countdownInterval); ocultarConfirmacion(); }
+            else if (cdEl) cdEl.textContent = `Cerrando en ${secs}s...`;
+        }, 1000);
+    }
 
     // Reset botón
     document.getElementById('btn-panico').classList.remove('pressing');
@@ -432,20 +463,40 @@ async function enviarAlerta() {
     document.getElementById('hold-bar').style.width='0%';
     document.getElementById('hint-panico').textContent='Mantén presionado 3 segundos para enviar alerta';
 
+    // Enviar al backend
     try {
         await fetch(`${API}/api/emergencias/`, {
             method:'POST', headers:{'Content-Type':'application/json'},
             body: JSON.stringify(payload)
         });
     } catch {
-        // Guardar pendiente si no hay conexión
         const pendientes = JSON.parse(localStorage.getItem('sisdel_pendientes')||'[]');
         pendientes.push({...payload, ts: new Date().toISOString()});
         localStorage.setItem('sisdel_pendientes', JSON.stringify(pendientes));
     }
+
+    // WhatsApp a contacto de emergencia (si está registrado)
+    const waNumber = vecinoData.whatsapp_emergencia;
+    if (waNumber && _alertaCount === 1) {
+        const loc   = gpsLat ? `https://maps.google.com/?q=${gpsLat},${gpsLon}` : 'Sin GPS';
+        const msg   = encodeURIComponent(
+            `🚨 EMERGENCIA 🚨\n${vecinoData.nombre} ha activado el botón de pánico.\n📍 Ubicación: ${loc}\n📱 Tel: ${vecinoData.telefono}`
+        );
+        setTimeout(() => window.open(`https://wa.me/${waNumber}?text=${msg}`, '_blank'), 1000);
+    }
+}
+
+function enviarOtraAlerta() {
+    if (_countdownInterval) clearInterval(_countdownInterval);
+    ocultarConfirmacion();
+    // Pequeña pausa antes de enviar (UX)
+    setTimeout(() => enviarAlerta(), 300);
 }
 
 function ocultarConfirmacion() {
+    if (_countdownInterval) { clearInterval(_countdownInterval); _countdownInterval = null; }
+    const cdEl = document.getElementById('env-countdown');
+    if (cdEl) cdEl.textContent = '';
     document.getElementById('overlay-enviado').style.display='none';
 }
 

@@ -107,6 +107,12 @@
                     <label>🏠 Dirección <span style="color:#6b7294;font-size:.65rem;">(opcional)</span></label>
                     <input type="text" id="reg-dir" placeholder="Calle, Número, Colonia, Ciudad" autocomplete="street-address">
                 </div>
+                <!-- Fila 5: WhatsApp de familiar -->
+                <div class="v-field v-field-full">
+                    <label>💬 WhatsApp familiar (emergencia) <span style="color:#6b7294;font-size:.65rem;">(opcional, con código de país ej: 50212345678)</span></label>
+                    <input type="tel" id="reg-whatsapp" placeholder="50212345678" autocomplete="off"
+                           style="border-color:#25d366;">
+                </div>
             </div>
 
             <button class="btn-registrar" onclick="registrarVecino()">Guardar y Continuar</button>
@@ -171,10 +177,17 @@
     <div class="enviado-card">
         <div class="enviado-icon">📡</div>
         <h2>¡ALERTA ENVIADA!</h2>
+        <p id="env-alerta-num" style="color:#4da6ff; font-weight:700; font-size:1rem;"></p>
         <p>El panel central recibió tu señal de emergencia.</p>
         <p id="env-coords" class="enviado-coords"></p>
         <p><strong>Mantén la calma. Ayuda está en camino.</strong></p>
-        <button onclick="ocultarConfirmacion()" class="btn-ok-enviado">OK</button>
+        <p id="env-countdown" style="color:#6b7294; font-size:.85rem; margin-top:.25rem;"></p>
+        <div style="display:flex; gap:.75rem; justify-content:center; flex-wrap:wrap; margin-top:.5rem;">
+            <button onclick="enviarOtraAlerta()" id="btn-otra-alerta" class="btn-ok-enviado"
+                style="background:linear-gradient(135deg,#ff3b3b,#cc0000);">🚨 Enviar otra alerta</button>
+            <button onclick="ocultarConfirmacion()" class="btn-ok-enviado"
+                style="background:rgba(255,255,255,.08);">OK</button>
+        </div>
     </div>
 </div>
 
