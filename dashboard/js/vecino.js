@@ -771,6 +771,21 @@ function cerrarListaVecinos() {
 
 // ── BOTÓN X / CERRAR FORMULARIO ─────────────────────────
 function cerrarFormulario() {
+    // Guardar contactos automáticamente al salir
+    const idVecino = vecinoData?.id_vecino || window._vecinoEditId;
+    if (idVecino) {
+        const contactos = leerContactosFamiliares();
+        if (contactos.length) {
+            const params = new URLSearchParams(window.location.search);
+            const instId = params.get('inst') || instData?.id_institucion || '';
+            sessionStorage.setItem('sisdel_familiares', JSON.stringify(contactos));
+            if (instId) localStorage.setItem(`sisdel_familiares_${instId}`, JSON.stringify(contactos));
+            fetch(`${API}/api/vecinos/${idVecino}/contactos`, {
+                method: 'POST', headers: {'Content-Type':'application/json'},
+                body: JSON.stringify(contactos)
+            }).catch(() => {});
+        }
+    }
     if (vecinoData) {
         // Vecino vuelve al botón de pánico
         mostrarPaso('paso-panico');
@@ -804,8 +819,20 @@ async function modificarVecino() {
             body: JSON.stringify(data)
         });
         if (res.ok) {
+            // También guardar contactos de emergencia automáticamente
+            const contactos = leerContactosFamiliares();
+            if (contactos.length) {
+                const params = new URLSearchParams(window.location.search);
+                const instId = params.get('inst') || instData?.id_institucion || '';
+                sessionStorage.setItem('sisdel_familiares', JSON.stringify(contactos));
+                if (instId) localStorage.setItem(`sisdel_familiares_${instId}`, JSON.stringify(contactos));
+                fetch(`${API}/api/vecinos/${id}/contactos`, {
+                    method: 'POST', headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify(contactos)
+                }).catch(() => {});
+            }
             const hintEl = document.getElementById('hint-id');
-            hintEl.textContent = '✅ Datos actualizados correctamente';
+            hintEl.textContent = '✅ Datos y contactos actualizados correctamente';
             hintEl.style.color = '#00d68f';
             hintEl.style.display = 'block';
             setTimeout(() => hintEl.style.display = 'none', 3000);
