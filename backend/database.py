@@ -1,34 +1,33 @@
 """
-Botón de Pánico SISDEL — Base de Datos SQLite Persistente
-Tablas: instituciones, claves_vecinos, vecinos, emergencias
+Botón de Pánico SISDEL — Base de Datos
+Soporta PostgreSQL (Render) y SQLite (local)
 """
 
-import uuid, random, string, sqlite3, os
+import uuid, random, string, os, json
 from datetime import datetime
-from typing import List, Optional, Dict
+from typing import List, Optional
 from contextlib import contextmanager
 
 CLAVE_PROGRAMADOR = "1122"
 NOMBRE_SISTEMA    = "Botón de Pánico SISDEL"
 
-# Ruta del archivo SQLite
-# En Render usa disco persistente /data/, en local usa carpeta del backend
-_DATA_DIR = "/data" if os.path.isdir("/data") else os.path.dirname(__file__)
-DB_PATH = os.path.join(_DATA_DIR, "sisdel.db")
+# ── Detectar motor ──────────────────────────────────────────
+DATABASE_URL = os.environ.get("DATABASE_URL", "")
+USE_PG = DATABASE_URL.startswith("postgresql")
+
+if USE_PG:
+    import psycopg2
+    import psycopg2.extras
+else:
+    import sqlite3
+    _DATA_DIR = "/data" if os.path.isdir("/data") else os.path.dirname(__file__)
+    DB_PATH = os.path.join(_DATA_DIR, "sisdel.db")
 
 
 def generar_clave_6(nombre: str = None) -> str:
-    """
-    Clave de 6 chars:
-      L1 = primera letra del nombre
-      L2 = letra al azar
-      L3 = última letra del nombre
-      N1 N2 N3 = dígitos al azar
-    """
     letras = [c for c in (nombre or '').upper() if c.isalpha()]
     if letras and len(letras) >= 2:
-        l1 = letras[0]
-        l3 = letras[-1]
+        l1, l3 = letras[0], letras[-1]
     else:
         l1 = random.choice(string.ascii_uppercase)
         l3 = random.choice(string.ascii_uppercase)
@@ -37,122 +36,228 @@ def generar_clave_6(nombre: str = None) -> str:
     return f"{l1}{l2}{l3}{nums}"
 
 
-def _row_to_dict(row) -> dict:
-    """Convierte sqlite3.Row a dict."""
-    return dict(row) if row else None
+# ── Parámetro placeholder ──────────────────────────────────
+# PostgreSQL usa %s, SQLite usa ?
+PH = "%s" if USE_PG else "?"
+
+
+def _ph(sql_with_qmark: str) -> str:
+    """Convierte SQL con ? placeholders a %s si es PostgreSQL."""
+    if USE_PG:
+        return sql_with_qmark.replace("?", "%s")
+    return sql_with_qmark
 
 
 @contextmanager
 def get_conn():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL")  # mejor concurrencia
-    conn.execute("PRAGMA foreign_keys=ON")
-    try:
-        yield conn
-        conn.commit()
-    except Exception:
-        conn.rollback()
-        raise
-    finally:
-        conn.close()
+    if USE_PG:
+        conn = psycopg2.connect(DATABASE_URL)
+        conn.autocommit = False
+        try:
+            yield conn
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+    else:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA foreign_keys=ON")
+        try:
+            yield conn
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
 
+
+def _fetchone(conn, sql, params=()):
+    """Ejecuta y retorna una fila como dict."""
+    if USE_PG:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute(sql, params)
+        row = cur.fetchone()
+        cur.close()
+        return dict(row) if row else None
+    else:
+        row = conn.execute(sql, params).fetchone()
+        return dict(row) if row else None
+
+
+def _fetchall(conn, sql, params=()):
+    """Ejecuta y retorna todas las filas como list[dict]."""
+    if USE_PG:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute(sql, params)
+        rows = cur.fetchall()
+        cur.close()
+        return [dict(r) for r in rows]
+    else:
+        rows = conn.execute(sql, params).fetchall()
+        return [dict(r) for r in rows]
+
+
+def _execute(conn, sql, params=()):
+    """Ejecuta SQL y retorna el cursor."""
+    if USE_PG:
+        cur = conn.cursor()
+        cur.execute(sql, params)
+        return cur
+    else:
+        return conn.execute(sql, params)
+
+
+# ── Init DB ─────────────────────────────────────────────────
 
 def init_db():
     """Crea las tablas si no existen."""
     with get_conn() as conn:
-        conn.executescript("""
-        CREATE TABLE IF NOT EXISTS instituciones (
-            id_institucion    TEXT PRIMARY KEY,
-            nombre_institucion TEXT NOT NULL,
-            nombre_admin      TEXT NOT NULL,
-            telefono          TEXT DEFAULT '',
-            correo            TEXT DEFAULT '',
-            direccion         TEXT DEFAULT '',
-            clave_acceso      TEXT NOT NULL,
-            activo            INTEGER DEFAULT 1,
-            fecha_registro    TEXT NOT NULL
-        );
+        if USE_PG:
+            _execute(conn, """
+            CREATE TABLE IF NOT EXISTS instituciones (
+                id_institucion    TEXT PRIMARY KEY,
+                nombre_institucion TEXT NOT NULL,
+                nombre_admin      TEXT NOT NULL,
+                telefono          TEXT DEFAULT '',
+                correo            TEXT DEFAULT '',
+                direccion         TEXT DEFAULT '',
+                clave_acceso      TEXT NOT NULL,
+                activo            BOOLEAN DEFAULT TRUE,
+                fecha_registro    TEXT NOT NULL
+            );
 
-        CREATE TABLE IF NOT EXISTS claves_vecinos (
-            id_clave        INTEGER PRIMARY KEY AUTOINCREMENT,
-            clave           TEXT NOT NULL,
-            id_institucion  TEXT NOT NULL,
-            descripcion     TEXT DEFAULT '',
-            usada           INTEGER DEFAULT 0,
-            id_vecino       TEXT,
-            fecha_creacion  TEXT NOT NULL,
-            FOREIGN KEY (id_institucion) REFERENCES instituciones(id_institucion)
-        );
+            CREATE TABLE IF NOT EXISTS claves_vecinos (
+                id_clave        SERIAL PRIMARY KEY,
+                clave           TEXT NOT NULL,
+                id_institucion  TEXT NOT NULL REFERENCES instituciones(id_institucion),
+                descripcion     TEXT DEFAULT '',
+                usada           BOOLEAN DEFAULT FALSE,
+                id_vecino       TEXT,
+                fecha_creacion  TEXT NOT NULL
+            );
 
-        CREATE TABLE IF NOT EXISTS vecinos (
-            id_vecino          TEXT PRIMARY KEY,
-            id_institucion     TEXT NOT NULL,
-            nombre             TEXT NOT NULL,
-            telefono           TEXT NOT NULL,
-            num_identificacion TEXT NOT NULL,
-            direccion          TEXT DEFAULT '',
-            sexo               TEXT DEFAULT '',
-            edad               INTEGER DEFAULT 0,
-            correo             TEXT DEFAULT '',
-            codigo_vecino      TEXT DEFAULT '',
-            clave_acceso       TEXT DEFAULT '',
-            activo             INTEGER DEFAULT 1,
-            fecha_registro     TEXT NOT NULL,
-            FOREIGN KEY (id_institucion) REFERENCES instituciones(id_institucion),
-            UNIQUE (id_institucion, num_identificacion)
-        );
+            CREATE TABLE IF NOT EXISTS vecinos (
+                id_vecino          TEXT PRIMARY KEY,
+                id_institucion     TEXT NOT NULL REFERENCES instituciones(id_institucion),
+                nombre             TEXT NOT NULL,
+                telefono           TEXT NOT NULL,
+                num_identificacion TEXT NOT NULL,
+                direccion          TEXT DEFAULT '',
+                sexo               TEXT DEFAULT '',
+                edad               INTEGER DEFAULT 0,
+                correo             TEXT DEFAULT '',
+                codigo_vecino      TEXT DEFAULT '',
+                clave_acceso       TEXT DEFAULT '',
+                activo             BOOLEAN DEFAULT TRUE,
+                fecha_registro     TEXT NOT NULL,
+                UNIQUE (id_institucion, num_identificacion)
+            );
 
-        CREATE TABLE IF NOT EXISTS emergencias (
-            id_emergencia        TEXT PRIMARY KEY,
-            id_institucion       TEXT NOT NULL,
-            id_vecino            TEXT,
-            nombre_vecino        TEXT DEFAULT 'Desconocido',
-            telefono_vecino      TEXT DEFAULT '',
-            num_identificacion   TEXT DEFAULT '',
-            direccion_vecino     TEXT DEFAULT '',
-            gps_latitud          REAL,
-            gps_longitud         REAL,
-            direccion_aproximada TEXT DEFAULT '',
-            estatus              TEXT DEFAULT 'ACTIVA',
-            notas_operador       TEXT,
-            fecha_creacion       TEXT NOT NULL,
-            fecha_atencion       TEXT,
-            FOREIGN KEY (id_institucion) REFERENCES instituciones(id_institucion)
-        );
-        """)
+            CREATE TABLE IF NOT EXISTS emergencias (
+                id_emergencia        TEXT PRIMARY KEY,
+                id_institucion       TEXT NOT NULL REFERENCES instituciones(id_institucion),
+                id_vecino            TEXT,
+                nombre_vecino        TEXT DEFAULT 'Desconocido',
+                telefono_vecino      TEXT DEFAULT '',
+                num_identificacion   TEXT DEFAULT '',
+                direccion_vecino     TEXT DEFAULT '',
+                gps_latitud          REAL,
+                gps_longitud         REAL,
+                direccion_aproximada TEXT DEFAULT '',
+                estatus              TEXT DEFAULT 'ACTIVA',
+                notas_operador       TEXT,
+                fecha_creacion       TEXT NOT NULL,
+                fecha_atencion       TEXT
+            );
+            """)
+        else:
+            conn.executescript("""
+            CREATE TABLE IF NOT EXISTS instituciones (
+                id_institucion    TEXT PRIMARY KEY,
+                nombre_institucion TEXT NOT NULL,
+                nombre_admin      TEXT NOT NULL,
+                telefono          TEXT DEFAULT '',
+                correo            TEXT DEFAULT '',
+                direccion         TEXT DEFAULT '',
+                clave_acceso      TEXT NOT NULL,
+                activo            INTEGER DEFAULT 1,
+                fecha_registro    TEXT NOT NULL
+            );
 
-        # Insertar institución demo solo si la tabla está vacía
-        cur = conn.execute("SELECT COUNT(*) FROM instituciones")
-        if cur.fetchone()[0] == 0:
+            CREATE TABLE IF NOT EXISTS claves_vecinos (
+                id_clave        INTEGER PRIMARY KEY AUTOINCREMENT,
+                clave           TEXT NOT NULL,
+                id_institucion  TEXT NOT NULL,
+                descripcion     TEXT DEFAULT '',
+                usada           INTEGER DEFAULT 0,
+                id_vecino       TEXT,
+                fecha_creacion  TEXT NOT NULL,
+                FOREIGN KEY (id_institucion) REFERENCES instituciones(id_institucion)
+            );
+
+            CREATE TABLE IF NOT EXISTS vecinos (
+                id_vecino          TEXT PRIMARY KEY,
+                id_institucion     TEXT NOT NULL,
+                nombre             TEXT NOT NULL,
+                telefono           TEXT NOT NULL,
+                num_identificacion TEXT NOT NULL,
+                direccion          TEXT DEFAULT '',
+                sexo               TEXT DEFAULT '',
+                edad               INTEGER DEFAULT 0,
+                correo             TEXT DEFAULT '',
+                codigo_vecino      TEXT DEFAULT '',
+                clave_acceso       TEXT DEFAULT '',
+                activo             INTEGER DEFAULT 1,
+                fecha_registro     TEXT NOT NULL,
+                FOREIGN KEY (id_institucion) REFERENCES instituciones(id_institucion),
+                UNIQUE (id_institucion, num_identificacion)
+            );
+
+            CREATE TABLE IF NOT EXISTS emergencias (
+                id_emergencia        TEXT PRIMARY KEY,
+                id_institucion       TEXT NOT NULL,
+                id_vecino            TEXT,
+                nombre_vecino        TEXT DEFAULT 'Desconocido',
+                telefono_vecino      TEXT DEFAULT '',
+                num_identificacion   TEXT DEFAULT '',
+                direccion_vecino     TEXT DEFAULT '',
+                gps_latitud          REAL,
+                gps_longitud         REAL,
+                direccion_aproximada TEXT DEFAULT '',
+                estatus              TEXT DEFAULT 'ACTIVA',
+                notas_operador       TEXT,
+                fecha_creacion       TEXT NOT NULL,
+                fecha_atencion       TEXT,
+                FOREIGN KEY (id_institucion) REFERENCES instituciones(id_institucion)
+            );
+            """)
+
+        # Demo seed
+        count = _fetchone(conn, "SELECT COUNT(*) as cnt FROM instituciones")
+        if count and count["cnt"] == 0:
             _seed_demo(conn)
 
-    # Restaurar instituciones desde variable de entorno
+    # Restaurar instituciones desde env var
     _seed_from_env()
 
 
 def _seed_demo(conn):
-    """Institución demo inicial."""
     inst_id = str(uuid.uuid4())
     clave   = generar_clave_6("Colonia Demo")
     now     = datetime.now().isoformat()
-    conn.execute("""
+    _execute(conn, _ph("""
         INSERT INTO instituciones
         (id_institucion, nombre_institucion, nombre_admin, telefono, correo, direccion, clave_acceso, activo, fecha_registro)
-        VALUES (?,?,?,?,?,?,?,1,?)
-    """, (inst_id, "Colonia Demo", "Admin Demo", "5550000000", "demo@sisdel.mx", "Calle Principal #1", clave, now))
+        VALUES (?,?,?,?,?,?,?,?,?)
+    """), (inst_id, "Colonia Demo", "Admin Demo", "5550000000", "demo@sisdel.mx", "Calle Principal #1", clave, True if USE_PG else 1, now))
 
 
 def _seed_from_env():
-    """
-    Lee SEED_INSTITUCIONES del entorno (JSON) y crea las instituciones
-    con clave fija si no existen todavía. Esto garantiza que OLINTE y
-    otras instituciones sobrevivan reinicios de Render.
-
-    Formato del env var (JSON array):
-    [{"nombre":"OLINTE","admin":"Admin OLINTE","tel":"502","correo":"olinte@sisdel.gt","dir":"Guatemala","clave":"OOE532"}]
-    """
-    import json
     raw = os.environ.get("SEED_INSTITUCIONES", "")
     if not raw:
         return
@@ -166,25 +271,24 @@ def _seed_from_env():
         for item in items:
             nombre = item.get("nombre", "")
             clave  = item.get("clave") or generar_clave_6(nombre)
-            # Solo insertar si no existe institución con ese nombre
-            exists = conn.execute(
-                "SELECT 1 FROM instituciones WHERE nombre_institucion=?", (nombre,)
-            ).fetchone()
+            exists = _fetchone(conn, _ph(
+                "SELECT 1 FROM instituciones WHERE nombre_institucion=?"
+            ), (nombre,))
             if not exists:
-                conn.execute("""
+                _execute(conn, _ph("""
                     INSERT INTO instituciones
                     (id_institucion,nombre_institucion,nombre_admin,telefono,correo,direccion,clave_acceso,activo,fecha_registro)
-                    VALUES (?,?,?,?,?,?,?,1,?)
-                """, (str(uuid.uuid4()), nombre,
-                      item.get("admin","Admin"),
-                      item.get("tel",""),
-                      item.get("correo",""),
-                      item.get("dir",""),
-                      clave, now))
+                    VALUES (?,?,?,?,?,?,?,?,?)
+                """), (str(uuid.uuid4()), nombre,
+                       item.get("admin","Admin"),
+                       item.get("tel",""),
+                       item.get("correo",""),
+                       item.get("dir",""),
+                       clave, True if USE_PG else 1, now))
 
 
 class Database:
-    """Interfaz de acceso a datos — SQLite persistente."""
+    """Interfaz de acceso a datos — PostgreSQL o SQLite."""
 
     # ── INSTITUCIONES ────────────────────────────────────────
 
@@ -201,49 +305,50 @@ class Database:
             "fecha_registro":     datetime.now().isoformat(),
         }
         with get_conn() as conn:
-            conn.execute("""
+            _execute(conn, _ph("""
                 INSERT INTO instituciones
                 (id_institucion, nombre_institucion, nombre_admin, telefono, correo, direccion, clave_acceso, activo, fecha_registro)
-                VALUES (:id_institucion,:nombre_institucion,:nombre_admin,:telefono,:correo,:direccion,:clave_acceso,1,:fecha_registro)
-            """, inst)
+                VALUES (?,?,?,?,?,?,?,?,?)
+            """), (inst["id_institucion"], inst["nombre_institucion"], inst["nombre_admin"],
+                   inst["telefono"], inst["correo"], inst["direccion"], inst["clave_acceso"],
+                   True if USE_PG else 1, inst["fecha_registro"]))
         return inst
 
     def listar_instituciones(self) -> List[dict]:
         with get_conn() as conn:
-            rows = conn.execute("SELECT * FROM instituciones ORDER BY fecha_registro").fetchall()
-        return [dict(r) | {"activo": bool(r["activo"])} for r in rows]
+            rows = _fetchall(conn, "SELECT * FROM instituciones ORDER BY fecha_registro")
+        return [r | {"activo": bool(r["activo"])} for r in rows]
 
     def obtener_institucion(self, id_inst: str) -> Optional[dict]:
         with get_conn() as conn:
-            row = conn.execute("SELECT * FROM instituciones WHERE id_institucion=?", (id_inst,)).fetchone()
+            row = _fetchone(conn, _ph("SELECT * FROM instituciones WHERE id_institucion=?"), (id_inst,))
         if not row: return None
-        return dict(row) | {"activo": bool(row["activo"])}
+        return row | {"activo": bool(row["activo"])}
 
     def obtener_institucion_por_clave(self, clave: str) -> Optional[dict]:
         with get_conn() as conn:
-            row = conn.execute(
-                "SELECT * FROM instituciones WHERE UPPER(clave_acceso)=UPPER(?) AND activo=1",
-                (clave,)
-            ).fetchone()
+            row = _fetchone(conn, _ph(
+                "SELECT * FROM instituciones WHERE UPPER(clave_acceso)=UPPER(?) AND activo=?"
+            ), (clave, True if USE_PG else 1))
         if not row: return None
-        return dict(row) | {"activo": True}
+        return row | {"activo": True}
 
     def toggle_institucion(self, id_inst: str) -> Optional[dict]:
         with get_conn() as conn:
-            conn.execute(
-                "UPDATE instituciones SET activo = CASE WHEN activo=1 THEN 0 ELSE 1 END WHERE id_institucion=?",
-                (id_inst,)
-            )
-            row = conn.execute("SELECT * FROM instituciones WHERE id_institucion=?", (id_inst,)).fetchone()
+            if USE_PG:
+                _execute(conn, "UPDATE instituciones SET activo = NOT activo WHERE id_institucion=%s", (id_inst,))
+            else:
+                _execute(conn, "UPDATE instituciones SET activo = CASE WHEN activo=1 THEN 0 ELSE 1 END WHERE id_institucion=?", (id_inst,))
+            row = _fetchone(conn, _ph("SELECT * FROM instituciones WHERE id_institucion=?"), (id_inst,))
         if not row: return None
-        return dict(row) | {"activo": bool(row["activo"])}
+        return row | {"activo": bool(row["activo"])}
 
     def regenerar_clave_institucion(self, id_inst: str) -> Optional[dict]:
         row = self.obtener_institucion(id_inst)
         if not row: return None
         nueva = generar_clave_6(row["nombre_institucion"])
         with get_conn() as conn:
-            conn.execute("UPDATE instituciones SET clave_acceso=? WHERE id_institucion=?", (nueva, id_inst))
+            _execute(conn, _ph("UPDATE instituciones SET clave_acceso=? WHERE id_institucion=?"), (nueva, id_inst))
         row["clave_acceso"] = nueva
         return row
 
@@ -254,23 +359,23 @@ class Database:
         sets, vals = [], []
         for k, v in campos.items():
             if k in allowed and v is not None:
-                sets.append(f"{k}=?")
+                sets.append(f"{k}={PH}")
                 vals.append(v)
         if not sets: return row
         vals.append(id_inst)
         with get_conn() as conn:
-            conn.execute(f"UPDATE instituciones SET {', '.join(sets)} WHERE id_institucion=?", vals)
+            _execute(conn, f"UPDATE instituciones SET {', '.join(sets)} WHERE id_institucion={PH}", vals)
         return self.obtener_institucion(id_inst)
 
     def eliminar_institucion(self, id_inst: str) -> bool:
         with get_conn() as conn:
-            cur = conn.execute("DELETE FROM instituciones WHERE id_institucion=?", (id_inst,))
+            cur = _execute(conn, _ph("DELETE FROM instituciones WHERE id_institucion=?"), (id_inst,))
         return cur.rowcount > 0
 
     # ── CLAVES VECINOS ───────────────────────────────────────
 
     def generar_clave_vecino(self, id_institucion: str, descripcion: str = "") -> dict:
-        clave = {
+        clave_data = {
             "clave":          generar_clave_6(),
             "id_institucion": id_institucion,
             "descripcion":    descripcion,
@@ -279,49 +384,54 @@ class Database:
             "fecha_creacion": datetime.now().isoformat(),
         }
         with get_conn() as conn:
-            cur = conn.execute("""
-                INSERT INTO claves_vecinos (clave, id_institucion, descripcion, usada, id_vecino, fecha_creacion)
-                VALUES (:clave,:id_institucion,:descripcion,0,NULL,:fecha_creacion)
-            """, clave)
-            clave["id_clave"] = cur.lastrowid
-        return clave
+            if USE_PG:
+                cur = conn.cursor()
+                cur.execute("""
+                    INSERT INTO claves_vecinos (clave, id_institucion, descripcion, usada, id_vecino, fecha_creacion)
+                    VALUES (%s,%s,%s,FALSE,NULL,%s) RETURNING id_clave
+                """, (clave_data["clave"], clave_data["id_institucion"], clave_data["descripcion"], clave_data["fecha_creacion"]))
+                clave_data["id_clave"] = cur.fetchone()[0]
+                cur.close()
+            else:
+                cur = conn.execute("""
+                    INSERT INTO claves_vecinos (clave, id_institucion, descripcion, usada, id_vecino, fecha_creacion)
+                    VALUES (?,?,?,0,NULL,?)
+                """, (clave_data["clave"], clave_data["id_institucion"], clave_data["descripcion"], clave_data["fecha_creacion"]))
+                clave_data["id_clave"] = cur.lastrowid
+        return clave_data
 
     def validar_clave_vecino(self, clave: str, id_institucion: str = None) -> Optional[dict]:
-        sql = "SELECT * FROM claves_vecinos WHERE UPPER(clave)=UPPER(?)"
-        params: list = [clave]
+        sql = _ph("SELECT * FROM claves_vecinos WHERE UPPER(clave)=UPPER(?)")
+        params = [clave]
         if id_institucion:
-            sql += " AND id_institucion=?"
+            sql += f" AND id_institucion={PH}"
             params.append(id_institucion)
         with get_conn() as conn:
-            row = conn.execute(sql, params).fetchone()
+            row = _fetchone(conn, sql, params)
         if not row: return None
-        return dict(row) | {"usada": bool(row["usada"])}
+        return row | {"usada": bool(row["usada"])}
 
     def listar_claves_vecinos(self, id_institucion: str) -> List[dict]:
         with get_conn() as conn:
-            rows = conn.execute(
-                "SELECT * FROM claves_vecinos WHERE id_institucion=? ORDER BY id_clave",
-                (id_institucion,)
-            ).fetchall()
-        return [dict(r) | {"usada": bool(r["usada"])} for r in rows]
+            rows = _fetchall(conn, _ph("SELECT * FROM claves_vecinos WHERE id_institucion=? ORDER BY id_clave"), (id_institucion,))
+        return [r | {"usada": bool(r["usada"])} for r in rows]
 
     def eliminar_clave_vecino(self, id_clave: int) -> bool:
         with get_conn() as conn:
-            cur = conn.execute("DELETE FROM claves_vecinos WHERE id_clave=?", (id_clave,))
+            cur = _execute(conn, _ph("DELETE FROM claves_vecinos WHERE id_clave=?"), (id_clave,))
         return cur.rowcount > 0
 
     # ── VECINOS ──────────────────────────────────────────────
 
     def registrar_vecino(self, data: dict) -> dict:
-        # ¿Ya existe? → actualizar teléfono, dirección y más
         existente = self.buscar_vecino_por_identificacion(data["num_identificacion"], data["id_institucion"])
         if existente:
             campos_editar = {k: data[k] for k in ("nombre","telefono","direccion","sexo","edad","correo") if k in data}
-            sets = [f"{k}=?" for k in campos_editar]
+            sets = [f"{k}={PH}" for k in campos_editar]
             vals = list(campos_editar.values()) + [existente["id_vecino"]]
             if sets:
                 with get_conn() as conn:
-                    conn.execute(f"UPDATE vecinos SET {', '.join(sets)} WHERE id_vecino=?", vals)
+                    _execute(conn, f"UPDATE vecinos SET {', '.join(sets)} WHERE id_vecino={PH}", vals)
             return self.buscar_vecino_por_identificacion(data["num_identificacion"], data["id_institucion"])
 
         vecino = {
@@ -340,67 +450,60 @@ class Database:
             "fecha_registro":     datetime.now().isoformat(),
         }
         with get_conn() as conn:
-            conn.execute("""
+            _execute(conn, _ph("""
                 INSERT INTO vecinos
                 (id_vecino,id_institucion,nombre,telefono,num_identificacion,direccion,sexo,edad,correo,codigo_vecino,clave_acceso,activo,fecha_registro)
-                VALUES (:id_vecino,:id_institucion,:nombre,:telefono,:num_identificacion,:direccion,:sexo,:edad,:correo,:codigo_vecino,:clave_acceso,1,:fecha_registro)
-            """, vecino)
-            # Marcar clave usada
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+            """), (vecino["id_vecino"], vecino["id_institucion"], vecino["nombre"], vecino["telefono"],
+                   vecino["num_identificacion"], vecino["direccion"], vecino["sexo"], vecino["edad"],
+                   vecino["correo"], vecino["codigo_vecino"], vecino["clave_acceso"],
+                   True if USE_PG else 1, vecino["fecha_registro"]))
             if data.get("clave_acceso"):
-                conn.execute(
-                    "UPDATE claves_vecinos SET usada=1, id_vecino=? WHERE UPPER(clave)=UPPER(?)",
-                    (vecino["id_vecino"], data["clave_acceso"])
-                )
+                _execute(conn, _ph(
+                    "UPDATE claves_vecinos SET usada=?, id_vecino=? WHERE UPPER(clave)=UPPER(?)"
+                ), (True if USE_PG else 1, vecino["id_vecino"], data["clave_acceso"]))
         return vecino
 
     def buscar_vecino_por_identificacion(self, num_id: str, id_institucion: str) -> Optional[dict]:
         with get_conn() as conn:
-            row = conn.execute(
-                "SELECT * FROM vecinos WHERE id_institucion=? AND UPPER(num_identificacion)=UPPER(?)",
-                (id_institucion, num_id)
-            ).fetchone()
+            row = _fetchone(conn, _ph(
+                "SELECT * FROM vecinos WHERE id_institucion=? AND UPPER(num_identificacion)=UPPER(?)"
+            ), (id_institucion, num_id))
         if not row: return None
-        return dict(row) | {"activo": bool(row["activo"])}
+        return row | {"activo": bool(row["activo"])}
 
     def obtener_vecino_por_clave(self, clave: str) -> Optional[dict]:
         with get_conn() as conn:
-            row = conn.execute(
-                "SELECT * FROM vecinos WHERE UPPER(clave_acceso)=UPPER(?)", (clave,)
-            ).fetchone()
+            row = _fetchone(conn, _ph("SELECT * FROM vecinos WHERE UPPER(clave_acceso)=UPPER(?)"), (clave,))
         if not row: return None
-        return dict(row) | {"activo": bool(row["activo"])}
+        return row | {"activo": bool(row["activo"])}
 
     @property
     def vecinos(self):
-        """Compatibilidad con código que itera db.vecinos.values()"""
         with get_conn() as conn:
-            rows = conn.execute("SELECT * FROM vecinos").fetchall()
-        return {r["id_vecino"]: dict(r) | {"activo": bool(r["activo"])} for r in rows}
+            rows = _fetchall(conn, "SELECT * FROM vecinos")
+        return {r["id_vecino"]: r | {"activo": bool(r["activo"])} for r in rows}
 
     def listar_vecinos(self, id_institucion: str) -> List[dict]:
         with get_conn() as conn:
-            rows = conn.execute(
-                "SELECT * FROM vecinos WHERE id_institucion=? ORDER BY fecha_registro",
-                (id_institucion,)
-            ).fetchall()
-        return [dict(r) | {"activo": bool(r["activo"])} for r in rows]
+            rows = _fetchall(conn, _ph("SELECT * FROM vecinos WHERE id_institucion=? ORDER BY fecha_registro"), (id_institucion,))
+        return [r | {"activo": bool(r["activo"])} for r in rows]
 
     def eliminar_vecino(self, id_vecino: str) -> bool:
         with get_conn() as conn:
-            cur = conn.execute("DELETE FROM vecinos WHERE id_vecino=?", (id_vecino,))
+            cur = _execute(conn, _ph("DELETE FROM vecinos WHERE id_vecino=?"), (id_vecino,))
         return cur.rowcount > 0
 
     def actualizar_vecino(self, id_vecino: str, data: dict) -> Optional[dict]:
         campos = ["nombre","telefono","direccion","sexo","edad","correo"]
-        sets   = [f"{c}=?" for c in campos if c in data]
+        sets   = [f"{c}={PH}" for c in campos if c in data]
         vals   = [data[c] for c in campos if c in data]
-        if not sets:
-            return None
+        if not sets: return None
         vals.append(id_vecino)
         with get_conn() as conn:
-            conn.execute(f"UPDATE vecinos SET {', '.join(sets)} WHERE id_vecino=?", vals)
-            row = conn.execute("SELECT * FROM vecinos WHERE id_vecino=?", (id_vecino,)).fetchone()
-        return dict(row) | {"activo": bool(row["activo"])} if row else None
+            _execute(conn, f"UPDATE vecinos SET {', '.join(sets)} WHERE id_vecino={PH}", vals)
+            row = _fetchone(conn, _ph("SELECT * FROM vecinos WHERE id_vecino=?"), (id_vecino,))
+        return row | {"activo": bool(row["activo"])} if row else None
 
     # ── EMERGENCIAS ──────────────────────────────────────────
 
@@ -422,43 +525,45 @@ class Database:
             "fecha_atencion":       None,
         }
         with get_conn() as conn:
-            conn.execute("""
+            _execute(conn, _ph("""
                 INSERT INTO emergencias
                 (id_emergencia,id_institucion,id_vecino,nombre_vecino,telefono_vecino,num_identificacion,
                  direccion_vecino,gps_latitud,gps_longitud,direccion_aproximada,estatus,notas_operador,fecha_creacion,fecha_atencion)
-                VALUES (:id_emergencia,:id_institucion,:id_vecino,:nombre_vecino,:telefono_vecino,:num_identificacion,
-                        :direccion_vecino,:gps_latitud,:gps_longitud,:direccion_aproximada,:estatus,:notas_operador,:fecha_creacion,:fecha_atencion)
-            """, e)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            """), (e["id_emergencia"], e["id_institucion"], e["id_vecino"], e["nombre_vecino"],
+                   e["telefono_vecino"], e["num_identificacion"], e["direccion_vecino"],
+                   e["gps_latitud"], e["gps_longitud"], e["direccion_aproximada"],
+                   e["estatus"], e["notas_operador"], e["fecha_creacion"], e["fecha_atencion"]))
         return e
 
     def listar_emergencias(self, id_institucion: str, estatus: str = None) -> List[dict]:
-        sql = "SELECT * FROM emergencias WHERE id_institucion=?"
-        params: list = [id_institucion]
+        sql = _ph("SELECT * FROM emergencias WHERE id_institucion=?")
+        params = [id_institucion]
         if estatus:
-            sql += " AND estatus=?"
+            sql += f" AND estatus={PH}"
             params.append(estatus)
         sql += " ORDER BY fecha_creacion DESC"
         with get_conn() as conn:
-            rows = conn.execute(sql, params).fetchall()
-        return [dict(r) for r in rows]
+            rows = _fetchall(conn, sql, params)
+        return rows
 
     def actualizar_estatus_emergencia(self, id_emergencia: str, estatus: str, notas: str = None) -> Optional[dict]:
         fecha_atencion = datetime.now().isoformat() if estatus in ("ATENDIDA","FALSA_ALARMA","CANCELADA") else None
         with get_conn() as conn:
-            conn.execute("""
+            _execute(conn, _ph("""
                 UPDATE emergencias SET estatus=?, notas_operador=COALESCE(?,notas_operador), fecha_atencion=COALESCE(?,fecha_atencion)
                 WHERE id_emergencia=?
-            """, (estatus, notas, fecha_atencion, id_emergencia))
-            row = conn.execute("SELECT * FROM emergencias WHERE id_emergencia=?", (id_emergencia,)).fetchone()
-        return dict(row) if row else None
+            """), (estatus, notas, fecha_atencion, id_emergencia))
+            row = _fetchone(conn, _ph("SELECT * FROM emergencias WHERE id_emergencia=?"), (id_emergencia,))
+        return row
 
     def stats_institucion(self, id_institucion: str) -> dict:
         with get_conn() as conn:
-            total    = conn.execute("SELECT COUNT(*) FROM emergencias WHERE id_institucion=?", (id_institucion,)).fetchone()[0]
-            activas  = conn.execute("SELECT COUNT(*) FROM emergencias WHERE id_institucion=? AND estatus='ACTIVA'", (id_institucion,)).fetchone()[0]
-            camino   = conn.execute("SELECT COUNT(*) FROM emergencias WHERE id_institucion=? AND estatus='EN_CAMINO'", (id_institucion,)).fetchone()[0]
-            atend    = conn.execute("SELECT COUNT(*) FROM emergencias WHERE id_institucion=? AND estatus='ATENDIDA'", (id_institucion,)).fetchone()[0]
-            vecinos  = conn.execute("SELECT COUNT(*) FROM vecinos WHERE id_institucion=?", (id_institucion,)).fetchone()[0]
+            total   = _fetchone(conn, _ph("SELECT COUNT(*) as cnt FROM emergencias WHERE id_institucion=?"), (id_institucion,))["cnt"]
+            activas = _fetchone(conn, _ph("SELECT COUNT(*) as cnt FROM emergencias WHERE id_institucion=? AND estatus='ACTIVA'"), (id_institucion,))["cnt"]
+            camino  = _fetchone(conn, _ph("SELECT COUNT(*) as cnt FROM emergencias WHERE id_institucion=? AND estatus='EN_CAMINO'"), (id_institucion,))["cnt"]
+            atend   = _fetchone(conn, _ph("SELECT COUNT(*) as cnt FROM emergencias WHERE id_institucion=? AND estatus='ATENDIDA'"), (id_institucion,))["cnt"]
+            vecinos = _fetchone(conn, _ph("SELECT COUNT(*) as cnt FROM vecinos WHERE id_institucion=?"), (id_institucion,))["cnt"]
         return {"total": total, "activas": activas, "en_camino": camino, "atendidas": atend, "vecinos_registrados": vecinos}
 
 
