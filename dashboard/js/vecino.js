@@ -725,12 +725,10 @@ function enviarWAmasivo() {
         : 'Sin GPS disponible';
     const texto  = `🚨‼️ ME URGE AYUDA ‼️🚨\n⚠️ AMENAZA DE VIOLENCIA ⚠️\n\n${nombre} necesita ayuda URGENTE.\n📍 Ubicación: ${loc}\n📱 Tel: ${vecinoData?.telefono || ''}\n\n🆘 POR FAVOR LLAMA O VEN DE INMEDIATO 🆘`;
 
-    familiares.forEach((fam, i) => {
-        setTimeout(() => {
-            const url = `whatsapp://send?phone=${fam.telefono}&text=${encodeURIComponent(texto)}`;
-            window.open(url, '_blank');
-        }, i * 800);  // 800ms de diferencia para evitar bloqueo del navegador
-    });
+    // Abrir WhatsApp en modo selección de contactos.
+    // Esto abrirá la aplicación normal y permitirá marcar a varios familiares a la vez.
+    const url = `whatsapp://send?text=${encodeURIComponent(texto)}`;
+    window.open(url, '_blank');
 }
 
 // ── LISTA DE VECINOS (solo admin) ─────────────────────────
