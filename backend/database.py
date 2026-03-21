@@ -127,6 +127,9 @@ def init_db():
         if cur.fetchone()[0] == 0:
             _seed_demo(conn)
 
+    # Restaurar instituciones desde variable de entorno
+    _seed_from_env()
+
 
 def _seed_demo(conn):
     """Institución demo inicial."""
@@ -138,6 +141,46 @@ def _seed_demo(conn):
         (id_institucion, nombre_institucion, nombre_admin, telefono, correo, direccion, clave_acceso, activo, fecha_registro)
         VALUES (?,?,?,?,?,?,?,1,?)
     """, (inst_id, "Colonia Demo", "Admin Demo", "5550000000", "demo@sisdel.mx", "Calle Principal #1", clave, now))
+
+
+def _seed_from_env():
+    """
+    Lee SEED_INSTITUCIONES del entorno (JSON) y crea las instituciones
+    con clave fija si no existen todavía. Esto garantiza que OLINTE y
+    otras instituciones sobrevivan reinicios de Render.
+
+    Formato del env var (JSON array):
+    [{"nombre":"OLINTE","admin":"Admin OLINTE","tel":"502","correo":"olinte@sisdel.gt","dir":"Guatemala","clave":"OOE532"}]
+    """
+    import json
+    raw = os.environ.get("SEED_INSTITUCIONES", "")
+    if not raw:
+        return
+    try:
+        items = json.loads(raw)
+    except Exception:
+        return
+
+    now = datetime.now().isoformat()
+    with get_conn() as conn:
+        for item in items:
+            nombre = item.get("nombre", "")
+            clave  = item.get("clave") or generar_clave_6(nombre)
+            # Solo insertar si no existe institución con ese nombre
+            exists = conn.execute(
+                "SELECT 1 FROM instituciones WHERE nombre_institucion=?", (nombre,)
+            ).fetchone()
+            if not exists:
+                conn.execute("""
+                    INSERT INTO instituciones
+                    (id_institucion,nombre_institucion,nombre_admin,telefono,correo,direccion,clave_acceso,activo,fecha_registro)
+                    VALUES (?,?,?,?,?,?,?,1,?)
+                """, (str(uuid.uuid4()), nombre,
+                      item.get("admin","Admin"),
+                      item.get("tel",""),
+                      item.get("correo",""),
+                      item.get("dir",""),
+                      clave, now))
 
 
 class Database:
