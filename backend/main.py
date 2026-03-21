@@ -31,3 +31,4 @@ if os.path.exists(dashboard_path):
 @app.get("/health", tags=["Sistema"])
 async def health():
     return {"status": "ok", "sistema": "Botón de Pánico SISDEL", "version": "2.0.0"}
+
