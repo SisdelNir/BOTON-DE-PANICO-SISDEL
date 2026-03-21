@@ -351,8 +351,11 @@ function iniciarPasoParanica() {
             .then(contactos => {
                 if (contactos.length) {
                     sessionStorage.setItem('sisdel_familiares', JSON.stringify(contactos));
+                    mostrarBotonWAmasivo();
                 }
             }).catch(() => {});
+    } else if (sessionStorage.getItem('sisdel_familiares')) {
+        mostrarBotonWAmasivo();
     }
     obtenerGPS();
 }
@@ -586,6 +589,37 @@ function ocultarConfirmacion() {
     const cdEl = document.getElementById('env-countdown');
     if (cdEl) cdEl.textContent = '';
     document.getElementById('overlay-enviado').style.display='none';
+}
+
+// ── BOTÓN WHATSAPP MASIVO ────────────────────────────────
+function mostrarBotonWAmasivo() {
+    const familiares = JSON.parse(sessionStorage.getItem('sisdel_familiares') || '[]');
+    if (familiares.length === 0) return;
+    const btn  = document.getElementById('btn-wa-masivo');
+    const hint = document.getElementById('wa-masivo-hint');
+    if (btn)  btn.style.display  = 'flex';
+    if (hint) hint.style.display = 'block';
+}
+
+function enviarWAmasivo() {
+    const familiares = JSON.parse(sessionStorage.getItem('sisdel_familiares') || '[]');
+    if (!familiares.length) {
+        alert('Aún no tienes familiares registrados. Ve a Editar para agregarlos.');
+        return;
+    }
+    const nombre = vecinoData?.nombre || 'Un vecino';
+    const loc    = gpsLat
+        ? `https://maps.google.com/?q=${gpsLat},${gpsLon}`
+        : 'Sin GPS disponible';
+    const texto  = `🚨 EMERGENCIA 🚨\n${nombre} ha activado el botón de pánico SISDEL.\n📍 Ubicación: ${loc}\n📱 Tel: ${vecinoData?.telefono || ''}`;
+
+    // Abrir WhatsApp para cada familiar con un pequeño retraso entre cada uno
+    familiares.forEach((fam, i) => {
+        setTimeout(() => {
+            const url = `https://wa.me/${fam.telefono}?text=${encodeURIComponent(texto)}`;
+            window.open(url, '_blank');
+        }, i * 800);  // 800ms de diferencia para evitar bloqueo del navegador
+    });
 }
 
 // ── LISTA DE VECINOS (solo admin) ─────────────────────────
