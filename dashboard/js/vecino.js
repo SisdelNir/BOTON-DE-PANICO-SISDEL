@@ -222,6 +222,19 @@ async function buscarVecinoPorId() {
             hintEl.style.display = 'block';
             // Guardar id_vecino para poder Modificar/Eliminar
             window._vecinoEditId = v.id_vecino;
+            // ⭐ Cargar contactos de emergencia y mostrarlos en el formulario
+            if (v.id_vecino) {
+                try {
+                    const rc = await fetch(`${API}/api/vecinos/${v.id_vecino}/contactos`);
+                    if (rc.ok) {
+                        const contactos = await rc.json();
+                        cargarContactosFamiliaresEnForm(contactos);
+                        if (contactos.length) {
+                            sessionStorage.setItem('sisdel_familiares', JSON.stringify(contactos));
+                        }
+                    }
+                } catch {}
+            }
             // Mostrar botones si es admin
             const modoAdmin = new URLSearchParams(window.location.search).get('admin') === '1';
             if (modoAdmin) {
@@ -234,6 +247,13 @@ async function buscarVecinoPorId() {
             hintEl.className = 'v-hint notfound';
             hintEl.style.display = 'block';
             window._vecinoEditId = null;
+            // Limpiar campos de contactos
+            for (let i = 1; i <= 5; i++) {
+                const n = document.getElementById(`fam-nombre-${i}`);
+                const t = document.getElementById(`fam-tel-${i}`);
+                if (n) n.value = '';
+                if (t) t.value = '';
+            }
             // Restaurar botón guardar
             document.getElementById('btn-guardar')?.removeAttribute('style');
             document.getElementById('btn-modificar')?.style.setProperty('display','none');
@@ -454,6 +474,21 @@ function editarDatos() {
         document.getElementById('reg-correo').value   = vecinoData.correo || '';
         document.getElementById('reg-sexo').value     = vecinoData.sexo || '';
         document.getElementById('reg-edad').value     = vecinoData.edad || '';
+
+        // ⭐ Cargar contactos: primero sessionStorage, luego backend
+        const cachedFam = sessionStorage.getItem('sisdel_familiares');
+        if (cachedFam) {
+            cargarContactosFamiliaresEnForm(JSON.parse(cachedFam));
+        } else if (vecinoData.id_vecino) {
+            fetch(`${API}/api/vecinos/${vecinoData.id_vecino}/contactos`)
+                .then(r => r.ok ? r.json() : [])
+                .then(contactos => {
+                    if (contactos.length) {
+                        cargarContactosFamiliaresEnForm(contactos);
+                        sessionStorage.setItem('sisdel_familiares', JSON.stringify(contactos));
+                    }
+                }).catch(() => {});
+        }
     }
 
     // Si vino del login como vecino → bloquear campos de identidad
