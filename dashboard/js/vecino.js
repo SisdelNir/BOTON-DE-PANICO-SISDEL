@@ -873,7 +873,10 @@ async function modificarVecino() {
 
     const lada   = document.getElementById('reg-pais')?.value || '502';
     const telRaw = document.getElementById('reg-telefono').value.replace(/\D/g,'');
-    const data   = {
+
+    // Leer familiares del formulario e incluirlos en el mismo PUT
+    const familiares = leerContactosFamiliares();
+    const data = {
         nombre:    document.getElementById('reg-nombre').value.trim(),
         telefono:  lada + telRaw,
         direccion: document.getElementById('reg-dir').value.trim(),
@@ -881,6 +884,12 @@ async function modificarVecino() {
         edad:      parseInt(document.getElementById('reg-edad').value) || 0,
         correo:    document.getElementById('reg-correo').value.trim()
     };
+    // Agregar familiares directamente al payload (igual que en registro)
+    for (let i = 0; i < 5; i++) {
+        const c = familiares[i] || {};
+        data[`fam_nombre_${i+1}`] = c.nombre   || '';
+        data[`fam_tel_${i+1}`]    = c.telefono || '';
+    }
 
     try {
         const res = await fetch(`${API}/api/vecinos/${id}`, {
@@ -888,20 +897,15 @@ async function modificarVecino() {
             body: JSON.stringify(data)
         });
         if (res.ok) {
-            // También guardar contactos de emergencia automáticamente
-            const contactos = leerContactosFamiliares();
-            if (contactos.length) {
-                const params = new URLSearchParams(window.location.search);
-                const instId = params.get('inst') || instData?.id_institucion || '';
-                sessionStorage.setItem('sisdel_familiares', JSON.stringify(contactos));
-                if (instId) localStorage.setItem(`sisdel_familiares_${instId}`, JSON.stringify(contactos));
-                fetch(`${API}/api/vecinos/${id}/contactos`, {
-                    method: 'POST', headers: {'Content-Type':'application/json'},
-                    body: JSON.stringify(contactos)
-                }).catch(() => {});
+            // Actualizar caché local
+            const params = new URLSearchParams(window.location.search);
+            const instId = params.get('inst') || instData?.id_institucion || '';
+            if (familiares.length) {
+                sessionStorage.setItem('sisdel_familiares', JSON.stringify(familiares));
+                if (instId) localStorage.setItem(`sisdel_familiares_${instId}`, JSON.stringify(familiares));
             }
             const hintEl = document.getElementById('hint-id');
-            hintEl.textContent = '✅ Datos y contactos actualizados correctamente';
+            hintEl.textContent = '✅ Datos y familiares guardados correctamente';
             hintEl.style.color = '#00d68f';
             hintEl.style.display = 'block';
             setTimeout(() => hintEl.style.display = 'none', 3000);
