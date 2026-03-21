@@ -616,7 +616,7 @@ async function enviarAlerta() {
     const waSection = document.getElementById('wa-familiares');
     if (waBotones && contactosWA.length > 0) {
         waBotones.innerHTML = contactosWA.map(fam => {
-            const url = `https://wa.me/${fam.telefono}?text=${encodeURIComponent(textoWA)}`;
+            const url = `whatsapp://send?phone=${fam.telefono}&text=${encodeURIComponent(textoWA)}`;
             return `<a href="${url}" target="_blank" rel="noopener"
                 style="display:block;background:#25d366;color:#fff;text-align:center;padding:.5rem 1rem;
                        border-radius:10px;font-weight:700;font-size:.88rem;text-decoration:none;">
@@ -725,10 +725,9 @@ function enviarWAmasivo() {
         : 'Sin GPS disponible';
     const texto  = `🚨‼️ ME URGE AYUDA ‼️🚨\n⚠️ AMENAZA DE VIOLENCIA ⚠️\n\n${nombre} necesita ayuda URGENTE.\n📍 Ubicación: ${loc}\n📱 Tel: ${vecinoData?.telefono || ''}\n\n🆘 POR FAVOR LLAMA O VEN DE INMEDIATO 🆘`;
 
-    // Abrir WhatsApp para cada familiar con un pequeño retraso entre cada uno
     familiares.forEach((fam, i) => {
         setTimeout(() => {
-            const url = `https://wa.me/${fam.telefono}?text=${encodeURIComponent(texto)}`;
+            const url = `whatsapp://send?phone=${fam.telefono}&text=${encodeURIComponent(texto)}`;
             window.open(url, '_blank');
         }, i * 800);  // 800ms de diferencia para evitar bloqueo del navegador
     });
@@ -818,7 +817,7 @@ function mostrarFamiliares(vJson) {
                     >${nombre || `Familiar ${i}`}</p>
                     <p style="margin:0; color:#4da6ff; font-size:.82rem; font-family:monospace;">📱 ${tel}</p>
                 </div>
-                <a href="https://wa.me/${tel}" target="_blank"
+                <a href="whatsapp://send?phone=${tel}" target="_blank"
                    style="background:#25d366; border:none; border-radius:8px; padding:.3rem .65rem;
                           color:#fff; font-size:.78rem; font-weight:700; text-decoration:none;">WA</a>
             </div>`;
