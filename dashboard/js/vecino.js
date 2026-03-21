@@ -402,13 +402,14 @@ function obtenerGPS() {
     const dot      = document.getElementById('gps-dot');
 
     if (!navigator.geolocation) {
-        usarGeolocalizacionIP(statusEl, dot);
+        statusEl.textContent = '⚠️ GPS no soportado. Alerta se enviará sin ubicación exacta.';
+        dot.style.background = '#ff3b3b';
         return;
     }
 
-    statusEl.textContent = '📡 Solicitando ubicación...';
+    statusEl.textContent = '📡 Solicitando conexión a satélites GPS...';
 
-    // FASE 1: posición rápida (acepta caché de hasta 30 seg, baja precisión)
+    // FASE 1: posición rápida obligatoria de alta precisión para evitar IP celulares falsas
     navigator.geolocation.getCurrentPosition(
         pos => {
             gpsLat = pos.coords.latitude;
@@ -416,11 +417,11 @@ function obtenerGPS() {
             statusEl.textContent = `📍 ${gpsLat.toFixed(5)}, ${gpsLon.toFixed(5)} (ajustando...)`;
             dot.style.background = '#ff8c00';
         },
-        () => {}, // silencioso si falla fase 1
-        { enableHighAccuracy: false, timeout: 5000, maximumAge: 30000 }
+        () => {}, 
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 10000 }
     );
 
-    // FASE 2: seguimiento continuo de alta precisión
+    // FASE 2: seguimiento continuo y estricto
     navigator.geolocation.watchPosition(
         pos => {
             gpsLat = pos.coords.latitude;
@@ -431,36 +432,16 @@ function obtenerGPS() {
         },
         err => {
             if (err.code === 1) {
-                // Permiso denegado → usar IP como respaldo automático
-                usarGeolocalizacionIP(statusEl, dot);
+                // Permiso denegado por el dispositivo
+                statusEl.textContent = '⚠️ Permiso GPS denegado. Alerta se enviará sin exactitud.';
+                dot.style.background = '#ff3b3b';
             } else if (!gpsLat) {
-                statusEl.textContent = '🟡 Sin señal GPS — la alerta se enviará sin coordenadas';
+                statusEl.textContent = '🟡 Buscando señal GPS... presione el botón si hay peligro';
                 dot.style.background = '#ff8c00';
             }
         },
         { enableHighAccuracy: true, maximumAge: 10000 }
     );
-}
-
-async function usarGeolocalizacionIP(statusEl, dot) {
-    // Respaldo automático: geolocalización por IP (no requiere permiso)
-    statusEl.textContent = '🌐 Obteniendo ubicación por red...';
-    dot.style.background = '#ff8c00';
-    try {
-        const res  = await fetch('https://ipapi.co/json/');
-        const data = await res.json();
-        if (data.latitude && data.longitude) {
-            gpsLat = parseFloat(data.latitude);
-            gpsLon = parseFloat(data.longitude);
-            const ciudad = data.city || data.region || 'Ciudad';
-            statusEl.textContent = `🌐 ${ciudad} (${gpsLat.toFixed(3)}, ${gpsLon.toFixed(3)}) — aprox. por red`;
-            dot.style.background = '#ff8c00';
-        } else {
-            statusEl.textContent = '⚠️ Sin ubicación — alerta se enviará sin coordenadas';
-        }
-    } catch {
-        statusEl.textContent = '⚠️ Sin ubicación — alerta se enviará sin coordenadas';
-    }
 }
 
 function editarDatos() {
