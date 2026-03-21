@@ -759,7 +759,19 @@ function renderTablaVecinos(lista) {
         return;
     }
     vacio.style.display = 'none';
-    tbody.innerHTML = lista.map((v, i) => `
+    tbody.innerHTML = lista.map((v, i) => {
+        // Contar familiares registrados
+        let countFam = 0;
+        for (let n = 1; n <= 5; n++) if ((v[`fam_tel_${n}`]||'').trim()) countFam++;
+        const btnFam = `<button onclick='mostrarFamiliares(${JSON.stringify(JSON.stringify(v))})'
+            style="background:${countFam ? 'rgba(0,214,143,.15)' : 'rgba(107,114,148,.1)'};
+                   border:1px solid ${countFam ? '#00d68f' : '#3a3f6e'};
+                   border-radius:8px; padding:.25rem .55rem;
+                   color:${countFam ? '#00d68f' : '#6b7294'};
+                   font-size:.75rem; cursor:pointer; white-space:nowrap;">
+            👨‍👩‍👧 ${countFam ? countFam : '—'}
+        </button>`;
+        return `
         <tr style="border-bottom:1px solid #1a1f3e; ${i%2===0 ? 'background:rgba(30,35,70,.4)' : ''}">
             <td style="padding:.55rem .8rem; color:#4da6ff; font-weight:700;">${i+1}</td>
             <td style="padding:.55rem .8rem; font-weight:600;">${v.nombre}</td>
@@ -769,8 +781,44 @@ function renderTablaVecinos(lista) {
             <td style="padding:.55rem .8rem; text-align:center;">${v.edad || '—'}</td>
             <td style="padding:.55rem .8rem; color:#6b7294;">${v.direccion || '—'}</td>
             <td style="padding:.55rem .8rem; font-family:monospace; font-weight:800; color:#00d68f; letter-spacing:3px;">${v.codigo_vecino || '—'}</td>
-        </tr>
-    `).join('');
+            <td style="padding:.55rem .8rem; text-align:center;">${btnFam}</td>
+        </tr>`;
+    }).join('');
+}
+
+function mostrarFamiliares(vJson) {
+    const v = JSON.parse(vJson);
+    document.getElementById('modal-fam-titulo').textContent = `👨‍👩‍👧 Familiares de ${v.nombre}`;
+    const lista = document.getElementById('modal-fam-lista');
+    const vacio = document.getElementById('modal-fam-vacio');
+    lista.innerHTML = '';
+    let count = 0;
+    for (let i = 1; i <= 5; i++) {
+        const nombre = (v[`fam_nombre_${i}`] || '').trim();
+        const tel    = (v[`fam_tel_${i}`]    || '').trim();
+        if (!tel) continue;
+        count++;
+        lista.innerHTML += `
+            <div style="background:#1a1f3e; border-radius:10px; padding:.65rem 1rem;
+                        display:flex; align-items:center; justify-content:space-between; gap:.5rem;">
+                <div>
+                    <p style="margin:0; font-weight:700; color:#ccd6f6; font-size:.88rem;"
+                    >${nombre || `Familiar ${i}`}</p>
+                    <p style="margin:0; color:#4da6ff; font-size:.82rem; font-family:monospace;">📱 ${tel}</p>
+                </div>
+                <a href="https://wa.me/${tel}" target="_blank"
+                   style="background:#25d366; border:none; border-radius:8px; padding:.3rem .65rem;
+                          color:#fff; font-size:.78rem; font-weight:700; text-decoration:none;">WA</a>
+            </div>`;
+    }
+    vacio.style.display  = count ? 'none'  : 'block';
+    lista.style.display  = count ? 'flex'  : 'none';
+    const modal = document.getElementById('modal-familiares');
+    modal.style.display = 'flex';
+}
+
+function cerrarModalFamiliares() {
+    document.getElementById('modal-familiares').style.display = 'none';
 }
 
 function filtrarVecinos() {

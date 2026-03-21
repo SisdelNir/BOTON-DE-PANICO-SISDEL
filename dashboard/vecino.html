@@ -321,12 +321,25 @@
                         <th style="padding:.6rem .8rem; text-align:left;">Edad</th>
                         <th style="padding:.6rem .8rem; text-align:left;">Dirección</th>
                         <th style="padding:.6rem .8rem; text-align:left;">Código</th>
+                        <th style="padding:.6rem .8rem; text-align:center;">Familiares</th>
                     </tr>
                 </thead>
                 <tbody id="vecinos-tbody"></tbody>
             </table>
             <p id="vecinos-vacio" style="display:none; text-align:center; color:#6b7294; margin-top:2rem;">No hay vecinos registrados.</p>
         </div>
+    </div>
+</div>
+
+<!-- Mini-modal: Familiares del vecino -->
+<div id="modal-familiares" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.75); z-index:10000; display:none; align-items:center; justify-content:center;">
+    <div style="background:#12162e; border:1px solid #2d3366; border-radius:18px; padding:1.5rem; max-width:380px; width:90%; box-shadow:0 20px 60px rgba(0,0,0,.7);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+            <h3 id="modal-fam-titulo" style="color:#fff; font-size:1rem; margin:0;">👨‍👩‍👧 Familiares</h3>
+            <button onclick="cerrarModalFamiliares()" style="background:none; border:none; color:#6b7294; font-size:1.3rem; cursor:pointer;">✕</button>
+        </div>
+        <div id="modal-fam-lista" style="display:flex; flex-direction:column; gap:.6rem;"></div>
+        <p id="modal-fam-vacio" style="display:none; color:#6b7294; text-align:center; font-size:.85rem;">Sin familiares registrados</p>
     </div>
 </div>
 
