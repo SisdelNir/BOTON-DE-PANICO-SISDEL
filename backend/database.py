@@ -410,6 +410,33 @@ def _migrar_emergencias_y_agentes():
         except Exception:
             pass
 
+        # Crear tabla asignaciones_agentes si no existe
+        try:
+            if USE_PG:
+                _execute(conn, """
+                    CREATE TABLE IF NOT EXISTS asignaciones_agentes (
+                        id_emergencia      TEXT NOT NULL,
+                        id_institucion     TEXT NOT NULL,
+                        num_identificacion TEXT NOT NULL,
+                        slot               INTEGER NOT NULL CHECK (slot BETWEEN 1 AND 4),
+                        fecha_asignacion   TEXT NOT NULL,
+                        PRIMARY KEY (id_emergencia, slot)
+                    )
+                """)
+            else:
+                _execute(conn, """
+                    CREATE TABLE IF NOT EXISTS asignaciones_agentes (
+                        id_emergencia      TEXT NOT NULL,
+                        id_institucion     TEXT NOT NULL,
+                        num_identificacion TEXT NOT NULL,
+                        slot               INTEGER NOT NULL CHECK (slot BETWEEN 1 AND 4),
+                        fecha_asignacion   TEXT NOT NULL,
+                        PRIMARY KEY (id_emergencia, slot)
+                    )
+                """)
+        except Exception:
+            pass
+
 
 def _seed_demo(conn):
     inst_id = str(uuid.uuid4())
@@ -863,3 +890,85 @@ def obtener_agente(id_institucion: str, num_identificacion: str) -> dict:
             "SELECT * FROM agentes WHERE id_institucion=? AND num_identificacion=?"
         ), (id_institucion, num_identificacion))
     return row
+
+
+# ── ASIGNACIONES AGENTES ─────────────────────────────────────
+
+def asignar_agente_emergencia(id_emergencia: str, id_institucion: str, num_identificacion: str, slot: int) -> dict:
+    """Asigna un agente a una emergencia en un slot (1-4)."""
+    ahora = datetime.utcnow().isoformat()
+    with get_conn() as conn:
+        # Verificar si ya hay algo en ese slot, reemplazar
+        existing = _fetchone(conn, _ph(
+            "SELECT * FROM asignaciones_agentes WHERE id_emergencia=? AND slot=?"
+        ), (id_emergencia, slot))
+        if existing:
+            _execute(conn, _ph(
+                "UPDATE asignaciones_agentes SET num_identificacion=?, fecha_asignacion=? WHERE id_emergencia=? AND slot=?"
+            ), (num_identificacion, ahora, id_emergencia, slot))
+        else:
+            _execute(conn, _ph("""
+                INSERT INTO asignaciones_agentes (id_emergencia, id_institucion, num_identificacion, slot, fecha_asignacion)
+                VALUES (?, ?, ?, ?, ?)
+            """), (id_emergencia, id_institucion, num_identificacion, slot, ahora))
+    return {"id_emergencia": id_emergencia, "slot": slot, "num_identificacion": num_identificacion}
+
+
+def obtener_asignaciones_emergencia(id_emergencia: str) -> list:
+    """Obtiene los agentes asignados a una emergencia con su info."""
+    with get_conn() as conn:
+        asignaciones = _fetchall(conn, _ph(
+            "SELECT * FROM asignaciones_agentes WHERE id_emergencia=? ORDER BY slot"
+        ), (id_emergencia,))
+        resultado = []
+        for a in asignaciones:
+            agente = _fetchone(conn, _ph(
+                "SELECT * FROM agentes WHERE id_institucion=? AND num_identificacion=?"
+            ), (a["id_institucion"], a["num_identificacion"]))
+            resultado.append({
+                "slot": a["slot"],
+                "num_identificacion": a["num_identificacion"],
+                "fecha_asignacion": a["fecha_asignacion"],
+                "nombre": agente["nombre"] if agente else "Desconocido",
+                "telefono": agente["telefono"] if agente else "",
+                "puesto": agente["puesto"] if agente else "",
+                "codigo_agente": agente["codigo_agente"] if agente else "",
+            })
+    return resultado
+
+
+def casos_por_agente(id_institucion: str, identificador: str) -> list:
+    """Obtiene los casos asignados a un agente (por doc o código)."""
+    with get_conn() as conn:
+        # Buscar agente por documento o código
+        agente = _fetchone(conn, _ph(
+            "SELECT * FROM agentes WHERE id_institucion=? AND (num_identificacion=? OR codigo_agente=?)"
+        ), (id_institucion, identificador, identificador.upper()))
+        if not agente:
+            return []
+
+        asignaciones = _fetchall(conn, _ph(
+            "SELECT * FROM asignaciones_agentes WHERE id_institucion=? AND num_identificacion=? ORDER BY fecha_asignacion DESC"
+        ), (id_institucion, agente["num_identificacion"]))
+
+        casos = []
+        for a in asignaciones:
+            emergencia = _fetchone(conn, _ph(
+                "SELECT * FROM emergencias WHERE id_emergencia=?"
+            ), (a["id_emergencia"],))
+            if emergencia:
+                casos.append({
+                    "id_emergencia": emergencia["id_emergencia"],
+                    "numero_caso": emergencia.get("numero_caso", ""),
+                    "nombre_vecino": emergencia["nombre_vecino"],
+                    "telefono_vecino": emergencia["telefono_vecino"],
+                    "direccion_vecino": emergencia.get("direccion_vecino", ""),
+                    "direccion_aproximada": emergencia.get("direccion_aproximada", ""),
+                    "gps_latitud": emergencia.get("gps_latitud"),
+                    "gps_longitud": emergencia.get("gps_longitud"),
+                    "estatus": emergencia["estatus"],
+                    "fecha_creacion": emergencia["fecha_creacion"],
+                    "slot": a["slot"],
+                    "fecha_asignacion": a["fecha_asignacion"],
+                })
+    return {"agente": dict(agente), "casos": casos}

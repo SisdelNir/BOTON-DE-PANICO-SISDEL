@@ -296,29 +296,32 @@ async function verDet(id) {
         <div id="det-timer" style="font-family:monospace; font-size:1.4rem; font-weight:900; color:#ff3b3b; letter-spacing:2px;">00:00:00</div>
     </div>
 
-    <!-- Asignación de Agente -->
+    <!-- Asignación de Agentes (4 slots) -->
     <div style="margin-top:1rem; padding:.8rem; background:rgba(255,165,0,.06); border:1px solid rgba(255,165,0,.2); border-radius:10px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.5rem;">
-            <div class="det-label" style="color:#ffa500; font-weight:700;">👮 ASIGNACIÓN DE AGENTE</div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.7rem;">
+            <div class="det-label" style="color:#ffa500; font-weight:700;">👮 ASIGNACIÓN DE AGENTES</div>
             <div style="font-family:monospace; font-size:.9rem; font-weight:900; color:#4da6ff; background:rgba(77,166,255,.1); padding:.2rem .6rem; border-radius:6px; border:1px solid rgba(77,166,255,.3);">📋 CASO ${a.numero_caso || '—'}</div>
         </div>
-        <!-- Lista de agentes asignados -->
-        <div id="det-agentes-lista" style="margin-bottom:.5rem;"></div>
-        <!-- Buscador -->
-        <div style="position:relative;">
-            <div style="display:flex; background:#0b0d17; border:1px solid #2a2d45; border-radius:8px; padding:.35rem .5rem; align-items:center; gap:.3rem;">
-                <span style="font-size:.75rem;">🔍</span>
-                <input type="text" id="det-buscar-agente" placeholder="Buscar agente por nombre..."
-                       oninput="buscarAgenteParaAsignar(this.value)"
-                       style="flex:1; background:transparent; border:none; color:#fff; font-size:.8rem; outline:none;">
+        ${[1,2,3,4].map(s => `
+        <div id="slot-${s}" style="margin-bottom:.4rem; padding:.4rem .6rem; background:#0b0d17; border:1px solid #2a2d45; border-radius:8px; display:flex; align-items:center; gap:.4rem; position:relative;">
+            <span style="background:rgba(255,165,0,.2); color:#ffa500; width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:.65rem; font-weight:900; flex-shrink:0;">${s}</span>
+            <div id="slot-${s}-info" style="flex:1; display:none;">
+                <div style="font-weight:700; color:#00d68f; font-size:.78rem;" id="slot-${s}-nombre"></div>
+                <div style="font-size:.62rem; color:#6b7294;" id="slot-${s}-detalle"></div>
             </div>
-            <div id="det-agente-resultados" style="display:none; position:absolute; top:100%; left:0; right:0; margin-top:4px; background:#111325; border:1px solid #2a2d45; border-radius:8px; max-height:200px; overflow-y:auto; z-index:999; box-shadow:0 8px 24px rgba(0,0,0,.5);">
-            </div>
+            <input type="text" id="slot-${s}-buscar" placeholder="Buscar agente..."
+                   oninput="buscarParaSlot(${s}, this.value)"
+                   style="flex:1; background:transparent; border:none; color:#fff; font-size:.78rem; outline:none;">
+            <div id="slot-${s}-resultados" style="display:none; position:absolute; top:100%; left:0; right:0; margin-top:2px; background:#111325; border:1px solid #2a2d45; border-radius:8px; max-height:160px; overflow-y:auto; z-index:999; box-shadow:0 8px 24px rgba(0,0,0,.5);"></div>
         </div>
+        `).join('')}
     </div>`;
 
     // Iniciar reloj de respuesta
     iniciarTimerRespuesta(a.fecha_creacion);
+
+    // Cargar asignaciones existentes desde BD
+    cargarAsignacionesExistentes(a.id_emergencia);
 
     document.getElementById('modal-det').style.display='flex';
     if (mapaL && a.gps_latitud) { mapaL.setView([a.gps_latitud,a.gps_longitud],16); if(marcadores[id]) marcadores[id].openPopup(); }
@@ -734,9 +737,10 @@ function renderListaAgentes(lista) {
     `).join('');
 }
 
-// ── ASIGNACIÓN DE AGENTE A EMERGENCIA ─────────────
-async function buscarAgenteParaAsignar(texto) {
-    const container = document.getElementById('det-agente-resultados');
+// ── ASIGNACIÓN DE AGENTES POR SLOT (1-4) ─────────
+
+async function buscarParaSlot(slot, texto) {
+    const container = document.getElementById(`slot-${slot}-resultados`);
     if (!container) return;
 
     texto = texto.trim().toLowerCase();
@@ -761,39 +765,84 @@ async function buscarAgenteParaAsignar(texto) {
     });
 
     if (!resultados.length) {
-        container.innerHTML = '<div style="padding:.7rem 1rem; color:#6b7294; font-size:.8rem;">No se encontró ningún agente</div>';
+        container.innerHTML = '<div style="padding:.5rem .7rem; color:#6b7294; font-size:.75rem;">No encontrado</div>';
         container.style.display = 'block';
         return;
     }
 
-    container.innerHTML = resultados.slice(0, 6).map(ag => `
-        <div onclick="asignarAgente('${ag.nombre}', '${ag.telefono}', '${ag.num_identificacion}', '${ag.puesto || ''}', '${ag.codigo_agente}')"
-             style="padding:.5rem 1rem; cursor:pointer; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #1a1f3e; transition:background .2s;"
+    container.innerHTML = resultados.slice(0, 5).map(ag => `
+        <div onclick="asignarEnSlot(${slot}, '${ag.nombre}', '${ag.telefono}', '${ag.num_identificacion}', '${ag.puesto || ''}', '${ag.codigo_agente}')"
+             style="padding:.4rem .7rem; cursor:pointer; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #1a1f3e; transition:background .15s;"
              onmouseover="this.style.background='rgba(255,165,0,.1)'" onmouseout="this.style.background='transparent'">
             <div>
-                <span style="font-weight:700; color:#fff; font-size:.82rem;">${ag.nombre}</span>
-                <span style="font-size:.7rem; color:#6b7294; margin-left:.3rem;">${ag.puesto || ''}</span>
+                <span style="font-weight:700; color:#fff; font-size:.75rem;">${ag.nombre}</span>
+                <span style="font-size:.62rem; color:#6b7294; margin-left:.2rem;">${ag.puesto || ''}</span>
             </div>
-            <div style="text-align:right;">
-                <span style="font-family:monospace; color:#ffa500; font-size:.78rem; font-weight:700;">${ag.codigo_agente}</span>
-                <div style="font-size:.65rem; color:#6b7294;">📱 ${ag.telefono}</div>
-            </div>
+            <span style="font-family:monospace; color:#ffa500; font-size:.7rem; font-weight:700;">${ag.codigo_agente}</span>
         </div>
     `).join('');
     container.style.display = 'block';
 }
 
-function asignarAgente(nombre, telefono, doc, puesto, codigo) {
-    // Ocultar búsqueda
-    const resultados = document.getElementById('det-agente-resultados');
-    const input = document.getElementById('det-buscar-agente');
-    if (resultados) resultados.style.display = 'none';
-    if (input) input.value = '';
+async function asignarEnSlot(slot, nombre, telefono, doc, puesto, codigo) {
+    // Ocultar resultados
+    const container = document.getElementById(`slot-${slot}-resultados`);
+    const input = document.getElementById(`slot-${slot}-buscar`);
+    if (container) container.style.display = 'none';
+    if (input) input.style.display = 'none';
 
-    // Evitar duplicados
-    if (_agentesAsignados.some(a => a.doc === doc)) return;
+    // Mostrar info del agente en el slot
+    const info = document.getElementById(`slot-${slot}-info`);
+    const nombreEl = document.getElementById(`slot-${slot}-nombre`);
+    const detalleEl = document.getElementById(`slot-${slot}-detalle`);
+    if (info && nombreEl && detalleEl) {
+        info.style.display = 'block';
+        nombreEl.textContent = `✅ ${nombre}`;
+        detalleEl.textContent = `${codigo} | 📱 ${telefono} | ${puesto}`;
+    }
 
-    // Agregar a la lista
-    _agentesAsignados.push({ nombre, telefono, doc, puesto, codigo });
-    renderAgentesAsignados();
+    // Cambiar borde a verde
+    const slotDiv = document.getElementById(`slot-${slot}`);
+    if (slotDiv) slotDiv.style.borderColor = 'rgba(0,214,143,.4)';
+
+    // Persistir en backend
+    if (!alertaActual) return;
+    try {
+        await fetch(`${API}/api/agentes/asignar`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                id_emergencia: alertaActual.id_emergencia,
+                id_institucion: INST.id_institucion,
+                num_identificacion: doc,
+                slot: slot
+            })
+        });
+    } catch (err) {
+        console.error('Error al asignar agente:', err);
+    }
+}
+
+async function cargarAsignacionesExistentes(idEmergencia) {
+    try {
+        const res = await fetch(`${API}/api/agentes/asignaciones/${idEmergencia}`);
+        if (!res.ok) return;
+        const asignaciones = await res.json();
+        for (const a of asignaciones) {
+            const input = document.getElementById(`slot-${a.slot}-buscar`);
+            const info = document.getElementById(`slot-${a.slot}-info`);
+            const nombreEl = document.getElementById(`slot-${a.slot}-nombre`);
+            const detalleEl = document.getElementById(`slot-${a.slot}-detalle`);
+            const slotDiv = document.getElementById(`slot-${a.slot}`);
+            if (input) input.style.display = 'none';
+            if (info && nombreEl && detalleEl) {
+                info.style.display = 'block';
+                nombreEl.textContent = `✅ ${a.nombre}`;
+                detalleEl.textContent = `${a.codigo_agente} | 📱 ${a.telefono} | ${a.puesto}`;
+            }
+            if (slotDiv) slotDiv.style.borderColor = 'rgba(0,214,143,.4)';
+        }
+    } catch (err) {
+        console.error('Error cargando asignaciones:', err);
+    }
 }

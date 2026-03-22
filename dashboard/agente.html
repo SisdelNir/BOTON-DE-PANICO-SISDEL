@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🛡️ Panel de Agente — SISDEL</title>
+<link rel="stylesheet" href="css/panel.css">
+<style>
+body { min-height:100vh; display:flex; flex-direction:column; align-items:center; padding:1rem; }
+.agent-login { max-width:400px; width:100%; margin:2rem auto; }
+.agent-card { background:#111325; border:1px solid #2a2d45; border-radius:12px; padding:1.2rem; margin-bottom:1rem; }
+.agent-header { text-align:center; margin-bottom:1.5rem; }
+.agent-header h1 { font-size:1.3rem; color:#ffa500; margin:0; }
+.agent-header p { font-size:.78rem; color:#6b7294; margin:.3rem 0 0; }
+.login-input { width:100%; padding:.7rem 1rem; background:#0b0d17; border:1px solid #2a2d45; border-radius:8px;
+    color:#fff; font-size:1rem; font-family:monospace; text-align:center; letter-spacing:2px; }
+.login-input:focus { border-color:#ffa500; outline:none; }
+.login-btn { width:100%; padding:.7rem; background:linear-gradient(135deg,#ffa500,#ff8c00); color:#fff;
+    font-weight:700; font-size:.9rem; border:none; border-radius:8px; cursor:pointer; margin-top:.7rem; }
+.caso-card { background:#111325; border:1px solid #2a2d45; border-radius:10px; padding:.8rem; margin-bottom:.8rem; }
+.caso-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:.5rem; }
+.caso-numero { font-family:monospace; font-weight:900; color:#4da6ff; font-size:.9rem; }
+.caso-field { margin-bottom:.4rem; }
+.caso-label { font-size:.62rem; color:#6b7294; text-transform:uppercase; letter-spacing:.5px; }
+.caso-val { font-size:.82rem; color:#fff; font-weight:600; }
+.badge-activa { background:rgba(255,59,59,.15); color:#ff3b3b; border:1px solid rgba(255,59,59,.3); padding:.15rem .4rem; border-radius:5px; font-size:.68rem; font-weight:700; }
+.badge-en-camino { background:rgba(255,165,0,.15); color:#ffa500; border:1px solid rgba(255,165,0,.3); padding:.15rem .4rem; border-radius:5px; font-size:.68rem; font-weight:700; }
+.badge-atendida { background:rgba(0,214,143,.15); color:#00d68f; border:1px solid rgba(0,214,143,.3); padding:.15rem .4rem; border-radius:5px; font-size:.68rem; font-weight:700; }
+.refresh-btn { background:rgba(77,166,255,.12); border:1px solid rgba(77,166,255,.3); color:#4da6ff;
+    padding:.3rem .7rem; border-radius:6px; font-size:.7rem; font-weight:700; cursor:pointer; }
+.map-link-btn { display:inline-block; margin-top:.3rem; padding:.2rem .5rem; background:rgba(77,166,255,.12);
+    border:1px solid rgba(77,166,255,.3); color:#4da6ff; border-radius:6px; font-size:.68rem; font-weight:700;
+    text-decoration:none; }
+.agent-info-bar { display:flex; justify-content:space-between; align-items:center; padding:.5rem .7rem;
+    background:rgba(0,214,143,.06); border:1px solid rgba(0,214,143,.2); border-radius:8px; margin-bottom:.7rem; }
+</style>
+</head>
+<body>
+<div class="agent-login" id="login-view">
+    <div class="agent-header">
+        <h1>🛡️ Panel de Agente</h1>
+        <p>Ingresa tu número de documento o código de acceso</p>
+    </div>
+    <div class="agent-card">
+        <input type="text" id="agent-id" class="login-input" placeholder="Ej: 123456 o PXC847"
+               autocomplete="off" autofocus>
+        <button class="login-btn" onclick="loginAgente()">🔐 Ingresar</button>
+        <div id="login-error" style="display:none; margin-top:.5rem; text-align:center; color:#ff3b3b; font-size:.78rem;"></div>
+    </div>
+</div>
+
+<div id="casos-view" style="display:none; max-width:500px; width:100%;">
+    <div class="agent-info-bar">
+        <div>
+            <div style="font-weight:700; color:#00d68f; font-size:.85rem;" id="agent-nombre"></div>
+            <div style="font-size:.65rem; color:#6b7294;" id="agent-codigo"></div>
+        </div>
+        <div style="display:flex; gap:.4rem;">
+            <button class="refresh-btn" onclick="cargarMisCasos()">🔄 Actualizar</button>
+            <button class="refresh-btn" style="color:#ff3b3b; border-color:rgba(255,59,59,.3);" onclick="logout()">Salir</button>
+        </div>
+    </div>
+    <h3 style="font-size:.85rem; color:#ffa500; margin:0 0 .5rem;">📋 Mis Casos Asignados</h3>
+    <div id="casos-lista"></div>
+</div>
+
+<script>
+const params = new URLSearchParams(location.search);
+const instId = params.get('inst') || '';
+const API = window.location.origin;
+let _agentData = null;
+
+async function loginAgente() {
+    const identificador = document.getElementById('agent-id').value.trim();
+    if (!identificador) return;
+    const errEl = document.getElementById('login-error');
+    errEl.style.display = 'none';
+
+    try {
+        const res = await fetch(`${API}/api/agentes/mis-casos/${instId}/${encodeURIComponent(identificador)}`);
+        if (!res.ok) {
+            errEl.textContent = 'No se encontró agente con ese documento/código';
+            errEl.style.display = 'block';
+            return;
+        }
+        _agentData = await res.json();
+        document.getElementById('agent-nombre').textContent = `👮 ${_agentData.agente.nombre}`;
+        document.getElementById('agent-codigo').textContent = `Código: ${_agentData.agente.codigo_agente} | Doc: ${_agentData.agente.num_identificacion}`;
+        renderCasos(_agentData.casos);
+        document.getElementById('login-view').style.display = 'none';
+        document.getElementById('casos-view').style.display = 'block';
+    } catch {
+        errEl.textContent = 'Error de conexión';
+        errEl.style.display = 'block';
+    }
+}
+
+async function cargarMisCasos() {
+    if (!_agentData) return;
+    try {
+        const res = await fetch(`${API}/api/agentes/mis-casos/${instId}/${encodeURIComponent(_agentData.agente.num_identificacion)}`);
+        if (!res.ok) return;
+        _agentData = await res.json();
+        renderCasos(_agentData.casos);
+    } catch {}
+}
+
+function renderCasos(casos) {
+    const el = document.getElementById('casos-lista');
+    if (!casos.length) {
+        el.innerHTML = '<div class="caso-card" style="text-align:center; color:#6b7294;">Sin casos asignados actualmente</div>';
+        return;
+    }
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    el.innerHTML = casos.map(c => {
+        const badgeCls = c.estatus === 'ACTIVA' ? 'badge-activa' : c.estatus === 'EN_CAMINO' ? 'badge-en-camino' : 'badge-atendida';
+        const fecha = new Date(c.fecha_creacion + 'Z').toLocaleString([], {
+            day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit', hour12:false, timeZone:tz
+        });
+        const mUrl = c.gps_latitud ? `https://maps.google.com/?q=${c.gps_latitud},${c.gps_longitud}` : null;
+        return `
+        <div class="caso-card" style="${c.estatus==='ACTIVA'?'border-color:rgba(255,59,59,.4);animation:pulse 2s infinite;':''}">
+            <div class="caso-header">
+                <span class="caso-numero">📋 ${c.numero_caso || '—'}</span>
+                <span class="${badgeCls}">${c.estatus.replace('_',' ')}</span>
+            </div>
+            <div class="caso-field"><div class="caso-label">Vecino</div><div class="caso-val">👤 ${c.nombre_vecino}</div></div>
+            <div class="caso-field"><div class="caso-label">Teléfono</div><div class="caso-val">📱 ${c.telefono_vecino}</div></div>
+            <div class="caso-field"><div class="caso-label">Dirección</div><div class="caso-val">${c.direccion_vecino || c.direccion_aproximada || '—'}</div></div>
+            <div class="caso-field"><div class="caso-label">Coordenadas GPS</div><div class="caso-val">📍 ${c.gps_latitud ? c.gps_latitud.toFixed(6)+', '+c.gps_longitud.toFixed(6) : 'No disponible'}</div></div>
+            ${mUrl ? `<a href="${mUrl}" target="_blank" class="map-link-btn">🗺️ Abrir en Google Maps</a>` : ''}
+            <div style="margin-top:.4rem; font-size:.65rem; color:#6b7294;">📅 ${fecha}</div>
+        </div>`;
+    }).join('');
+}
+
+function logout() {
+    _agentData = null;
+    document.getElementById('login-view').style.display = 'block';
+    document.getElementById('casos-view').style.display = 'none';
+    document.getElementById('agent-id').value = '';
+}
+
+// Auto-refresh cada 30 segundos
+setInterval(() => { if (_agentData) cargarMisCasos(); }, 30000);
+
+// Login con Enter
+document.getElementById('agent-id').addEventListener('keypress', e => { if (e.key==='Enter') loginAgente(); });
+</script>
+</body>
+</html>
