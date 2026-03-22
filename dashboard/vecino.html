@@ -359,23 +359,25 @@
                 <!-- Paso 1: Grabar frase -->
                 <p style="font-size:.72rem; color:#6b7294; margin-bottom:.3rem;">🔑 Graba tu frase de emergencia (di la palabra varias veces):</p>
                 <div style="display:flex; gap:.4rem; align-items:center; flex-wrap:wrap;">
-                    <button id="btn-grabar" onclick="toggleGrabacion()" style="flex:1; padding:.5rem; background:rgba(255,59,59,.15); color:#ff3b3b; border:1px solid rgba(255,59,59,.3); border-radius:8px; font-size:.78rem; font-weight:700; cursor:pointer;">
+                    <button id="btn-grabar" onclick="toggleGrabacion()" style="flex:1; padding:.5rem; background:rgba(255,59,59,.15); color:#ff3b3b; border:1px solid rgba(255,59,59,.3); border-radius:8px; font-size:.8rem; font-weight:700; cursor:pointer; text-transform:uppercase;">
                         🎤 Grabar Frase
                     </button>
-                    <button id="btn-escuchar" onclick="escucharGrabacion()" style="flex:1; padding:.5rem; background:rgba(77,166,255,.12); color:#4da6ff; border:1px solid rgba(77,166,255,.3); border-radius:8px; font-size:.78rem; font-weight:700; cursor:pointer; display:none;">
+                    <button id="btn-escuchar" onclick="escucharGrabacion()" style="flex:1; padding:.5rem; background:rgba(77,166,255,.12); color:#4da6ff; border:1px solid rgba(77,166,255,.3); border-radius:8px; font-size:.8rem; font-weight:700; cursor:pointer; display:none; text-transform:uppercase;">
                         ▶️ Escuchar
                     </button>
                 </div>
-                <!-- Indicador de grabación -->
-                <div id="grabacion-indicador" style="display:none; margin-top:.4rem; text-align:center; padding:.4rem; background:rgba(255,59,59,.08); border:1px solid rgba(255,59,59,.2); border-radius:8px;">
-                    <div style="font-size:.78rem; color:#ff3b3b; font-weight:700;">⏺️ GRABANDO...</div>
-                    <div id="volumen-barra" style="height:6px; background:#1a1f3e; border-radius:3px; margin-top:.3rem; overflow:hidden;">
-                        <div id="volumen-nivel" style="height:100%; width:0; background:linear-gradient(90deg,#00d68f,#ffa500,#ff3b3b); border-radius:3px; transition:width .1s;"></div>
+
+                <!-- Indicador de grabación MUY CLARO -->
+                <div id="grabacion-indicador" style="display:none; margin-top:.8rem; text-align:center; padding:.8rem; background:rgba(255,59,59,.1); border:2px dashed #ff3b3b; border-radius:12px; animation: pulsoRojo 1s infinite alternate;">
+                    <div style="font-size:1.2rem; color:#ff3b3b; font-weight:800; margin-bottom:.4rem; letter-spacing:1px;">🔴 GRABANDO AHORA</div>
+                    <div id="volumen-barra" style="height:10px; background:#1a1f3e; border-radius:5px; overflow:hidden; border:1px solid rgba(255,255,255,.1);">
+                        <div id="volumen-nivel" style="height:100%; width:0; background:linear-gradient(90deg,#00d68f,#ffa500,#ff3b3b); border-radius:5px; transition:width .1s;"></div>
                     </div>
-                    <div style="font-size:.6rem; color:#6b7294; margin-top:.2rem;">Repite tu palabra varias veces — toca "Detener" cuando termines</div>
+                    <div style="font-size:.7rem; color:#fff; margin-top:.4rem; font-weight:600;">HABLA FUERTE... Luego toca el botón ROJO de arriba para detener.</div>
                 </div>
-                <div id="cfg-voz-estado" style="text-align:center; margin-top:.4rem; font-size:.7rem; color:#6b7294;"></div>
-                <p style="font-size:.62rem; color:#6b7294; margin-top:.4rem; text-align:center;">
+
+                <div id="cfg-voz-estado" style="text-align:center; margin-top:.6rem; font-size:.75rem; color:#00d68f; font-weight:700;"></div>
+                <p style="font-size:.62rem; color:#6b7294; margin-top:.6rem; text-align:center;">
                     ⚠️ Al activar, la app escucha el micrófono. Cuando grites fuerte, enviará la alerta automáticamente.
                 </p>
             </div>
@@ -396,6 +398,10 @@
 </div>
 
 <style>
+@keyframes pulsoRojo {
+    from { box-shadow: 0 0 5px rgba(255,59,59,.2); background:rgba(255,59,59,.05); }
+    to { box-shadow: 0 0 15px rgba(255,59,59,.4); background:rgba(255,59,59,.15); }
+}
 /* Toggle sliders */
 .cfg-slider::before {
     content:""; position:absolute; height:18px; width:18px; left:3px; bottom:3px;
@@ -515,6 +521,8 @@ async function toggleGrabacion() {
 async function iniciarGrabacion() {
     const estado = document.getElementById('cfg-voz-estado');
     const btn = document.getElementById('btn-grabar');
+    estado.innerHTML = '';
+    
     try {
         _audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
         _mediaRecorder = new MediaRecorder(_audioStream);
@@ -525,14 +533,17 @@ async function iniciarGrabacion() {
         };
 
         _mediaRecorder.onstop = () => {
-            const blob = new Blob(_audioChunks, { type: 'audio/webm' });
+            // FIX IOS: usar el mimeType original o nada para que use default mp4/aac
+            const mime = _mediaRecorder.mimeType || '';
+            const blob = new Blob(_audioChunks, { type: mime });
+            
             // Guardar como base64
             const reader = new FileReader();
             reader.onload = () => {
                 const cfg = JSON.parse(localStorage.getItem('sisdel_config') || '{}');
                 cfg.audioGrabado = reader.result;
                 localStorage.setItem('sisdel_config', JSON.stringify(cfg));
-                estado.innerHTML = '<span style="color:#00d68f;">✅ Frase guardada correctamente</span>';
+                estado.innerHTML = '✅ Frase grabada correctamente';
                 document.getElementById('btn-escuchar').style.display = 'block';
             };
             reader.readAsDataURL(blob);
@@ -542,10 +553,10 @@ async function iniciarGrabacion() {
 
         _mediaRecorder.start();
         _grabando = true;
-        btn.innerHTML = '⏹️ Detener Grabación';
-        btn.style.background = 'rgba(255,59,59,.3)';
+        btn.innerHTML = '⏹️ DETENER GRABACIÓN';
+        btn.style.background = 'rgba(255,59,59,.4)';
+        btn.style.borderColor = '#ff3b3b';
         document.getElementById('grabacion-indicador').style.display = 'block';
-        estado.innerHTML = '<span style="color:#ffa500;">🎤 Habla ahora... repite tu frase varias veces</span>';
 
         // Visualizar volumen
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
