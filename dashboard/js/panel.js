@@ -712,7 +712,7 @@ async function verListaAgentes() {
     document.getElementById('ag-lista-body').innerHTML = '<p style="color:#6b7294;font-size:.82rem;text-align:center;">Cargando...</p>';
 
     try {
-        const res = await fetch(`${API}/api/agentes/${INST.id_institucion}`);
+        const res = await fetch(`${API}/api/agentes/lista/${INST.id_institucion}`);
         _agentesCache = await res.json();
         renderListaAgentes(_agentesCache);
     } catch {
@@ -770,7 +770,7 @@ async function buscarParaSlot(slot, texto) {
     // Cargar agentes si no están en caché
     if (!_agentesCache.length) {
         try {
-            const res = await fetch(`${API}/api/agentes/${INST.id_institucion}`);
+            const res = await fetch(`${API}/api/agentes/lista/${INST.id_institucion}`);
             _agentesCache = await res.json();
         } catch { return; }
     }
@@ -864,5 +864,33 @@ async function cargarAsignacionesExistentes(idEmergencia) {
         }
     } catch (err) {
         console.error('Error cargando asignaciones:', err);
+    }
+}
+
+async function guardarAsignaciones() {
+    if (!alertaActual) return;
+    const slots = Object.keys(_slotsAsignados);
+    if (!slots.length) {
+        alert('No hay agentes nuevos para guardar');
+        return;
+    }
+    try {
+        for (const slot of slots) {
+            const ag = _slotsAsignados[slot];
+            await fetch(`${API}/api/agentes/asignar`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id_emergencia: alertaActual.id_emergencia,
+                    id_institucion: INST.id_institucion,
+                    num_identificacion: ag.doc,
+                    slot: parseInt(slot)
+                })
+            });
+        }
+        alert(`✅ ${slots.length} agente(s) guardado(s) correctamente`);
+    } catch (err) {
+        alert('Error al guardar asignaciones');
+        console.error(err);
     }
 }

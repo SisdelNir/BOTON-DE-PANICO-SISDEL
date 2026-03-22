@@ -92,7 +92,8 @@
     <div class="modal-box" onclick="event.stopPropagation()">
         <div class="modal-hdr"><h3>🚨 Detalle de Emergencia</h3><button class="modal-close" onclick="closeDet()">✕</button></div>
         <div class="modal-body" id="det-body"></div>
-        <div class="modal-footer">
+        <div class="modal-footer" style="flex-wrap:wrap; gap:.4rem;">
+            <button class="accion-btn" style="background:rgba(77,166,255,.15); color:#4da6ff; border:1px solid rgba(77,166,255,.3); flex:1 1 100%;" onclick="guardarAsignaciones()">💾 Guardar Agentes</button>
             <button class="accion-btn a-camino"  onclick="cambiarEstatus('EN_CAMINO')">🚓 En Camino</button>
             <button class="accion-btn a-atender" onclick="cambiarEstatus('ATENDIDA')">✅ Atendida</button>
             <button class="accion-btn a-falsa"   onclick="cambiarEstatus('FALSA_ALARMA')">❌ Falsa Alarma</button>

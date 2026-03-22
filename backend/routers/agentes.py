@@ -17,6 +17,8 @@ class AsignarRequest(BaseModel):
     slot: int  # 1-4
 
 
+# ── RUTAS ESPECÍFICAS PRIMERO (antes de las parametrizadas) ──
+
 @router.post("/", response_model=AgenteResponse, status_code=201)
 async def crear_agente(data: AgenteCreate):
     inst = db.obtener_institucion(data.id_institucion)
@@ -24,21 +26,6 @@ async def crear_agente(data: AgenteCreate):
         raise HTTPException(404, "Institución no encontrada")
     return registrar_agente(data.model_dump(), inst["nombre_institucion"])
 
-
-@router.get("/{id_institucion}", response_model=list[AgenteResponse])
-async def listar(id_institucion: str):
-    return listar_agentes(id_institucion)
-
-
-@router.get("/{id_institucion}/{num_identificacion}", response_model=AgenteResponse)
-async def obtener(id_institucion: str, num_identificacion: str):
-    agente = obtener_agente(id_institucion, num_identificacion)
-    if not agente:
-        raise HTTPException(404, "Agente no encontrado")
-    return agente
-
-
-# ── ASIGNACIONES ─────────────────────────────────
 
 @router.post("/asignar")
 async def asignar(data: AsignarRequest):
@@ -64,3 +51,18 @@ async def mis_casos(id_institucion: str, identificador: str):
     if not resultado:
         raise HTTPException(404, "Agente no encontrado o sin casos")
     return resultado
+
+
+# ── RUTAS PARAMETRIZADAS AL FINAL ──
+
+@router.get("/lista/{id_institucion}")
+async def listar(id_institucion: str):
+    return listar_agentes(id_institucion)
+
+
+@router.get("/lista/{id_institucion}/{num_identificacion}")
+async def obtener(id_institucion: str, num_identificacion: str):
+    agente = obtener_agente(id_institucion, num_identificacion)
+    if not agente:
+        raise HTTPException(404, "Agente no encontrado")
+    return agente
