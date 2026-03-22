@@ -356,6 +356,10 @@
                 </label>
             </div>
             <div id="cfg-voz-extra" style="display:none; margin-top:.6rem; padding-top:.5rem; border-top:1px solid #2a2d45;">
+                <button id="btn-permiso-mic" onclick="solicitarPermisoMic()" style="width:100%; margin-bottom:.8rem; padding:.6rem; background:rgba(255,165,0,.15); color:#ffa500; border:1px solid rgba(255,165,0,.3); border-radius:8px; font-size:.8rem; font-weight:700; cursor:pointer; text-transform:uppercase;">
+                    🎙️ Permitir Usar Micrófono
+                </button>
+            
                 <!-- Paso 1: Grabar frase -->
                 <p style="font-size:.72rem; color:#6b7294; margin-bottom:.3rem;">🔑 Graba tu frase de emergencia (di la palabra varias veces):</p>
                 <div style="display:flex; gap:.4rem; align-items:center; flex-wrap:wrap;">
@@ -509,6 +513,24 @@ let _grabando = false;
 let _audioStream = null;
 let _analyser = null;
 let _animFrame = null;
+
+async function solicitarPermisoMic() {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream.getTracks().forEach(t => t.stop());
+        const btn = document.getElementById('btn-permiso-mic');
+        if (btn) {
+            btn.innerHTML = '✅ Micrófono Permitido';
+            btn.style.background = 'rgba(0,214,143,.15)';
+            btn.style.color = '#00d68f';
+            btn.style.borderColor = 'rgba(0,214,143,.3)';
+            btn.disabled = true;
+        }
+        alert('Permiso de micrófono concedido.\n\nIMPORTANTE: Apple iOS prohíbe grabar audio en segundo plano a las páginas web. La alerta por voz SOLO funcionará si mantienes esta app ABIERTA Y VISIBLE en tu pantalla.');
+    } catch (err) {
+        alert('❌ Permiso denegado. Debes habilitarlo en: Ajustes → Safari → Micrófono → Permitir.');
+    }
+}
 
 async function toggleGrabacion() {
     if (_grabando) {
