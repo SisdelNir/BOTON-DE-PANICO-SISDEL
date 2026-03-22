@@ -972,3 +972,15 @@ def casos_por_agente(id_institucion: str, identificador: str) -> list:
                     "fecha_asignacion": a["fecha_asignacion"],
                 })
     return {"agente": dict(agente), "casos": casos}
+
+
+def login_agente_global(identificador: str):
+    """Busca un agente por código o documento en TODAS las instituciones."""
+    with get_conn() as conn:
+        agente = _fetchone(conn, _ph(
+            "SELECT * FROM agentes WHERE num_identificacion=? OR codigo_agente=?"
+        ), (identificador, identificador.upper()))
+        if not agente:
+            return None
+    # Usar la función existente con la institución encontrada
+    return casos_por_agente(agente["id_institucion"], identificador)

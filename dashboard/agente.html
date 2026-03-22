@@ -118,8 +118,6 @@ body { min-height:100vh; display:flex; flex-direction:column; align-items:center
 </audio>
 
 <script>
-const params = new URLSearchParams(location.search);
-const instId = params.get('inst') || '';
 const API = (window.location.hostname === 'localhost' || window.location.protocol === 'file:')
     ? 'http://localhost:8000' : 'https://boton-de-panico-sisdel.onrender.com';
 
@@ -135,7 +133,7 @@ async function loginAgente() {
     errEl.style.display = 'none';
 
     try {
-        const res = await fetch(`${API}/api/agentes/mis-casos/${instId}/${encodeURIComponent(identificador)}`);
+        const res = await fetch(`${API}/api/agentes/login/${encodeURIComponent(identificador)}`);
         if (!res.ok) {
             errEl.textContent = '❌ No se encontró agente con ese código o documento';
             errEl.style.display = 'block';
@@ -167,7 +165,7 @@ async function loginAgente() {
 async function cargarMisCasos() {
     if (!_agentData) return;
     try {
-        const res = await fetch(`${API}/api/agentes/mis-casos/${instId}/${encodeURIComponent(_agentData.agente.num_identificacion)}`);
+        const res = await fetch(`${API}/api/agentes/login/${encodeURIComponent(_agentData.agente.num_identificacion)}`);
         if (!res.ok) return;
         const data = await res.json();
         _agentData.casos = data.casos;

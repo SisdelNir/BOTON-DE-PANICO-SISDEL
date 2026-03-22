@@ -44,6 +44,16 @@ async def get_asignaciones(id_emergencia: str):
     return obtener_asignaciones_emergencia(id_emergencia)
 
 
+@router.get("/login/{identificador}")
+async def login_global(identificador: str):
+    """Login de agente por código o documento (sin necesidad de institución)."""
+    from database import login_agente_global
+    resultado = login_agente_global(identificador)
+    if not resultado:
+        raise HTTPException(404, "Agente no encontrado")
+    return resultado
+
+
 @router.get("/mis-casos/{id_institucion}/{identificador}")
 async def mis_casos(id_institucion: str, identificador: str):
     """Consulta los casos asignados a un agente (por doc o código)."""
