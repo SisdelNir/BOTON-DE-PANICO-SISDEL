@@ -326,6 +326,9 @@ def init_db():
     # Migración: agregar columnas de familiares si no existen (para DBs ya creadas)
     _migrar_columnas_familiares()
 
+    # Migración: agregar numero_caso y tabla agentes si no existen
+    _migrar_emergencias_y_agentes()
+
     # Restaurar instituciones desde env var
     _seed_from_env()
 
@@ -348,6 +351,64 @@ def _migrar_columnas_familiares():
                         _execute(conn, f"ALTER TABLE vecinos ADD COLUMN {col} TEXT DEFAULT ''")
             except Exception:
                 pass  # columna ya existe
+
+
+def _migrar_emergencias_y_agentes():
+    """Agrega numero_caso a emergencias y crea tabla agentes si no existen."""
+    with get_conn() as conn:
+        # Agregar numero_caso a emergencias
+        try:
+            if USE_PG:
+                _execute(conn, "ALTER TABLE emergencias ADD COLUMN IF NOT EXISTS numero_caso TEXT DEFAULT ''")
+            else:
+                existing = _fetchall(conn, "PRAGMA table_info(emergencias)")
+                col_names = [r['name'] for r in existing]
+                if 'numero_caso' not in col_names:
+                    _execute(conn, "ALTER TABLE emergencias ADD COLUMN numero_caso TEXT DEFAULT ''")
+        except Exception:
+            pass
+
+        # Crear tabla agentes si no existe
+        try:
+            if USE_PG:
+                _execute(conn, """
+                    CREATE TABLE IF NOT EXISTS agentes (
+                        num_identificacion TEXT NOT NULL,
+                        id_institucion     TEXT NOT NULL REFERENCES instituciones(id_institucion),
+                        nombre             TEXT NOT NULL,
+                        telefono           TEXT DEFAULT '',
+                        edad               INTEGER DEFAULT 0,
+                        sexo               TEXT DEFAULT '',
+                        pais               TEXT DEFAULT '',
+                        puesto             TEXT DEFAULT '',
+                        jefe_inmediato     TEXT DEFAULT '',
+                        codigo_agente      TEXT DEFAULT '',
+                        activo             BOOLEAN DEFAULT TRUE,
+                        fecha_registro     TEXT NOT NULL,
+                        PRIMARY KEY (id_institucion, num_identificacion)
+                    )
+                """)
+            else:
+                _execute(conn, """
+                    CREATE TABLE IF NOT EXISTS agentes (
+                        num_identificacion TEXT NOT NULL,
+                        id_institucion     TEXT NOT NULL,
+                        nombre             TEXT NOT NULL,
+                        telefono           TEXT DEFAULT '',
+                        edad               INTEGER DEFAULT 0,
+                        sexo               TEXT DEFAULT '',
+                        pais               TEXT DEFAULT '',
+                        puesto             TEXT DEFAULT '',
+                        jefe_inmediato     TEXT DEFAULT '',
+                        codigo_agente      TEXT DEFAULT '',
+                        activo             INTEGER DEFAULT 1,
+                        fecha_registro     TEXT NOT NULL,
+                        PRIMARY KEY (id_institucion, num_identificacion),
+                        FOREIGN KEY (id_institucion) REFERENCES instituciones(id_institucion)
+                    )
+                """)
+        except Exception:
+            pass
 
 
 def _seed_demo(conn):
