@@ -1,7 +1,7 @@
 """Router: Programador — gestión de instituciones (clave maestra 1122)"""
 from fastapi import APIRouter, HTTPException
 from models import InstitucionCreate, InstitucionUpdate, InstitucionResponse, LoginInstRequest, LoginInstResponse
-from database import db, CLAVE_PROGRAMADOR
+from database import db, CLAVE_PROGRAMADOR, login_agente_global
 
 router = APIRouter(prefix="/api/programador", tags=["Programador"])
 
@@ -46,6 +46,17 @@ async def login(data: LoginInstRequest):
         return LoginInstResponse(
             success=True, message="Acceso vecino",
             tipo="vecino", id_institucion=clave_obj["id_institucion"]
+        )
+
+    # ¿Es código o documento de agente?
+    agente_data = login_agente_global(clave)
+    if agente_data:
+        ag = agente_data["agente"]
+        return LoginInstResponse(
+            success=True, message="Acceso agente",
+            tipo="agente",
+            id_institucion=ag["id_institucion"],
+            num_identificacion=ag["num_identificacion"]
         )
 
     return LoginInstResponse(success=False, message="Clave inválida")

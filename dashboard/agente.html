@@ -306,6 +306,13 @@ setInterval(() => { if (_agentData) cargarMisCasos(); }, 15000);
 
 // Login con Enter
 document.getElementById('agent-id').addEventListener('keypress', e => { if (e.key==='Enter') loginAgente(); });
+
+// Auto-login si viene de index.html
+const savedId = sessionStorage.getItem('sisdel_agente_id');
+if (savedId) {
+    document.getElementById('agent-id').value = savedId;
+    loginAgente();
+}
 </script>
 </body>
 </html>

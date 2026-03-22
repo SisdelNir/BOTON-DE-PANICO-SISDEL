@@ -98,6 +98,10 @@ async function doLogin() {
             if (data.tipo === 'programador') {
                 sessionStorage.setItem('sisdel_tipo', 'programador');
                 window.location.href = 'programador.html';
+            } else if (data.tipo === 'agente') {
+                sessionStorage.setItem('sisdel_tipo', 'agente');
+                sessionStorage.setItem('sisdel_agente_id', data.num_identificacion);
+                window.location.href = 'agente.html';
             } else if (data.tipo === 'vecino') {
                 // Clave de vecino → ir al formulario de registro/actualización
                 sessionStorage.setItem('sisdel_clave_vecino', clave);
