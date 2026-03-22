@@ -70,6 +70,26 @@ body { min-height:100vh; display:flex; flex-direction:column; align-items:center
 /* Sin casos */
 .empty-state { text-align:center; padding:2rem 1rem; color:#6b7294; }
 .empty-state .icon { font-size:2.5rem; margin-bottom:.5rem; }
+
+/* Alerta full-screen */
+.alerta-overlay {
+    display:none; position:fixed; inset:0; z-index:9999;
+    background:rgba(255,0,0,.85); flex-direction:column; align-items:center; justify-content:center;
+    animation: flashRed 0.5s infinite;
+}
+@keyframes flashRed {
+    0%,100% { background:rgba(255,0,0,.85); }
+    50% { background:rgba(200,0,0,.95); }
+}
+.alerta-overlay h2 { color:#fff; font-size:1.8rem; margin:0; text-shadow:0 2px 10px rgba(0,0,0,.5); }
+.alerta-overlay p { color:#fff; font-size:1rem; margin:.5rem 0; }
+.alerta-overlay .dismiss-btn {
+    margin-top:1.5rem; padding:.8rem 2rem; background:#fff; color:#ff0000;
+    font-weight:900; font-size:1.1rem; border:none; border-radius:12px; cursor:pointer;
+}
+.activar-sonido { width:100%; padding:.5rem; background:rgba(255,165,0,.15); color:#ffa500;
+    border:1px solid rgba(255,165,0,.3); border-radius:8px; font-size:.72rem; font-weight:700;
+    cursor:pointer; margin-bottom:.5rem; }
 </style>
 </head>
 <body>
@@ -109,13 +129,18 @@ body { min-height:100vh; display:flex; flex-direction:column; align-items:center
         <div class="stat-chip"><div class="stat-num" style="color:#00d68f;" id="st-atendidas">0</div><div class="stat-lbl">Atendidas</div></div>
     </div>
 
+    <button class="activar-sonido" id="btn-activar-sonido" onclick="activarSonido()" style="display:none;">🔔 Toca aquí para activar alertas sonoras</button>
     <div id="casos-lista"></div>
 </div>
 
-<!-- Audio de alerta -->
-<audio id="alert-sound" preload="auto">
-    <source src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgipussY5oQTlriJu0tpNySEBihJayuJVzSkFejpK2uJZ0S0FdkJK4uJd1TEBcj5K4uJd2TUBakJK3uJV0S0BcjpG3t5Z1S0BckJK4" type="audio/wav">
-</audio>
+<!-- Overlay de alerta -->
+<div class="alerta-overlay" id="alerta-overlay" onclick="dismissAlerta()">
+    <div style="font-size:4rem;">🚨</div>
+    <h2>¡NUEVA EMERGENCIA!</h2>
+    <p id="alerta-caso-info">Caso asignado</p>
+    <p style="font-size:.8rem; opacity:.8;">Toca para ver detalles</p>
+    <button class="dismiss-btn" onclick="dismissAlerta()">VER CASO →</button>
+</div>
 
 <script>
 const API = (window.location.hostname === 'localhost' || window.location.protocol === 'file:')
@@ -151,6 +176,9 @@ async function loginAgente() {
         document.getElementById('login-view').style.display = 'none';
         document.getElementById('casos-view').style.display = 'block';
 
+        // Mostrar botón para activar sonido (requerido en móviles)
+        document.getElementById('btn-activar-sonido').style.display = 'block';
+
         // Pedir permiso para notificaciones
         if ('Notification' in window && Notification.permission === 'default') {
             Notification.requestPermission();
@@ -184,34 +212,88 @@ async function cargarMisCasos() {
     } catch {}
 }
 
+// ── SISTEMA DE SONIDO (Web Audio API) ──
+let _audioCtx = null;
+let _sonidoActivado = false;
+let _sirenInterval = null;
+
+function activarSonido() {
+    try {
+        _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        // Tocar un beep silencioso para desbloquear audio
+        const osc = _audioCtx.createOscillator();
+        const gain = _audioCtx.createGain();
+        gain.gain.value = 0.01;
+        osc.connect(gain); gain.connect(_audioCtx.destination);
+        osc.start(); osc.stop(_audioCtx.currentTime + 0.1);
+        _sonidoActivado = true;
+        document.getElementById('btn-activar-sonido').style.display = 'none';
+    } catch {}
+}
+
+function tocarSirena() {
+    if (!_audioCtx || !_sonidoActivado) return;
+    let repeticiones = 0;
+    _sirenInterval = setInterval(() => {
+        if (repeticiones >= 8) { clearInterval(_sirenInterval); _sirenInterval = null; return; }
+        const osc = _audioCtx.createOscillator();
+        const gain = _audioCtx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(800, _audioCtx.currentTime);
+        osc.frequency.linearRampToValueAtTime(1200, _audioCtx.currentTime + 0.15);
+        osc.frequency.linearRampToValueAtTime(800, _audioCtx.currentTime + 0.3);
+        gain.gain.setValueAtTime(0.3, _audioCtx.currentTime);
+        gain.gain.linearRampToValueAtTime(0, _audioCtx.currentTime + 0.4);
+        osc.connect(gain); gain.connect(_audioCtx.destination);
+        osc.start(); osc.stop(_audioCtx.currentTime + 0.4);
+        repeticiones++;
+    }, 500);
+}
+
+function detenerSirena() {
+    if (_sirenInterval) { clearInterval(_sirenInterval); _sirenInterval = null; }
+}
+
 // ── ALERTA NUEVO CASO ──
 function alertaNuevoCaso(nuevos) {
-    // Sonido
-    try {
-        const audio = document.getElementById('alert-sound');
-        if (audio) { audio.currentTime = 0; audio.play().catch(()=>{}); }
-    } catch {}
+    const c = nuevos[0];
 
-    // Vibración
+    // 1. SIRENA (Web Audio API - funciona en móvil)
+    tocarSirena();
+
+    // 2. VIBRACIÓN agresiva (largo patrón)
     if (navigator.vibrate) {
-        navigator.vibrate([300, 100, 300, 100, 500]);
+        navigator.vibrate([500, 200, 500, 200, 500, 200, 800, 300, 800, 300, 1000]);
     }
 
-    // Notificación del navegador
+    // 3. OVERLAY FULL SCREEN rojo parpadeante
+    const overlay = document.getElementById('alerta-overlay');
+    const info = document.getElementById('alerta-caso-info');
+    if (overlay && info) {
+        info.textContent = `📋 ${c.numero_caso || 'Nuevo'} — ${c.nombre_vecino}`;
+        overlay.style.display = 'flex';
+    }
+
+    // 4. Notificación push del navegador
     if ('Notification' in window && Notification.permission === 'granted') {
-        const c = nuevos[0];
-        new Notification('🚨 NUEVO CASO ASIGNADO', {
+        new Notification('🚨 ¡EMERGENCIA ASIGNADA!', {
             body: `Caso ${c.numero_caso || ''} - ${c.nombre_vecino}\n📍 ${c.direccion_vecino || 'Sin dirección'}`,
-            icon: '🚨',
             tag: 'nuevo-caso',
-            requireInteraction: true
+            requireInteraction: true,
+            vibrate: [500, 200, 500, 200, 500]
         });
     }
 
-    // Marcar visualmente como nuevos (la clase se quita después de 10s)
+    // 5. Marcar visualmente como nuevos
     setTimeout(() => {
         document.querySelectorAll('.caso-card.nueva').forEach(el => el.classList.remove('nueva'));
-    }, 10000);
+    }, 15000);
+}
+
+function dismissAlerta() {
+    detenerSirena();
+    if (navigator.vibrate) navigator.vibrate(0); // detener vibración
+    document.getElementById('alerta-overlay').style.display = 'none';
 }
 
 // ── RENDER CASOS ──
@@ -302,7 +384,7 @@ function logout() {
 }
 
 // ── AUTO REFRESH cada 15 segundos ──
-setInterval(() => { if (_agentData) cargarMisCasos(); }, 15000);
+setInterval(() => { if (_agentData) cargarMisCasos(); }, 10000);
 
 // Login con Enter
 document.getElementById('agent-id').addEventListener('keypress', e => { if (e.key==='Enter') loginAgente(); });
