@@ -280,6 +280,23 @@ async function verDet(id) {
         </div>
         <div class="det-item"><div class="det-label">Fecha / Hora</div><div class="det-val">${new Date(a.fecha_creacion + 'Z').toLocaleString([], { timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone })}</div></div>
         ${a.notas_operador?`<div class="det-item"><div class="det-label">Notas</div><div class="det-val">${a.notas_operador}</div></div>`:''}
+    </div>
+
+    <!-- Asignación de Agente -->
+    <div style="margin-top:1rem; padding:.8rem; background:rgba(255,165,0,.06); border:1px solid rgba(255,165,0,.2); border-radius:10px;">
+        <div class="det-label" style="color:#ffa500; font-weight:700; margin-bottom:.5rem;">👮 ASIGNACIÓN DE AGENTE</div>
+        <div id="det-agente-asignado" style="display:none; padding:.5rem .7rem; background:rgba(0,214,143,.08); border:1px solid rgba(0,214,143,.25); border-radius:8px; margin-bottom:.5rem;">
+        </div>
+        <div style="position:relative;">
+            <div style="display:flex; background:#0b0d17; border:1px solid #2a2d45; border-radius:8px; padding:.35rem .5rem; align-items:center; gap:.3rem;">
+                <span style="font-size:.75rem;">🔍</span>
+                <input type="text" id="det-buscar-agente" placeholder="Buscar agente por nombre..."
+                       oninput="buscarAgenteParaAsignar(this.value)"
+                       style="flex:1; background:transparent; border:none; color:#fff; font-size:.8rem; outline:none;">
+            </div>
+            <div id="det-agente-resultados" style="display:none; position:absolute; top:100%; left:0; right:0; margin-top:4px; background:#111325; border:1px solid #2a2d45; border-radius:8px; max-height:200px; overflow-y:auto; z-index:999; box-shadow:0 8px 24px rgba(0,0,0,.5);">
+            </div>
+        </div>
     </div>`;
 
     document.getElementById('modal-det').style.display='flex';
@@ -624,4 +641,79 @@ function renderListaAgentes(lista) {
             </div>
         </div>
     `).join('');
+}
+
+// ── ASIGNACIÓN DE AGENTE A EMERGENCIA ─────────────
+async function buscarAgenteParaAsignar(texto) {
+    const container = document.getElementById('det-agente-resultados');
+    if (!container) return;
+
+    texto = texto.trim().toLowerCase();
+    if (texto.length < 2) {
+        container.style.display = 'none';
+        container.innerHTML = '';
+        return;
+    }
+
+    // Cargar agentes si no están en caché
+    if (!_agentesCache.length) {
+        try {
+            const res = await fetch(`${API}/api/agentes/${INST.id_institucion}`);
+            _agentesCache = await res.json();
+        } catch { return; }
+    }
+
+    const resultados = _agentesCache.filter(a => {
+        return (a.nombre || '').toLowerCase().includes(texto)
+            || (a.num_identificacion || '').toLowerCase().includes(texto)
+            || (a.telefono || '').toLowerCase().includes(texto);
+    });
+
+    if (!resultados.length) {
+        container.innerHTML = '<div style="padding:.7rem 1rem; color:#6b7294; font-size:.8rem;">No se encontró ningún agente</div>';
+        container.style.display = 'block';
+        return;
+    }
+
+    container.innerHTML = resultados.slice(0, 6).map(ag => `
+        <div onclick="asignarAgente('${ag.nombre}', '${ag.telefono}', '${ag.num_identificacion}', '${ag.puesto || ''}', '${ag.codigo_agente}')"
+             style="padding:.5rem 1rem; cursor:pointer; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #1a1f3e; transition:background .2s;"
+             onmouseover="this.style.background='rgba(255,165,0,.1)'" onmouseout="this.style.background='transparent'">
+            <div>
+                <span style="font-weight:700; color:#fff; font-size:.82rem;">${ag.nombre}</span>
+                <span style="font-size:.7rem; color:#6b7294; margin-left:.3rem;">${ag.puesto || ''}</span>
+            </div>
+            <div style="text-align:right;">
+                <span style="font-family:monospace; color:#ffa500; font-size:.78rem; font-weight:700;">${ag.codigo_agente}</span>
+                <div style="font-size:.65rem; color:#6b7294;">📱 ${ag.telefono}</div>
+            </div>
+        </div>
+    `).join('');
+    container.style.display = 'block';
+}
+
+function asignarAgente(nombre, telefono, doc, puesto, codigo) {
+    // Ocultar búsqueda
+    const resultados = document.getElementById('det-agente-resultados');
+    const input = document.getElementById('det-buscar-agente');
+    if (resultados) resultados.style.display = 'none';
+    if (input) input.value = '';
+
+    // Mostrar agente asignado
+    const box = document.getElementById('det-agente-asignado');
+    if (box) {
+        box.style.display = 'block';
+        box.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <div style="font-weight:700; color:#00d68f; font-size:.85rem;">✅ ${nombre}</div>
+                    <div style="font-size:.7rem; color:#6b7294;">Doc: ${doc} | ${puesto}</div>
+                </div>
+                <div style="text-align:right;">
+                    <div style="font-family:monospace; color:#ffa500; font-weight:700;">${codigo}</div>
+                    <div style="font-size:.68rem; color:#6b7294;">📱 ${telefono}</div>
+                </div>
+            </div>
+        `;
+    }
 }
