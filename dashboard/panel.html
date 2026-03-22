@@ -32,10 +32,21 @@
         </div>
         <div class="topbar-right">
             <span class="clock" id="clock"></span>
+            <!-- Búsqueda rápida -->
+            <div style="position:relative; display:flex; align-items:center;">
+                <div style="display:flex; background:#111325; border:1px solid #2a2d45; border-radius:8px; padding:.3rem .5rem; align-items:center; gap:.3rem; min-width:200px;">
+                    <span style="font-size:.75rem;">🔍</span>
+                    <input type="text" id="panel-busqueda" placeholder="Buscar vecino..."
+                           oninput="buscarVecinoPanel(this.value)"
+                           style="flex:1; background:transparent; border:none; color:#fff; font-size:.78rem; outline:none; width:100%;">
+                </div>
+                <div id="panel-busqueda-resultados" style="display:none; position:absolute; top:100%; left:0; right:0; margin-top:4px; background:#111325; border:1px solid #2a2d45; border-radius:8px; max-height:250px; overflow-y:auto; z-index:999; box-shadow:0 8px 24px rgba(0,0,0,.5);"></div>
+            </div>
             <button class="btn-sm-icon" style="background:rgba(77,166,255,.12);border-color:rgba(77,166,255,.35);color:#4da6ff;" onclick="abrirMapa()">🗺️ Mapa Central</button>
             <button class="btn-sm-icon" style="background:rgba(0,214,143,.12);border-color:rgba(0,214,143,.35);color:#00d68f;" onclick="abrirRegistroVecino()">📋 Registrar Vecino</button>
-            <button class="btn-sm-icon btn-sm-red" onclick="logout()">Salir</button>
         </div>
+        <!-- Salir: esquina superior derecha -->
+        <button class="btn-sm-icon btn-sm-red" onclick="logout()" style="position:fixed; top:8px; right:12px; z-index:9999; font-size:.75rem; padding:.3rem .8rem;">Salir</button>
     </header>
 
     <!-- BODY -->

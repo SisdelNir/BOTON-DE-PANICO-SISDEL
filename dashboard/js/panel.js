@@ -299,24 +299,87 @@ async function cambiarEstatus(estatus) {
 }
 
 // ── VECINOS ───────────────────────────────────────
+let _vecinosCache = [];
 async function cargarVecinos() {
     try {
         const res = await fetch(`${API}/api/vecinos/${INST.id_institucion}`);
         const vec = await res.json();
+        _vecinosCache = vec;
         document.getElementById('sp-vec').textContent = vec.length;
         const tbody = document.getElementById('vecinos-tbody');
-        if (!vec.length) { tbody.innerHTML=`<tr><td colspan="6"><div class="empty-state"><p>Sin vecinos registrados</p></div></td></tr>`; return; }
-        tbody.innerHTML = vec.map((v,i)=>`
-            <tr>
-                <td>${i+1}</td>
-                <td><strong>${v.nombre}</strong></td>
-                <td>${v.telefono}</td>
-                <td>${v.num_identificacion}</td>
-                <td>${v.direccion||'—'}</td>
-                <td style="font-size:.72rem">${new Date(v.fecha_registro + 'Z').toLocaleDateString([], { timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone })}</td>
-            </tr>`).join('');
-    } catch { document.getElementById('vecinos-tbody').innerHTML=`<tr><td colspan="6"><div class="empty-state"><p>Sin conexión</p></div></td></tr>`; }
+        if (tbody) {
+            if (!vec.length) { tbody.innerHTML=`<tr><td colspan="6"><div class="empty-state"><p>Sin vecinos registrados</p></div></td></tr>`; return; }
+            tbody.innerHTML = vec.map((v,i)=>`
+                <tr>
+                    <td>${i+1}</td>
+                    <td><strong>${v.nombre}</strong></td>
+                    <td>${v.telefono}</td>
+                    <td>${v.num_identificacion}</td>
+                    <td>${v.direccion||'—'}</td>
+                    <td style="font-size:.72rem">${new Date(v.fecha_registro + 'Z').toLocaleDateString([], { timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone })}</td>
+                </tr>`).join('');
+        }
+    } catch { }
 }
+
+// ── BÚSQUEDA RÁPIDA EN PANEL ──────────────────────
+async function buscarVecinoPanel(texto) {
+    const container = document.getElementById('panel-busqueda-resultados');
+    if (!container) return;
+
+    texto = texto.trim().toLowerCase();
+    if (texto.length < 2) {
+        container.style.display = 'none';
+        container.innerHTML = '';
+        return;
+    }
+
+    // Usar caché o cargar
+    if (!_vecinosCache.length) {
+        try {
+            const res = await fetch(`${API}/api/vecinos/${INST.id_institucion}`);
+            _vecinosCache = await res.json();
+        } catch { return; }
+    }
+
+    const resultados = _vecinosCache.filter(v => {
+        const nombre = (v.nombre || '').toLowerCase();
+        const tel = (v.telefono || '').toLowerCase();
+        const doc = (v.num_identificacion || '').toLowerCase();
+        return nombre.includes(texto) || tel.includes(texto) || doc.includes(texto);
+    });
+
+    if (!resultados.length) {
+        container.innerHTML = '<div style="padding:.7rem 1rem; color:#6b7294; font-size:.8rem;">No se encontró ningún vecino</div>';
+        container.style.display = 'block';
+        return;
+    }
+
+    container.innerHTML = resultados.slice(0, 8).map(v => `
+        <div onclick="document.getElementById('panel-busqueda').value=''; document.getElementById('panel-busqueda-resultados').style.display='none';"
+             style="padding:.55rem 1rem; cursor:pointer; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #1a1f3e; transition:background .2s;"
+             onmouseover="this.style.background='rgba(77,166,255,.1)'" onmouseout="this.style.background='transparent'">
+            <div>
+                <span style="font-weight:700; color:#fff; font-size:.82rem;">${v.nombre}</span>
+                <span style="color:#6b7294; font-size:.72rem; margin-left:.4rem;">Doc: ${v.num_identificacion}</span>
+            </div>
+            <div style="text-align:right;">
+                <span style="font-family:monospace; color:#7c5cfc; font-size:.78rem;">${v.telefono}</span>
+                <div style="font-size:.65rem; color:#6b7294;">${v.direccion || '—'}</div>
+            </div>
+        </div>
+    `).join('');
+    container.style.display = 'block';
+}
+
+// Cerrar resultados al hacer clic fuera
+document.addEventListener('click', (e) => {
+    const container = document.getElementById('panel-busqueda-resultados');
+    const input = document.getElementById('panel-busqueda');
+    if (container && input && !container.contains(e.target) && e.target !== input) {
+        container.style.display = 'none';
+    }
+});
 
 // ── CLAVES ────────────────────────────────────────
 function abrirClaves() {
