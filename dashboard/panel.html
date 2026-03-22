@@ -44,6 +44,7 @@
             </div>
             <button class="btn-sm-icon" style="background:rgba(77,166,255,.12);border-color:rgba(77,166,255,.35);color:#4da6ff;" onclick="abrirMapa()">🗺️ Mapa Central</button>
             <button class="btn-sm-icon" style="background:rgba(0,214,143,.12);border-color:rgba(0,214,143,.35);color:#00d68f;" onclick="abrirRegistroVecino()">📋 Registrar Vecino</button>
+            <button class="btn-sm-icon" style="background:rgba(255,165,0,.12);border-color:rgba(255,165,0,.35);color:#ffa500;" onclick="abrirRegistroAgente()">👮 Registrar Agente</button>
             <button class="btn-sm-icon" style="background:rgba(124,92,252,.12);border-color:rgba(124,92,252,.35);color:#7c5cfc;" onclick="abrirHistorial()">📜 Historial</button>
         </div>
         <!-- Salir: esquina superior derecha -->
@@ -187,6 +188,88 @@
                     <tr><td colspan="8" style="text-align:center; padding:2rem; color:#6b7294;">Cargando...</td></tr>
                 </tbody>
             </table>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL REGISTRAR AGENTE -->
+<div class="modal-overlay" id="modal-agente" style="display:none;" onclick="cerrarModalAgente(event)">
+    <div class="modal-box" style="width:95%; max-width:600px; max-height:92vh; display:flex; flex-direction:column;" onclick="event.stopPropagation()">
+        <div class="modal-hdr">
+            <h3>👮 Registrar Agente de Seguridad</h3>
+            <button class="modal-close" onclick="cerrarModalAgente()">✕</button>
+        </div>
+        <div class="modal-body" style="flex:1; overflow-y:auto;">
+            <form id="form-agente" onsubmit="guardarAgente(event)">
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:.7rem;">
+                    <!-- Documento -->
+                    <div style="grid-column:1/-1;">
+                        <label style="font-size:.72rem; color:#6b7294; text-transform:uppercase; letter-spacing:.5px; display:block; margin-bottom:.3rem;">Número de Documento (Llave primaria) *</label>
+                        <input type="text" id="ag-doc" required class="form-input" style="width:100%; background:#0b0d17; border:1px solid #2a2d45; border-radius:8px; padding:.5rem .7rem; color:#fff; font-size:.85rem;">
+                    </div>
+                    <!-- Nombre -->
+                    <div style="grid-column:1/-1;">
+                        <label style="font-size:.72rem; color:#6b7294; text-transform:uppercase; letter-spacing:.5px; display:block; margin-bottom:.3rem;">Nombre Completo *</label>
+                        <input type="text" id="ag-nombre" required class="form-input" style="width:100%; background:#0b0d17; border:1px solid #2a2d45; border-radius:8px; padding:.5rem .7rem; color:#fff; font-size:.85rem;">
+                    </div>
+                    <!-- Teléfono -->
+                    <div>
+                        <label style="font-size:.72rem; color:#6b7294; text-transform:uppercase; letter-spacing:.5px; display:block; margin-bottom:.3rem;">Teléfono *</label>
+                        <input type="tel" id="ag-tel" required class="form-input" style="width:100%; background:#0b0d17; border:1px solid #2a2d45; border-radius:8px; padding:.5rem .7rem; color:#fff; font-size:.85rem;">
+                    </div>
+                    <!-- Edad -->
+                    <div>
+                        <label style="font-size:.72rem; color:#6b7294; text-transform:uppercase; letter-spacing:.5px; display:block; margin-bottom:.3rem;">Edad</label>
+                        <input type="number" id="ag-edad" min="0" max="150" value="0" class="form-input" style="width:100%; background:#0b0d17; border:1px solid #2a2d45; border-radius:8px; padding:.5rem .7rem; color:#fff; font-size:.85rem;">
+                    </div>
+                    <!-- Sexo -->
+                    <div>
+                        <label style="font-size:.72rem; color:#6b7294; text-transform:uppercase; letter-spacing:.5px; display:block; margin-bottom:.3rem;">Sexo</label>
+                        <select id="ag-sexo" class="form-input" style="width:100%; background:#0b0d17; border:1px solid #2a2d45; border-radius:8px; padding:.5rem .7rem; color:#fff; font-size:.85rem;">
+                            <option value="">Seleccionar</option>
+                            <option value="M">Masculino</option>
+                            <option value="F">Femenino</option>
+                        </select>
+                    </div>
+                    <!-- País -->
+                    <div>
+                        <label style="font-size:.72rem; color:#6b7294; text-transform:uppercase; letter-spacing:.5px; display:block; margin-bottom:.3rem;">País</label>
+                        <input type="text" id="ag-pais" value="Guatemala" class="form-input" style="width:100%; background:#0b0d17; border:1px solid #2a2d45; border-radius:8px; padding:.5rem .7rem; color:#fff; font-size:.85rem;">
+                    </div>
+                    <!-- Puesto -->
+                    <div>
+                        <label style="font-size:.72rem; color:#6b7294; text-transform:uppercase; letter-spacing:.5px; display:block; margin-bottom:.3rem;">Puesto / Cargo</label>
+                        <input type="text" id="ag-puesto" class="form-input" style="width:100%; background:#0b0d17; border:1px solid #2a2d45; border-radius:8px; padding:.5rem .7rem; color:#fff; font-size:.85rem;">
+                    </div>
+                    <!-- Jefe Inmediato -->
+                    <div>
+                        <label style="font-size:.72rem; color:#6b7294; text-transform:uppercase; letter-spacing:.5px; display:block; margin-bottom:.3rem;">Jefe Inmediato</label>
+                        <input type="text" id="ag-jefe" class="form-input" style="width:100%; background:#0b0d17; border:1px solid #2a2d45; border-radius:8px; padding:.5rem .7rem; color:#fff; font-size:.85rem;">
+                    </div>
+                </div>
+                <!-- Código generado -->
+                <div id="ag-codigo-box" style="display:none; margin-top:1rem; padding:.7rem 1rem; background:rgba(0,214,143,.08); border:1px solid rgba(0,214,143,.3); border-radius:10px; text-align:center;">
+                    <span style="font-size:.72rem; color:#6b7294; text-transform:uppercase;">Código de Acceso Generado</span>
+                    <div id="ag-codigo-val" style="font-size:1.5rem; font-weight:900; color:#00d68f; font-family:monospace; letter-spacing:3px; margin-top:.3rem;"></div>
+                </div>
+                <!-- Botones -->
+                <div style="display:flex; gap:.5rem; margin-top:1.2rem;">
+                    <button type="submit" id="ag-btn-guardar" style="flex:1; background:linear-gradient(135deg,#ffa500,#ff8c00); color:#fff; font-weight:700; font-size:.85rem; padding:.6rem; border:none; border-radius:8px; cursor:pointer;">💾 Guardar Agente</button>
+                    <button type="button" onclick="verListaAgentes()" style="flex:1; background:rgba(124,92,252,.12); color:#7c5cfc; font-weight:700; font-size:.85rem; padding:.6rem; border:1px solid rgba(124,92,252,.3); border-radius:8px; cursor:pointer;">👥 Ver Agentes</button>
+                </div>
+            </form>
+            <!-- Lista de agentes -->
+            <div id="ag-lista" style="display:none; margin-top:1rem;">
+                <div style="display:flex; align-items:center; gap:.5rem; margin-bottom:.5rem;">
+                    <h4 style="font-size:.8rem; color:#ffa500; text-transform:uppercase; margin:0;">👮 Agentes Registrados</h4>
+                    <span id="ag-count" style="font-size:.72rem; color:#6b7294;"></span>
+                </div>
+                <div style="display:flex; background:#0b0d17; border:1px solid #2a2d45; border-radius:8px; padding:.3rem .5rem; align-items:center; gap:.3rem; margin-bottom:.5rem;">
+                    <span style="font-size:.75rem;">🔍</span>
+                    <input type="text" id="ag-busqueda" placeholder="Buscar agente..." oninput="filtrarAgentes(this.value)" style="flex:1; background:transparent; border:none; color:#fff; font-size:.78rem; outline:none;">
+                </div>
+                <div id="ag-lista-body" style="max-height:250px; overflow-y:auto;"></div>
+            </div>
         </div>
     </div>
 </div>

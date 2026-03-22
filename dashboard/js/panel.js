@@ -509,3 +509,119 @@ async function eliminarClave(id) {
     try { await fetch(`${API}/api/vecinos/claves/${id}`,{method:'DELETE'}); await cargarClaves(); }
     catch { alert('Error al eliminar.'); }
 }
+
+// ── AGENTES DE SEGURIDAD ──────────────────────────
+let _agentesCache = [];
+
+function abrirRegistroAgente() {
+    document.getElementById('form-agente').reset();
+    document.getElementById('ag-pais').value = 'Guatemala';
+    document.getElementById('ag-codigo-box').style.display = 'none';
+    document.getElementById('ag-lista').style.display = 'none';
+    document.getElementById('modal-agente').style.display = 'flex';
+}
+
+function cerrarModalAgente(e) {
+    if (e && e.target !== document.getElementById('modal-agente')) return;
+    document.getElementById('modal-agente').style.display = 'none';
+}
+
+async function guardarAgente(e) {
+    e.preventDefault();
+    const btn = document.getElementById('ag-btn-guardar');
+    btn.disabled = true;
+    btn.textContent = '⏳ Guardando...';
+
+    const data = {
+        id_institucion: INST.id_institucion,
+        num_identificacion: document.getElementById('ag-doc').value.trim(),
+        nombre: document.getElementById('ag-nombre').value.trim().toUpperCase(),
+        telefono: document.getElementById('ag-tel').value.trim(),
+        edad: parseInt(document.getElementById('ag-edad').value) || 0,
+        sexo: document.getElementById('ag-sexo').value,
+        pais: document.getElementById('ag-pais').value.trim(),
+        puesto: document.getElementById('ag-puesto').value.trim(),
+        jefe_inmediato: document.getElementById('ag-jefe').value.trim()
+    };
+
+    try {
+        const res = await fetch(`${API}/api/agentes/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.detail || 'Error al guardar');
+        }
+        const agente = await res.json();
+
+        // Mostrar código generado
+        document.getElementById('ag-codigo-val').textContent = agente.codigo_agente;
+        document.getElementById('ag-codigo-box').style.display = 'block';
+
+        btn.textContent = '✅ Guardado';
+        btn.style.background = 'linear-gradient(135deg,#00d68f,#00b877)';
+
+        setTimeout(() => {
+            btn.disabled = false;
+            btn.textContent = '💾 Guardar Agente';
+            btn.style.background = 'linear-gradient(135deg,#ffa500,#ff8c00)';
+        }, 2000);
+
+    } catch (err) {
+        alert('Error: ' + err.message);
+        btn.disabled = false;
+        btn.textContent = '💾 Guardar Agente';
+    }
+}
+
+async function verListaAgentes() {
+    const listaDiv = document.getElementById('ag-lista');
+    listaDiv.style.display = listaDiv.style.display === 'none' ? 'block' : 'none';
+    if (listaDiv.style.display === 'none') return;
+
+    document.getElementById('ag-lista-body').innerHTML = '<p style="color:#6b7294;font-size:.82rem;text-align:center;">Cargando...</p>';
+
+    try {
+        const res = await fetch(`${API}/api/agentes/${INST.id_institucion}`);
+        _agentesCache = await res.json();
+        renderListaAgentes(_agentesCache);
+    } catch {
+        document.getElementById('ag-lista-body').innerHTML = '<p style="color:#ff3b3b;font-size:.82rem;">Error al cargar</p>';
+    }
+}
+
+function filtrarAgentes(texto) {
+    texto = texto.trim().toLowerCase();
+    if (texto.length < 2) { renderListaAgentes(_agentesCache); return; }
+    const filtrados = _agentesCache.filter(a => {
+        return (a.nombre || '').toLowerCase().includes(texto)
+            || (a.telefono || '').toLowerCase().includes(texto)
+            || (a.num_identificacion || '').toLowerCase().includes(texto);
+    });
+    renderListaAgentes(filtrados);
+}
+
+function renderListaAgentes(lista) {
+    const countEl = document.getElementById('ag-count');
+    if (countEl) countEl.textContent = `(${lista.length})`;
+
+    if (!lista.length) {
+        document.getElementById('ag-lista-body').innerHTML = '<p style="color:#6b7294;font-size:.82rem;text-align:center;">No se encontraron agentes</p>';
+        return;
+    }
+
+    document.getElementById('ag-lista-body').innerHTML = lista.map(a => `
+        <div style="padding:.5rem .7rem; border-bottom:1px solid #1a1f3e; display:flex; justify-content:space-between; align-items:center;">
+            <div>
+                <div style="font-weight:700; color:#fff; font-size:.82rem;">${a.nombre}</div>
+                <div style="font-size:.7rem; color:#6b7294;">Doc: ${a.num_identificacion} | ${a.puesto || 'Sin puesto'}</div>
+            </div>
+            <div style="text-align:right;">
+                <div style="font-family:monospace; color:#ffa500; font-size:.8rem; font-weight:700;">${a.codigo_agente}</div>
+                <div style="font-size:.68rem; color:#6b7294;">📱 ${a.telefono}</div>
+            </div>
+        </div>
+    `).join('');
+}
