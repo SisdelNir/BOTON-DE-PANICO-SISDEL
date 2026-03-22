@@ -216,8 +216,10 @@ async function cargarMisCasos() {
 let _audioCtx = null;
 let _sonidoActivado = false;
 let _sirenInterval = null;
+let _audioFallback = new Audio('https://www.soundjay.com/button/beep-07.mp3'); // Fallback
 
 function activarSonido() {
+    if (_sonidoActivado) return;
     try {
         _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         // Tocar un beep silencioso para desbloquear audio
@@ -227,12 +229,26 @@ function activarSonido() {
         osc.connect(gain); gain.connect(_audioCtx.destination);
         osc.start(); osc.stop(_audioCtx.currentTime + 0.1);
         _sonidoActivado = true;
-        document.getElementById('btn-activar-sonido').style.display = 'none';
+        
+        // Desbloquear también el fallback audio object
+        _audioFallback.play().then(() => _audioFallback.pause()).catch(()=>{});
+
+        const btn = document.getElementById('btn-activar-sonido');
+        if (btn) btn.style.display = 'none';
+        console.log("🔊 Audio desbloqueado");
     } catch {}
 }
 
+// Auto-desbloquear audio en el primer tap en cualquier lado de la pantalla
+document.body.addEventListener('click', activarSonido, { once: true });
+document.body.addEventListener('touchstart', activarSonido, { once: true });
+
 function tocarSirena() {
-    if (!_audioCtx || !_sonidoActivado) return;
+    if (!_audioCtx || !_sonidoActivado) {
+        // Fallback si no activaron (aunque la mayoría de browsers bloquearán esto tmb sin interacción)
+        _audioFallback.play().catch(()=>{});
+        return;
+    }
     let repeticiones = 0;
     _sirenInterval = setInterval(() => {
         if (repeticiones >= 8) { clearInterval(_sirenInterval); _sirenInterval = null; return; }
@@ -252,26 +268,28 @@ function tocarSirena() {
 
 function detenerSirena() {
     if (_sirenInterval) { clearInterval(_sirenInterval); _sirenInterval = null; }
+    _audioFallback.pause();
+    _audioFallback.currentTime = 0;
 }
 
 // ── ALERTA NUEVO CASO ──
 function alertaNuevoCaso(nuevos) {
     const c = nuevos[0];
 
-    // 1. SIRENA (Web Audio API - funciona en móvil)
-    tocarSirena();
-
-    // 2. VIBRACIÓN agresiva (largo patrón)
-    if (navigator.vibrate) {
-        navigator.vibrate([500, 200, 500, 200, 500, 200, 800, 300, 800, 300, 1000]);
-    }
-
-    // 3. OVERLAY FULL SCREEN rojo parpadeante
+    // 1. Mostrar OVERLAY primero para asegurar que el usuario lo vea
     const overlay = document.getElementById('alerta-overlay');
     const info = document.getElementById('alerta-caso-info');
     if (overlay && info) {
         info.textContent = `📋 ${c.numero_caso || 'Nuevo'} — ${c.nombre_vecino}`;
         overlay.style.display = 'flex';
+    }
+
+    // 2. SIRENA (Web Audio API - funciona en móvil si ya interactuó)
+    tocarSirena();
+
+    // 3. VIBRACIÓN agresiva (largo patrón)
+    if (navigator.vibrate) {
+        navigator.vibrate([500, 200, 500, 200, 500, 200, 800, 300, 800, 300, 1000]);
     }
 
     // 4. Notificación push del navegador
