@@ -161,3 +161,32 @@ class StatsResponse(BaseModel):
     en_camino: int
     atendidas: int
     vecinos_registrados: int
+
+
+# ── AGENTES DE SEGURIDAD ─────────────────────────────────────
+
+class AgenteCreate(BaseModel):
+    id_institucion:     str
+    nombre:             str = Field(..., min_length=1, max_length=150)
+    telefono:           str = Field(..., min_length=1, max_length=20)
+    num_identificacion: str = Field(..., min_length=1, max_length=30)
+    edad:               int = Field(default=0, ge=0, le=150)
+    sexo:               str = Field(default="", max_length=1)
+    pais:               str = Field(default="", max_length=60)
+    puesto:             str = Field(default="", max_length=100)
+    jefe_inmediato:     str = Field(default="", max_length=150)
+
+class AgenteResponse(BaseModel):
+    id_institucion:     str
+    nombre:             str
+    telefono:           str
+    num_identificacion: str
+    edad:               int = 0
+    sexo:               str = ""
+    pais:               str = ""
+    puesto:             str = ""
+    jefe_inmediato:     str = ""
+    codigo_agente:      str = ""
+    activo:             bool = True
+    fecha_registro:     str = ""
+    class Config: from_attributes = True

@@ -36,6 +36,15 @@ def generar_clave_6(nombre: str = None) -> str:
     return f"{l1}{l2}{l3}{nums}"
 
 
+def generar_codigo_agente(nombre_institucion: str, nombre_agente: str) -> str:
+    """Código 6 chars: 1ra letra institución + letra azar + 1ra letra agente + 3 nums azar"""
+    l1 = next((c for c in (nombre_institucion or '').upper() if c.isalpha()), random.choice(string.ascii_uppercase))
+    l2 = random.choice(string.ascii_uppercase)
+    l3 = next((c for c in (nombre_agente or '').upper() if c.isalpha()), random.choice(string.ascii_uppercase))
+    nums = ''.join(random.choices(string.digits, k=3))
+    return f"{l1}{l2}{l3}{nums}"
+
+
 # ── Parámetro placeholder ──────────────────────────────────
 # PostgreSQL usa %s, SQLite usa ?
 PH = "%s" if USE_PG else "?"
@@ -192,6 +201,22 @@ def init_db():
                 telefono        TEXT NOT NULL,
                 posicion        INTEGER DEFAULT 1
             );
+
+            CREATE TABLE IF NOT EXISTS agentes (
+                num_identificacion TEXT NOT NULL,
+                id_institucion     TEXT NOT NULL REFERENCES instituciones(id_institucion),
+                nombre             TEXT NOT NULL,
+                telefono           TEXT DEFAULT '',
+                edad               INTEGER DEFAULT 0,
+                sexo               TEXT DEFAULT '',
+                pais               TEXT DEFAULT '',
+                puesto             TEXT DEFAULT '',
+                jefe_inmediato     TEXT DEFAULT '',
+                codigo_agente      TEXT DEFAULT '',
+                activo             BOOLEAN DEFAULT TRUE,
+                fecha_registro     TEXT NOT NULL,
+                PRIMARY KEY (id_institucion, num_identificacion)
+            );
             """)
         else:
             conn.executescript("""
@@ -271,6 +296,23 @@ def init_db():
                 telefono        TEXT NOT NULL,
                 posicion        INTEGER DEFAULT 1,
                 FOREIGN KEY (id_vecino) REFERENCES vecinos(id_vecino)
+            );
+
+            CREATE TABLE IF NOT EXISTS agentes (
+                num_identificacion TEXT NOT NULL,
+                id_institucion     TEXT NOT NULL,
+                nombre             TEXT NOT NULL,
+                telefono           TEXT DEFAULT '',
+                edad               INTEGER DEFAULT 0,
+                sexo               TEXT DEFAULT '',
+                pais               TEXT DEFAULT '',
+                puesto             TEXT DEFAULT '',
+                jefe_inmediato     TEXT DEFAULT '',
+                codigo_agente      TEXT DEFAULT '',
+                activo             INTEGER DEFAULT 1,
+                fecha_registro     TEXT NOT NULL,
+                PRIMARY KEY (id_institucion, num_identificacion),
+                FOREIGN KEY (id_institucion) REFERENCES instituciones(id_institucion)
             );
             """)
 
@@ -685,3 +727,63 @@ class Database:
 # Inicializar tablas y objeto global
 init_db()
 db = Database()
+
+
+# ── AGENTES CRUD ─────────────────────────────────────────────
+
+def registrar_agente(data: dict, nombre_institucion: str) -> dict:
+    with get_conn() as conn:
+        # Ver si ya existe
+        existing = _fetchone(conn, _ph(
+            "SELECT * FROM agentes WHERE id_institucion=? AND num_identificacion=?"
+        ), (data["id_institucion"], data["num_identificacion"]))
+
+        codigo = generar_codigo_agente(nombre_institucion, data["nombre"])
+        ahora = datetime.utcnow().isoformat()
+
+        if existing:
+            # Actualizar
+            _execute(conn, _ph("""
+                UPDATE agentes SET nombre=?, telefono=?, edad=?, sexo=?, pais=?,
+                puesto=?, jefe_inmediato=?, codigo_agente=?
+                WHERE id_institucion=? AND num_identificacion=?
+            """), (
+                data["nombre"], data["telefono"], data.get("edad", 0),
+                data.get("sexo", ""), data.get("pais", ""),
+                data.get("puesto", ""), data.get("jefe_inmediato", ""), existing["codigo_agente"],
+                data["id_institucion"], data["num_identificacion"]
+            ))
+        else:
+            # Insertar nuevo
+            _execute(conn, _ph("""
+                INSERT INTO agentes (num_identificacion, id_institucion, nombre, telefono,
+                    edad, sexo, pais, puesto, jefe_inmediato, codigo_agente, fecha_registro)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """), (
+                data["num_identificacion"], data["id_institucion"],
+                data["nombre"], data["telefono"],
+                data.get("edad", 0), data.get("sexo", ""),
+                data.get("pais", ""), data.get("puesto", ""),
+                data.get("jefe_inmediato", ""), codigo, ahora
+            ))
+
+        row = _fetchone(conn, _ph(
+            "SELECT * FROM agentes WHERE id_institucion=? AND num_identificacion=?"
+        ), (data["id_institucion"], data["num_identificacion"]))
+    return row
+
+
+def listar_agentes(id_institucion: str) -> list:
+    with get_conn() as conn:
+        rows = _fetchall(conn, _ph(
+            "SELECT * FROM agentes WHERE id_institucion=? ORDER BY nombre"
+        ), (id_institucion,))
+    return rows
+
+
+def obtener_agente(id_institucion: str, num_identificacion: str) -> dict:
+    with get_conn() as conn:
+        row = _fetchone(conn, _ph(
+            "SELECT * FROM agentes WHERE id_institucion=? AND num_identificacion=?"
+        ), (id_institucion, num_identificacion))
+    return row
