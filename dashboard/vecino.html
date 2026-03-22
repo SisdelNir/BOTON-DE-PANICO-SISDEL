@@ -269,7 +269,7 @@
 
         <!-- Indicador de voz activa -->
         <div id="voz-indicador" style="display:none; margin-top:.8rem; padding:.5rem 1rem; background:rgba(0,214,143,.1); border:1px solid rgba(0,214,143,.3); border-radius:10px; text-align:center;">
-            <span style="font-size:.82rem; color:#00d68f; font-weight:700;">🎙️ Escuchando... di "<span id='voz-palabra-display'>AUXILIO</span>" para enviar alerta</span>
+            <span style="font-size:.82rem; color:#00d68f; font-weight:700;">🎙️ Escuchando... grita fuerte para enviar alerta</span>
         </div>
 
         <!-- ══ BOTONES WHATSAPP INDIVIDUALES ══ -->
@@ -345,8 +345,8 @@
         <div style="background:#111325; border:1px solid #2a2d45; border-radius:12px; padding:.8rem 1rem; margin-bottom:.6rem;">
             <div style="display:flex; justify-content:space-between; align-items:center;">
                 <div>
-                    <div style="font-weight:700; color:#fff; font-size:.85rem;">🎙️ Comando de Voz</div>
-                    <div style="font-size:.7rem; color:#6b7294;">Enviar alerta diciendo una palabra clave</div>
+                    <div style="font-weight:700; color:#fff; font-size:.85rem;">🎙️ Alerta por Voz</div>
+                    <div style="font-size:.7rem; color:#6b7294;">Grita tu palabra clave para enviar alerta</div>
                 </div>
                 <label style="position:relative; display:inline-block; width:44px; height:24px;">
                     <input type="checkbox" id="cfg-voz" onchange="toggleVoz()"
@@ -356,27 +356,34 @@
                 </label>
             </div>
             <div id="cfg-voz-extra" style="display:none; margin-top:.6rem; padding-top:.5rem; border-top:1px solid #2a2d45;">
-                <div style="font-size:.72rem; color:#6b7294; margin-bottom:.3rem;">🔑 Palabra clave de emergencia:</div>
-                <div style="display:flex; gap:.4rem; align-items:center;">
-                    <input type="text" id="cfg-palabra" value="AUXILIO" placeholder="Ej: AUXILIO, AYUDA, SOCORRO"
-                        style="flex:1; background:#0b0d17; border:1px solid #2a2d45; border-radius:8px; padding:.45rem .6rem; color:#fff; font-size:.9rem; font-weight:700; text-transform:uppercase; text-align:center;"
-                        oninput="this.value=this.value.toUpperCase()">
-                    <button onclick="probarPalabra()" style="background:rgba(0,214,143,.15); color:#00d68f; border:1px solid rgba(0,214,143,.3); border-radius:8px; padding:.45rem .7rem; font-size:.72rem; font-weight:700; cursor:pointer; white-space:nowrap;">🎤 Probar</button>
+                <!-- Paso 1: Grabar frase -->
+                <p style="font-size:.72rem; color:#6b7294; margin-bottom:.3rem;">🔑 Graba tu frase de emergencia (di la palabra varias veces):</p>
+                <div style="display:flex; gap:.4rem; align-items:center; flex-wrap:wrap;">
+                    <button id="btn-grabar" onclick="toggleGrabacion()" style="flex:1; padding:.5rem; background:rgba(255,59,59,.15); color:#ff3b3b; border:1px solid rgba(255,59,59,.3); border-radius:8px; font-size:.78rem; font-weight:700; cursor:pointer;">
+                        🎤 Grabar Frase
+                    </button>
+                    <button id="btn-escuchar" onclick="escucharGrabacion()" style="flex:1; padding:.5rem; background:rgba(77,166,255,.12); color:#4da6ff; border:1px solid rgba(77,166,255,.3); border-radius:8px; font-size:.78rem; font-weight:700; cursor:pointer; display:none;">
+                        ▶️ Escuchar
+                    </button>
+                </div>
+                <!-- Indicador de grabación -->
+                <div id="grabacion-indicador" style="display:none; margin-top:.4rem; text-align:center; padding:.4rem; background:rgba(255,59,59,.08); border:1px solid rgba(255,59,59,.2); border-radius:8px;">
+                    <div style="font-size:.78rem; color:#ff3b3b; font-weight:700;">⏺️ GRABANDO...</div>
+                    <div id="volumen-barra" style="height:6px; background:#1a1f3e; border-radius:3px; margin-top:.3rem; overflow:hidden;">
+                        <div id="volumen-nivel" style="height:100%; width:0; background:linear-gradient(90deg,#00d68f,#ffa500,#ff3b3b); border-radius:3px; transition:width .1s;"></div>
+                    </div>
+                    <div style="font-size:.6rem; color:#6b7294; margin-top:.2rem;">Repite tu palabra varias veces — toca "Detener" cuando termines</div>
                 </div>
                 <div id="cfg-voz-estado" style="text-align:center; margin-top:.4rem; font-size:.7rem; color:#6b7294;"></div>
                 <p style="font-size:.62rem; color:#6b7294; margin-top:.4rem; text-align:center;">
-                    ⚠️ La app debe estar abierta en pantalla para que funcione el comando de voz
+                    ⚠️ Al activar, la app escucha el micrófono. Cuando grites fuerte, enviará la alerta automáticamente.
                 </p>
             </div>
         </div>
 
-        <!-- FAMILIARES -->
+        <!-- EDITAR DATOS -->
         <div style="background:#111325; border:1px solid #2a2d45; border-radius:12px; padding:.8rem 1rem; margin-bottom:.6rem;">
-            <div style="font-weight:700; color:#fff; font-size:.85rem; margin-bottom:.4rem;">👨‍👩‍👧 Familiares que reciben la alerta</div>
-            <div id="cfg-familiares-lista" style="display:flex; flex-direction:column; gap:.3rem;">
-                <p style="font-size:.75rem; color:#6b7294;">Cargando...</p>
-            </div>
-            <button onclick="editarDatos()" style="width:100%; margin-top:.5rem; padding:.4rem; background:rgba(255,165,0,.12); color:#ffa500; border:1px solid rgba(255,165,0,.3); border-radius:8px; font-size:.75rem; font-weight:700; cursor:pointer;">✏️ Editar Datos y Familiares</button>
+            <button onclick="editarDatos(); cerrarConfiguracion();" style="width:100%; padding:.5rem; background:rgba(255,165,0,.12); color:#ffa500; border:1px solid rgba(255,165,0,.3); border-radius:8px; font-size:.82rem; font-weight:700; cursor:pointer;">✏️ Editar Mis Datos y Familiares</button>
         </div>
 
         <!-- INSTALAR APP -->
@@ -428,41 +435,41 @@ function cargarConfig() {
     const cfg = JSON.parse(localStorage.getItem('sisdel_config') || '{}');
     document.getElementById('cfg-vibracion').checked = cfg.vibracion !== false;
     document.getElementById('cfg-voz').checked = cfg.voz === true;
-    document.getElementById('cfg-palabra').value = cfg.palabra || 'AUXILIO';
     if (cfg.voz) {
         document.getElementById('cfg-voz-extra').style.display = 'block';
+    }
+    // Mostrar botón escuchar si ya hay grabación
+    if (cfg.audioGrabado) {
+        const btn = document.getElementById('btn-escuchar');
+        if (btn) btn.style.display = 'block';
     }
     return cfg;
 }
 
 function guardarConfig() {
+    const cfgActual = JSON.parse(localStorage.getItem('sisdel_config') || '{}');
     const cfg = {
         vibracion: document.getElementById('cfg-vibracion').checked,
         voz: document.getElementById('cfg-voz').checked,
-        palabra: (document.getElementById('cfg-palabra').value || 'AUXILIO').toUpperCase()
+        audioGrabado: cfgActual.audioGrabado || null
     };
     localStorage.setItem('sisdel_config', JSON.stringify(cfg));
-    // Actualizar indicador de voz en pantalla principal
     const ind = document.getElementById('voz-indicador');
-    const label = document.getElementById('voz-palabra-display');
     if (ind) ind.style.display = cfg.voz ? 'block' : 'none';
-    if (label) label.textContent = cfg.palabra;
     return cfg;
 }
 
 function abrirConfiguracion() {
     cargarConfig();
     verificarEstadoGPS();
-    cargarFamiliaresConfig();
     document.getElementById('modal-config').style.display = 'block';
 }
 
 function cerrarConfiguracion() {
     guardarConfig();
     document.getElementById('modal-config').style.display = 'none';
-    // Reiniciar reconocimiento de voz si está activo
     const cfg = JSON.parse(localStorage.getItem('sisdel_config') || '{}');
-    if (cfg.voz) iniciarReconocimientoVoz();
+    if (cfg.voz) iniciarEscuchaVoz();
 }
 
 function verificarEstadoGPS() {
@@ -485,129 +492,184 @@ function activarGPS() {
             verificarEstadoGPS();
             alert(`✅ GPS activado\nLatitud: ${pos.coords.latitude.toFixed(6)}\nLongitud: ${pos.coords.longitude.toFixed(6)}`);
         },
-        (err) => { alert('❌ No se pudo activar GPS. Ve a Ajustes del navegador y permite la ubicación.'); }
+        () => { alert('❌ No se pudo activar GPS.\n\niPhone: Ajustes → Privacidad → Servicios de Ubicación → Safari → Permitir\n\nAndroid: Ajustes → Sitios → Ubicación → Permitir'); }
     );
 }
 
-function cargarFamiliaresConfig() {
-    const lista = document.getElementById('cfg-familiares-lista');
-    let found = false;
-    let html = '';
-    for (let i = 1; i <= 5; i++) {
-        const nombre = document.getElementById(`fam-nombre-${i}`)?.value;
-        const tel = document.getElementById(`fam-tel-${i}`)?.value;
-        if (nombre && tel) {
-            found = true;
-            html += `<div style="display:flex; justify-content:space-between; padding:.3rem .5rem; background:rgba(255,140,0,.06); border:1px solid rgba(255,140,0,.15); border-radius:6px;">
-                <span style="font-size:.78rem; color:#fff; font-weight:600;">👤 ${nombre}</span>
-                <span style="font-size:.78rem; color:#4da6ff; font-family:monospace;">📱 ${tel}</span>
-            </div>`;
-        }
+// ══ GRABACIÓN DE FRASE CLAVE ══
+let _mediaRecorder = null;
+let _audioChunks = [];
+let _grabando = false;
+let _audioStream = null;
+let _analyser = null;
+let _animFrame = null;
+
+async function toggleGrabacion() {
+    if (_grabando) {
+        detenerGrabacion();
+    } else {
+        await iniciarGrabacion();
     }
-    lista.innerHTML = found ? html : '<p style="font-size:.75rem; color:#6b7294; text-align:center;">Sin familiares registrados. Toca "Editar Datos" para agregar.</p>';
 }
 
-// ══ COMANDO DE VOZ ══
-let _reconocimiento = null;
-let _vozActiva = false;
+async function iniciarGrabacion() {
+    const estado = document.getElementById('cfg-voz-estado');
+    const btn = document.getElementById('btn-grabar');
+    try {
+        _audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        _mediaRecorder = new MediaRecorder(_audioStream);
+        _audioChunks = [];
+
+        _mediaRecorder.ondataavailable = (e) => {
+            if (e.data.size > 0) _audioChunks.push(e.data);
+        };
+
+        _mediaRecorder.onstop = () => {
+            const blob = new Blob(_audioChunks, { type: 'audio/webm' });
+            // Guardar como base64
+            const reader = new FileReader();
+            reader.onload = () => {
+                const cfg = JSON.parse(localStorage.getItem('sisdel_config') || '{}');
+                cfg.audioGrabado = reader.result;
+                localStorage.setItem('sisdel_config', JSON.stringify(cfg));
+                estado.innerHTML = '<span style="color:#00d68f;">✅ Frase guardada correctamente</span>';
+                document.getElementById('btn-escuchar').style.display = 'block';
+            };
+            reader.readAsDataURL(blob);
+            // Detener stream
+            _audioStream.getTracks().forEach(t => t.stop());
+        };
+
+        _mediaRecorder.start();
+        _grabando = true;
+        btn.innerHTML = '⏹️ Detener Grabación';
+        btn.style.background = 'rgba(255,59,59,.3)';
+        document.getElementById('grabacion-indicador').style.display = 'block';
+        estado.innerHTML = '<span style="color:#ffa500;">🎤 Habla ahora... repite tu frase varias veces</span>';
+
+        // Visualizar volumen
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const source = audioCtx.createMediaStreamSource(_audioStream);
+        _analyser = audioCtx.createAnalyser();
+        _analyser.fftSize = 256;
+        source.connect(_analyser);
+        animarVolumen();
+
+    } catch (err) {
+        estado.innerHTML = '<span style="color:#ff3b3b;">❌ No se pudo acceder al micrófono. Permite el acceso en los ajustes del navegador.</span>';
+        console.error('Error micrófono:', err);
+    }
+}
+
+function detenerGrabacion() {
+    if (_mediaRecorder && _mediaRecorder.state !== 'inactive') {
+        _mediaRecorder.stop();
+    }
+    _grabando = false;
+    const btn = document.getElementById('btn-grabar');
+    btn.innerHTML = '🎤 Grabar Frase';
+    btn.style.background = 'rgba(255,59,59,.15)';
+    document.getElementById('grabacion-indicador').style.display = 'none';
+    if (_animFrame) cancelAnimationFrame(_animFrame);
+}
+
+function animarVolumen() {
+    if (!_analyser || !_grabando) return;
+    const data = new Uint8Array(_analyser.frequencyBinCount);
+    _analyser.getByteFrequencyData(data);
+    const avg = data.reduce((a, b) => a + b, 0) / data.length;
+    const pct = Math.min(100, (avg / 128) * 100);
+    const nivel = document.getElementById('volumen-nivel');
+    if (nivel) nivel.style.width = pct + '%';
+    _animFrame = requestAnimationFrame(animarVolumen);
+}
+
+function escucharGrabacion() {
+    const cfg = JSON.parse(localStorage.getItem('sisdel_config') || '{}');
+    if (!cfg.audioGrabado) {
+        alert('No hay frase grabada. Graba primero.');
+        return;
+    }
+    const audio = new Audio(cfg.audioGrabado);
+    audio.play().catch(() => alert('Error al reproducir'));
+}
+
+// ══ ESCUCHA DE VOZ (detección por volumen) ══
+let _escuchaStream = null;
+let _escuchaAnalyser = null;
+let _escuchaActiva = false;
+let _escuchaAnimFrame = null;
+let _gritoConsecutivo = 0;
+const UMBRAL_VOLUMEN = 55;  // Sensibilidad (0-128, menor = más sensible)
+const GRITOS_NECESARIOS = 15; // ~1.5 segundos de grito continuo
 
 function toggleVoz() {
     const activo = document.getElementById('cfg-voz').checked;
     document.getElementById('cfg-voz-extra').style.display = activo ? 'block' : 'none';
     guardarConfig();
-    if (activo) {
-        iniciarReconocimientoVoz();
-    } else {
-        detenerReconocimientoVoz();
-    }
+    if (!activo) detenerEscuchaVoz();
 }
 
-function probarPalabra() {
-    guardarConfig();
-    const palabra = document.getElementById('cfg-palabra').value;
-    const estado = document.getElementById('cfg-voz-estado');
-    estado.innerHTML = `<span style="color:#ffa500;">🎤 Di "${palabra}" ahora...</span>`;
-
-    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-        estado.innerHTML = '<span style="color:#ff3b3b;">❌ Tu navegador no soporta reconocimiento de voz. Usa Chrome.</span>';
-        return;
-    }
-
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const rec = new SR();
-    rec.lang = 'es-GT';
-    rec.continuous = false;
-    rec.interimResults = true;
-
-    rec.onresult = (e) => {
-        const texto = Array.from(e.results).map(r => r[0].transcript).join(' ').toUpperCase();
-        estado.innerHTML = `<span style="color:#4da6ff;">Escuché: "${texto}"</span>`;
-        if (texto.includes(palabra.toUpperCase())) {
-            estado.innerHTML = `<span style="color:#00d68f;">✅ ¡"${palabra}" detectado! La alerta se enviaría automáticamente.</span>`;
-            if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
-        }
-    };
-    rec.onerror = () => { estado.innerHTML = '<span style="color:#ff3b3b;">Error. Verifica permisos de micrófono.</span>'; };
-    rec.onend = () => {
-        setTimeout(() => { if (estado.textContent.includes('Di "')) estado.textContent = ''; }, 3000);
-    };
-    rec.start();
-}
-
-function iniciarReconocimientoVoz() {
-    if (_vozActiva) return;
-    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) return;
-
+async function iniciarEscuchaVoz() {
+    if (_escuchaActiva) return;
     const cfg = JSON.parse(localStorage.getItem('sisdel_config') || '{}');
     if (!cfg.voz) return;
 
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    _reconocimiento = new SR();
-    _reconocimiento.lang = 'es-GT';
-    _reconocimiento.continuous = true;
-    _reconocimiento.interimResults = true;
-
-    _reconocimiento.onresult = (e) => {
-        const palabra = (cfg.palabra || 'AUXILIO').toUpperCase();
-        for (let i = e.resultIndex; i < e.results.length; i++) {
-            const texto = e.results[i][0].transcript.toUpperCase();
-            if (texto.includes(palabra)) {
-                console.log('🚨 PALABRA CLAVE DETECTADA:', texto);
-                // Disparar alerta de pánico automáticamente
-                if (typeof dispararAlertaPorVoz === 'function') {
-                    dispararAlertaPorVoz();
-                }
-                return;
-            }
-        }
-    };
-
-    _reconocimiento.onend = () => {
-        // Reiniciar automáticamente si está activo
-        if (_vozActiva && cfg.voz) {
-            setTimeout(() => { try { _reconocimiento.start(); } catch {} }, 500);
-        }
-    };
-
-    _reconocimiento.onerror = (e) => {
-        if (e.error !== 'no-speech' && e.error !== 'aborted') {
-            console.log('Error reconocimiento:', e.error);
-        }
-    };
-
     try {
-        _reconocimiento.start();
-        _vozActiva = true;
+        _escuchaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const source = audioCtx.createMediaStreamSource(_escuchaStream);
+        _escuchaAnalyser = audioCtx.createAnalyser();
+        _escuchaAnalyser.fftSize = 256;
+        source.connect(_escuchaAnalyser);
+
+        _escuchaActiva = true;
+        _gritoConsecutivo = 0;
+        monitorearVolumen();
+
         const ind = document.getElementById('voz-indicador');
         if (ind) ind.style.display = 'block';
-    } catch {}
+        console.log('🎙️ Escucha de voz activada');
+    } catch (err) {
+        console.error('Error activando escucha:', err);
+    }
 }
 
-function detenerReconocimientoVoz() {
-    _vozActiva = false;
-    if (_reconocimiento) {
-        try { _reconocimiento.stop(); } catch {}
-        _reconocimiento = null;
+function monitorearVolumen() {
+    if (!_escuchaActiva || !_escuchaAnalyser) return;
+    const data = new Uint8Array(_escuchaAnalyser.frequencyBinCount);
+    _escuchaAnalyser.getByteFrequencyData(data);
+    const avg = data.reduce((a, b) => a + b, 0) / data.length;
+
+    if (avg > UMBRAL_VOLUMEN) {
+        _gritoConsecutivo++;
+        if (_gritoConsecutivo >= GRITOS_NECESARIOS) {
+            console.log('🚨 GRITO DETECTADO — ENVIANDO ALERTA');
+            _gritoConsecutivo = 0;
+            detenerEscuchaVoz();
+            if (typeof dispararAlertaPorVoz === 'function') {
+                dispararAlertaPorVoz();
+            }
+            // Reiniciar después de 15 segundos
+            setTimeout(() => {
+                const c = JSON.parse(localStorage.getItem('sisdel_config') || '{}');
+                if (c.voz) iniciarEscuchaVoz();
+            }, 15000);
+            return;
+        }
+    } else {
+        _gritoConsecutivo = Math.max(0, _gritoConsecutivo - 1);
+    }
+
+    _escuchaAnimFrame = requestAnimationFrame(monitorearVolumen);
+}
+
+function detenerEscuchaVoz() {
+    _escuchaActiva = false;
+    if (_escuchaAnimFrame) cancelAnimationFrame(_escuchaAnimFrame);
+    if (_escuchaStream) {
+        _escuchaStream.getTracks().forEach(t => t.stop());
+        _escuchaStream = null;
     }
     const ind = document.getElementById('voz-indicador');
     if (ind) ind.style.display = 'none';
@@ -618,15 +680,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const cfg = JSON.parse(localStorage.getItem('sisdel_config') || '{}');
     if (cfg.voz) {
         const ind = document.getElementById('voz-indicador');
-        const label = document.getElementById('voz-palabra-display');
         if (ind) ind.style.display = 'block';
-        if (label) label.textContent = cfg.palabra || 'AUXILIO';
-        // Solo iniciar voz cuando estemos en la pantalla de pánico
+        // Iniciar escucha cuando estemos en la pantalla de pánico
         const observer = new MutationObserver(() => {
             const panicVisible = document.getElementById('paso-panico')?.style.display !== 'none';
-            if (panicVisible && !_vozActiva) iniciarReconocimientoVoz();
+            if (panicVisible && !_escuchaActiva) iniciarEscuchaVoz();
+            if (!panicVisible && _escuchaActiva) detenerEscuchaVoz();
         });
-        observer.observe(document.getElementById('paso-panico'), { attributes: true, attributeFilter: ['style'] });
+        const el = document.getElementById('paso-panico');
+        if (el) observer.observe(el, { attributes: true, attributeFilter: ['style'] });
     }
 });
 </script>
