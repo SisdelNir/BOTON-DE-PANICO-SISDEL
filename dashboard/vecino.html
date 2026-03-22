@@ -64,11 +64,21 @@
                 style="position:absolute;top:0;right:0;background:rgba(255,59,59,.15);border:1px solid rgba(255,59,59,.4);color:#ff3b3b;border-radius:50%;width:32px;height:32px;font-size:1.1rem;font-weight:900;cursor:pointer;line-height:1;display:none;">
                 ✕
             </button>
-            <!-- Botón Ver Vecinos (solo admin) -->
-            <button id="btn-ver-vecinos" onclick="abrirListaVecinos()"
-                style="display:none; margin-top:.6rem; background:linear-gradient(135deg,#4da6ff,#7c5cfc); color:#fff; border:none; border-radius:10px; padding:.5rem 1.2rem; font-size:.85rem; font-weight:700; cursor:pointer; gap:.4rem;">
-                👥 Ver Vecinos Registrados
-            </button>
+            <!-- Barra de búsqueda rápida + botón Ver Vecinos (solo admin) -->
+            <div id="admin-tools" style="display:none; margin-top:.6rem; gap:.5rem; align-items:center; flex-wrap:wrap;">
+                <div style="display:flex; flex:1; min-width:180px; background:#111325; border:1px solid #2a2d45; border-radius:10px; padding:.35rem .6rem; align-items:center; gap:.4rem;">
+                    <span style="font-size:.85rem;">🔍</span>
+                    <input type="text" id="busqueda-rapida" placeholder="Buscar por nombre, teléfono o documento..."
+                           oninput="busquedaRapidaVecino(this.value)"
+                           style="flex:1; background:transparent; border:none; color:#fff; font-size:.82rem; outline:none;">
+                </div>
+                <button id="btn-ver-vecinos" onclick="abrirListaVecinos()"
+                    style="background:linear-gradient(135deg,#4da6ff,#7c5cfc); color:#fff; border:none; border-radius:10px; padding:.5rem 1.2rem; font-size:.85rem; font-weight:700; cursor:pointer; gap:.4rem; white-space:nowrap;">
+                    👥 Ver Vecinos Registrados
+                </button>
+            </div>
+            <!-- Resultado de búsqueda rápida -->
+            <div id="resultado-busqueda" style="display:none; margin-top:.4rem; background:#111325; border:1px solid #2a2d45; border-radius:10px; max-height:200px; overflow-y:auto;"></div>
         </div>
         <div class="v-card" style="padding:1.5rem 1.75rem;">
             <div class="v-form-grid">

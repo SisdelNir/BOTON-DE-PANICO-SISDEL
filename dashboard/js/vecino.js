@@ -70,9 +70,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Si es modo admin → ir directo al formulario de registro (nuevo vecino)
     if (modoAdmin && instId) {
         mostrarPaso('paso-registro');
-        // Mostrar botón Ver Vecinos y botón X
-        const btnVV = document.getElementById('btn-ver-vecinos');
-        if (btnVV) btnVV.style.display = 'inline-flex';
+        // Mostrar barra admin (búsqueda + botón Ver Vecinos) y botón X
+        const adminTools = document.getElementById('admin-tools');
+        if (adminTools) adminTools.style.display = 'flex';
         const btnX = document.getElementById('btn-cerrar-form');
         if (btnX) btnX.style.display = 'flex';
         return;
@@ -836,6 +836,71 @@ function mostrarBotonWAmasivo() {
 // ── LISTA DE VECINOS (solo admin) ─────────────────────────
 
 let _todosVecinos = [];
+
+let _busquedaTimeout = null;
+async function busquedaRapidaVecino(texto) {
+    const container = document.getElementById('resultado-busqueda');
+    if (!container) return;
+
+    texto = texto.trim().toLowerCase();
+    if (texto.length < 2) {
+        container.style.display = 'none';
+        container.innerHTML = '';
+        return;
+    }
+
+    // Cargar vecinos si no los tenemos aún
+    if (!_todosVecinos || !_todosVecinos.length) {
+        const params = new URLSearchParams(window.location.search);
+        const instId = params.get('inst');
+        if (!instId) return;
+        try {
+            const res = await fetch(`${API}/api/vecinos/${instId}`);
+            _todosVecinos = await res.json();
+        } catch { return; }
+    }
+
+    // Filtrar por nombre, teléfono o documento
+    const resultados = _todosVecinos.filter(v => {
+        const nombre = (v.nombre || '').toLowerCase();
+        const tel = (v.telefono || '').toLowerCase();
+        const doc = (v.num_identificacion || '').toLowerCase();
+        return nombre.includes(texto) || tel.includes(texto) || doc.includes(texto);
+    });
+
+    if (!resultados.length) {
+        container.innerHTML = '<div style="padding:.7rem 1rem; color:#6b7294; font-size:.8rem;">No se encontró ningún vecino</div>';
+        container.style.display = 'block';
+        return;
+    }
+
+    container.innerHTML = resultados.slice(0, 8).map(v => `
+        <div onclick="seleccionarBusquedaRapida('${v.num_identificacion}')" 
+             style="padding:.55rem 1rem; cursor:pointer; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #1a1f3e; transition:background .2s;"
+             onmouseover="this.style.background='rgba(77,166,255,.1)'" onmouseout="this.style.background='transparent'">
+            <div>
+                <span style="font-weight:700; color:#fff; font-size:.85rem;">${v.nombre}</span>
+                <span style="color:#6b7294; font-size:.75rem; margin-left:.5rem;">Doc: ${v.num_identificacion}</span>
+            </div>
+            <span style="font-family:monospace; color:#7c5cfc; font-size:.8rem;">${v.telefono}</span>
+        </div>
+    `).join('');
+    container.style.display = 'block';
+}
+
+function seleccionarBusquedaRapida(numId) {
+    // Llenar el campo de identificación y disparar búsqueda
+    const inp = document.getElementById('reg-id');
+    if (inp) {
+        inp.value = numId;
+        buscarVecinoPorId();
+    }
+    // Cerrar resultados
+    const container = document.getElementById('resultado-busqueda');
+    if (container) { container.style.display = 'none'; container.innerHTML = ''; }
+    const busq = document.getElementById('busqueda-rapida');
+    if (busq) busq.value = '';
+}
 
 async function abrirListaVecinos() {
     const params = new URLSearchParams(window.location.search);
