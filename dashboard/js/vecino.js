@@ -1127,3 +1127,34 @@ async function eliminarVecino() {
         alert('Sin conexión al servidor.');
     }
 }
+
+// ══ ALERTA POR COMANDO DE VOZ ══
+function dispararAlertaPorVoz() {
+    // Solo funciona si estamos en la pantalla del pánico y hay datos del vecino
+    if (!vecinoData) return;
+    const pasoP = document.getElementById('paso-panico');
+    if (!pasoP || pasoP.style.display === 'none') return;
+
+    console.log('🚨🎙️ ALERTA ACTIVADA POR VOZ');
+
+    // Vibración fuerte inmediata
+    if (navigator.vibrate) {
+        navigator.vibrate([500, 200, 500, 200, 1000]);
+    }
+
+    // Detener reconocimiento de voz temporalmente
+    if (typeof detenerReconocimientoVoz === 'function') {
+        detenerReconocimientoVoz();
+    }
+
+    // Enviar la alerta
+    enviarAlerta();
+
+    // Reiniciar voz después de 10 segundos
+    setTimeout(() => {
+        const cfg = JSON.parse(localStorage.getItem('sisdel_config') || '{}');
+        if (cfg.voz && typeof iniciarReconocimientoVoz === 'function') {
+            iniciarReconocimientoVoz();
+        }
+    }, 10000);
+}

@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>🚨 Botón de Pánico SISDEL</title>
     <meta name="theme-color" content="#0b0d17">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href="manifest.json">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=JetBrains+Mono:wght@400;700;900&display=swap" rel="stylesheet">
@@ -231,7 +234,7 @@
             <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>
         </svg>
         <span id="vecino-nombre-bar" style="font-size:1.15rem;font-weight:900;color:#ffffff;letter-spacing:.5px;">Vecino</span>
-        <button class="btn-editar-datos" onclick="editarDatos()">✏️ Editar</button>
+        <button class="btn-editar-datos" onclick="abrirConfiguracion()" style="background:rgba(77,166,255,.12);border:1px solid rgba(77,166,255,.3);color:#4da6ff;">⚙️ Configurar</button>
     </div>
 
     <div class="gps-bar" id="gps-bar">
@@ -263,6 +266,11 @@
             <div class="hold-bar" id="hold-bar"></div>
         </div>
         <p class="hint-panico" id="hint-panico">Mantén presionado 3 segundos para enviar alerta</p>
+
+        <!-- Indicador de voz activa -->
+        <div id="voz-indicador" style="display:none; margin-top:.8rem; padding:.5rem 1rem; background:rgba(0,214,143,.1); border:1px solid rgba(0,214,143,.3); border-radius:10px; text-align:center;">
+            <span style="font-size:.82rem; color:#00d68f; font-weight:700;">🎙️ Escuchando... di "<span id='voz-palabra-display'>AUXILIO</span>" para enviar alerta</span>
+        </div>
 
         <!-- ══ BOTONES WHATSAPP INDIVIDUALES ══ -->
         <div id="wa-botones-main" style="display:none; flex-direction:column; gap:.6rem; margin-top:1rem; width:100%; max-width:280px;"></div>
@@ -296,7 +304,333 @@
     </div>
 </div>
 
+
+<!-- ══ MODAL CONFIGURACIÓN ══════════════════════ -->
+<div id="modal-config" style="display:none; position:fixed; inset:0; background:rgba(10,13,30,.97); z-index:9998; overflow-y:auto; padding:1rem;">
+    <div style="max-width:500px; margin:0 auto;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+            <h2 style="color:#fff; font-size:1.2rem; margin:0;">⚙️ Configuración</h2>
+            <button onclick="cerrarConfiguracion()" style="background:rgba(255,59,59,.15); border:1px solid rgba(255,59,59,.4); color:#ff3b3b; border-radius:8px; padding:.35rem .8rem; font-size:.85rem; cursor:pointer;">✕ Cerrar</button>
+        </div>
+
+        <!-- GPS -->
+        <div style="background:#111325; border:1px solid #2a2d45; border-radius:12px; padding:.8rem 1rem; margin-bottom:.6rem;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <div style="font-weight:700; color:#fff; font-size:.85rem;">📍 Ubicación GPS</div>
+                    <div style="font-size:.7rem; color:#6b7294;">Comparte tu ubicación al enviar alerta</div>
+                </div>
+                <div id="cfg-gps-estado" style="padding:.2rem .6rem; border-radius:6px; font-size:.7rem; font-weight:700; background:rgba(255,165,0,.15); color:#ffa500; border:1px solid rgba(255,165,0,.3);">Verificando...</div>
+            </div>
+            <button onclick="activarGPS()" style="width:100%; margin-top:.5rem; padding:.4rem; background:rgba(0,214,143,.12); color:#00d68f; border:1px solid rgba(0,214,143,.3); border-radius:8px; font-size:.75rem; font-weight:700; cursor:pointer;">📍 Activar Ubicación</button>
+        </div>
+
+        <!-- VIBRACIÓN -->
+        <div style="background:#111325; border:1px solid #2a2d45; border-radius:12px; padding:.8rem 1rem; margin-bottom:.6rem;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <div style="font-weight:700; color:#fff; font-size:.85rem;">📳 Vibración Fuerte</div>
+                    <div style="font-size:.7rem; color:#6b7294;">Vibrar al enviar y confirmar alerta</div>
+                </div>
+                <label style="position:relative; display:inline-block; width:44px; height:24px;">
+                    <input type="checkbox" id="cfg-vibracion" onchange="guardarConfig()" checked
+                        style="opacity:0; width:0; height:0;">
+                    <span style="position:absolute; cursor:pointer; inset:0; background:#333; border-radius:24px; transition:.3s;"
+                        class="cfg-slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <!-- COMANDO DE VOZ -->
+        <div style="background:#111325; border:1px solid #2a2d45; border-radius:12px; padding:.8rem 1rem; margin-bottom:.6rem;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <div style="font-weight:700; color:#fff; font-size:.85rem;">🎙️ Comando de Voz</div>
+                    <div style="font-size:.7rem; color:#6b7294;">Enviar alerta diciendo una palabra clave</div>
+                </div>
+                <label style="position:relative; display:inline-block; width:44px; height:24px;">
+                    <input type="checkbox" id="cfg-voz" onchange="toggleVoz()"
+                        style="opacity:0; width:0; height:0;">
+                    <span style="position:absolute; cursor:pointer; inset:0; background:#333; border-radius:24px; transition:.3s;"
+                        class="cfg-slider"></span>
+                </label>
+            </div>
+            <div id="cfg-voz-extra" style="display:none; margin-top:.6rem; padding-top:.5rem; border-top:1px solid #2a2d45;">
+                <div style="font-size:.72rem; color:#6b7294; margin-bottom:.3rem;">🔑 Palabra clave de emergencia:</div>
+                <div style="display:flex; gap:.4rem; align-items:center;">
+                    <input type="text" id="cfg-palabra" value="AUXILIO" placeholder="Ej: AUXILIO, AYUDA, SOCORRO"
+                        style="flex:1; background:#0b0d17; border:1px solid #2a2d45; border-radius:8px; padding:.45rem .6rem; color:#fff; font-size:.9rem; font-weight:700; text-transform:uppercase; text-align:center;"
+                        oninput="this.value=this.value.toUpperCase()">
+                    <button onclick="probarPalabra()" style="background:rgba(0,214,143,.15); color:#00d68f; border:1px solid rgba(0,214,143,.3); border-radius:8px; padding:.45rem .7rem; font-size:.72rem; font-weight:700; cursor:pointer; white-space:nowrap;">🎤 Probar</button>
+                </div>
+                <div id="cfg-voz-estado" style="text-align:center; margin-top:.4rem; font-size:.7rem; color:#6b7294;"></div>
+                <p style="font-size:.62rem; color:#6b7294; margin-top:.4rem; text-align:center;">
+                    ⚠️ La app debe estar abierta en pantalla para que funcione el comando de voz
+                </p>
+            </div>
+        </div>
+
+        <!-- FAMILIARES -->
+        <div style="background:#111325; border:1px solid #2a2d45; border-radius:12px; padding:.8rem 1rem; margin-bottom:.6rem;">
+            <div style="font-weight:700; color:#fff; font-size:.85rem; margin-bottom:.4rem;">👨‍👩‍👧 Familiares que reciben la alerta</div>
+            <div id="cfg-familiares-lista" style="display:flex; flex-direction:column; gap:.3rem;">
+                <p style="font-size:.75rem; color:#6b7294;">Cargando...</p>
+            </div>
+            <button onclick="editarDatos()" style="width:100%; margin-top:.5rem; padding:.4rem; background:rgba(255,165,0,.12); color:#ffa500; border:1px solid rgba(255,165,0,.3); border-radius:8px; font-size:.75rem; font-weight:700; cursor:pointer;">✏️ Editar Datos y Familiares</button>
+        </div>
+
+        <!-- INSTALAR APP -->
+        <div id="cfg-instalar" style="display:none; background:#111325; border:1px solid #2a2d45; border-radius:12px; padding:.8rem 1rem; margin-bottom:.6rem;">
+            <div style="font-weight:700; color:#fff; font-size:.85rem;">📲 Instalar en tu celular</div>
+            <div style="font-size:.7rem; color:#6b7294; margin-bottom:.4rem;">Agrega la app a tu pantalla de inicio para acceso rápido</div>
+            <button id="btn-instalar-pwa" onclick="instalarPWA()" style="width:100%; padding:.5rem; background:linear-gradient(135deg,#4da6ff,#7c5cfc); color:#fff; border:none; border-radius:8px; font-size:.82rem; font-weight:700; cursor:pointer;">📲 Instalar App</button>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Toggle sliders */
+.cfg-slider::before {
+    content:""; position:absolute; height:18px; width:18px; left:3px; bottom:3px;
+    background:#fff; border-radius:50%; transition:.3s;
+}
+input:checked + .cfg-slider { background:#00d68f; }
+input:checked + .cfg-slider::before { transform:translateX(20px); }
+</style>
+
 <script src="js/vecino.js"></script>
+
+<script>
+// ══ PWA SERVICE WORKER ══
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
+
+// ══ PWA INSTALL PROMPT ══
+let _deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    _deferredPrompt = e;
+    const instalarDiv = document.getElementById('cfg-instalar');
+    if (instalarDiv) instalarDiv.style.display = 'block';
+});
+function instalarPWA() {
+    if (!_deferredPrompt) {
+        alert('Para instalar: toca ⋮ (menú) → "Agregar a pantalla de inicio"');
+        return;
+    }
+    _deferredPrompt.prompt();
+    _deferredPrompt.userChoice.then(() => { _deferredPrompt = null; });
+}
+
+// ══ CONFIGURACIÓN ══
+function cargarConfig() {
+    const cfg = JSON.parse(localStorage.getItem('sisdel_config') || '{}');
+    document.getElementById('cfg-vibracion').checked = cfg.vibracion !== false;
+    document.getElementById('cfg-voz').checked = cfg.voz === true;
+    document.getElementById('cfg-palabra').value = cfg.palabra || 'AUXILIO';
+    if (cfg.voz) {
+        document.getElementById('cfg-voz-extra').style.display = 'block';
+    }
+    return cfg;
+}
+
+function guardarConfig() {
+    const cfg = {
+        vibracion: document.getElementById('cfg-vibracion').checked,
+        voz: document.getElementById('cfg-voz').checked,
+        palabra: (document.getElementById('cfg-palabra').value || 'AUXILIO').toUpperCase()
+    };
+    localStorage.setItem('sisdel_config', JSON.stringify(cfg));
+    // Actualizar indicador de voz en pantalla principal
+    const ind = document.getElementById('voz-indicador');
+    const label = document.getElementById('voz-palabra-display');
+    if (ind) ind.style.display = cfg.voz ? 'block' : 'none';
+    if (label) label.textContent = cfg.palabra;
+    return cfg;
+}
+
+function abrirConfiguracion() {
+    cargarConfig();
+    verificarEstadoGPS();
+    cargarFamiliaresConfig();
+    document.getElementById('modal-config').style.display = 'block';
+}
+
+function cerrarConfiguracion() {
+    guardarConfig();
+    document.getElementById('modal-config').style.display = 'none';
+    // Reiniciar reconocimiento de voz si está activo
+    const cfg = JSON.parse(localStorage.getItem('sisdel_config') || '{}');
+    if (cfg.voz) iniciarReconocimientoVoz();
+}
+
+function verificarEstadoGPS() {
+    const el = document.getElementById('cfg-gps-estado');
+    if (!navigator.geolocation) {
+        el.textContent = '❌ No soportado';
+        el.style.color = '#ff3b3b';
+        return;
+    }
+    navigator.geolocation.getCurrentPosition(
+        () => { el.textContent = '✅ Activo'; el.style.color = '#00d68f'; el.style.background = 'rgba(0,214,143,.15)'; el.style.borderColor = 'rgba(0,214,143,.3)'; },
+        () => { el.textContent = '⚠️ Bloqueado'; el.style.color = '#ff3b3b'; el.style.background = 'rgba(255,59,59,.15)'; el.style.borderColor = 'rgba(255,59,59,.3)'; },
+        { timeout: 5000 }
+    );
+}
+
+function activarGPS() {
+    navigator.geolocation.getCurrentPosition(
+        (pos) => {
+            verificarEstadoGPS();
+            alert(`✅ GPS activado\nLatitud: ${pos.coords.latitude.toFixed(6)}\nLongitud: ${pos.coords.longitude.toFixed(6)}`);
+        },
+        (err) => { alert('❌ No se pudo activar GPS. Ve a Ajustes del navegador y permite la ubicación.'); }
+    );
+}
+
+function cargarFamiliaresConfig() {
+    const lista = document.getElementById('cfg-familiares-lista');
+    let found = false;
+    let html = '';
+    for (let i = 1; i <= 5; i++) {
+        const nombre = document.getElementById(`fam-nombre-${i}`)?.value;
+        const tel = document.getElementById(`fam-tel-${i}`)?.value;
+        if (nombre && tel) {
+            found = true;
+            html += `<div style="display:flex; justify-content:space-between; padding:.3rem .5rem; background:rgba(255,140,0,.06); border:1px solid rgba(255,140,0,.15); border-radius:6px;">
+                <span style="font-size:.78rem; color:#fff; font-weight:600;">👤 ${nombre}</span>
+                <span style="font-size:.78rem; color:#4da6ff; font-family:monospace;">📱 ${tel}</span>
+            </div>`;
+        }
+    }
+    lista.innerHTML = found ? html : '<p style="font-size:.75rem; color:#6b7294; text-align:center;">Sin familiares registrados. Toca "Editar Datos" para agregar.</p>';
+}
+
+// ══ COMANDO DE VOZ ══
+let _reconocimiento = null;
+let _vozActiva = false;
+
+function toggleVoz() {
+    const activo = document.getElementById('cfg-voz').checked;
+    document.getElementById('cfg-voz-extra').style.display = activo ? 'block' : 'none';
+    guardarConfig();
+    if (activo) {
+        iniciarReconocimientoVoz();
+    } else {
+        detenerReconocimientoVoz();
+    }
+}
+
+function probarPalabra() {
+    guardarConfig();
+    const palabra = document.getElementById('cfg-palabra').value;
+    const estado = document.getElementById('cfg-voz-estado');
+    estado.innerHTML = `<span style="color:#ffa500;">🎤 Di "${palabra}" ahora...</span>`;
+
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+        estado.innerHTML = '<span style="color:#ff3b3b;">❌ Tu navegador no soporta reconocimiento de voz. Usa Chrome.</span>';
+        return;
+    }
+
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const rec = new SR();
+    rec.lang = 'es-GT';
+    rec.continuous = false;
+    rec.interimResults = true;
+
+    rec.onresult = (e) => {
+        const texto = Array.from(e.results).map(r => r[0].transcript).join(' ').toUpperCase();
+        estado.innerHTML = `<span style="color:#4da6ff;">Escuché: "${texto}"</span>`;
+        if (texto.includes(palabra.toUpperCase())) {
+            estado.innerHTML = `<span style="color:#00d68f;">✅ ¡"${palabra}" detectado! La alerta se enviaría automáticamente.</span>`;
+            if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+        }
+    };
+    rec.onerror = () => { estado.innerHTML = '<span style="color:#ff3b3b;">Error. Verifica permisos de micrófono.</span>'; };
+    rec.onend = () => {
+        setTimeout(() => { if (estado.textContent.includes('Di "')) estado.textContent = ''; }, 3000);
+    };
+    rec.start();
+}
+
+function iniciarReconocimientoVoz() {
+    if (_vozActiva) return;
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) return;
+
+    const cfg = JSON.parse(localStorage.getItem('sisdel_config') || '{}');
+    if (!cfg.voz) return;
+
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    _reconocimiento = new SR();
+    _reconocimiento.lang = 'es-GT';
+    _reconocimiento.continuous = true;
+    _reconocimiento.interimResults = true;
+
+    _reconocimiento.onresult = (e) => {
+        const palabra = (cfg.palabra || 'AUXILIO').toUpperCase();
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+            const texto = e.results[i][0].transcript.toUpperCase();
+            if (texto.includes(palabra)) {
+                console.log('🚨 PALABRA CLAVE DETECTADA:', texto);
+                // Disparar alerta de pánico automáticamente
+                if (typeof dispararAlertaPorVoz === 'function') {
+                    dispararAlertaPorVoz();
+                }
+                return;
+            }
+        }
+    };
+
+    _reconocimiento.onend = () => {
+        // Reiniciar automáticamente si está activo
+        if (_vozActiva && cfg.voz) {
+            setTimeout(() => { try { _reconocimiento.start(); } catch {} }, 500);
+        }
+    };
+
+    _reconocimiento.onerror = (e) => {
+        if (e.error !== 'no-speech' && e.error !== 'aborted') {
+            console.log('Error reconocimiento:', e.error);
+        }
+    };
+
+    try {
+        _reconocimiento.start();
+        _vozActiva = true;
+        const ind = document.getElementById('voz-indicador');
+        if (ind) ind.style.display = 'block';
+    } catch {}
+}
+
+function detenerReconocimientoVoz() {
+    _vozActiva = false;
+    if (_reconocimiento) {
+        try { _reconocimiento.stop(); } catch {}
+        _reconocimiento = null;
+    }
+    const ind = document.getElementById('voz-indicador');
+    if (ind) ind.style.display = 'none';
+}
+
+// Inicializar al cargar
+document.addEventListener('DOMContentLoaded', () => {
+    const cfg = JSON.parse(localStorage.getItem('sisdel_config') || '{}');
+    if (cfg.voz) {
+        const ind = document.getElementById('voz-indicador');
+        const label = document.getElementById('voz-palabra-display');
+        if (ind) ind.style.display = 'block';
+        if (label) label.textContent = cfg.palabra || 'AUXILIO';
+        // Solo iniciar voz cuando estemos en la pantalla de pánico
+        const observer = new MutationObserver(() => {
+            const panicVisible = document.getElementById('paso-panico')?.style.display !== 'none';
+            if (panicVisible && !_vozActiva) iniciarReconocimientoVoz();
+        });
+        observer.observe(document.getElementById('paso-panico'), { attributes: true, attributeFilter: ['style'] });
+    }
+});
+</script>
+
 <!-- ══ MODAL LISTADO DE VECINOS ══════════════════════ -->
 <div id="modal-vecinos" style="display:none; position:fixed; inset:0; background:rgba(10,13,30,.97); z-index:9999; overflow-y:auto; padding:1.5rem;">
     <div style="max-width:900px; margin:0 auto;">
@@ -342,3 +676,4 @@
 
 </body>
 </html>
+
