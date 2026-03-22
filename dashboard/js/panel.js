@@ -236,7 +236,7 @@ function renderAlertas(alertas) {
         const vecNombre = (a.nombre_vecino || '').replace(/'/g,"\\'").replace(/"/g,"&quot;");
 
         return `<tr class="${rowCls}">
-            <td>${i+1}</td>
+            <td><span style="font-family:monospace; color:#4da6ff; font-weight:700; font-size:.75rem;">${a.numero_caso || (i+1)}</span></td>
             <td><span class="badge badge-${a.estatus}">${a.estatus.replace('_',' ')}</span></td>
             <td><strong>${a.nombre_vecino}</strong></td>
             <td>${a.telefono_vecino}</td>
@@ -284,7 +284,10 @@ async function verDet(id) {
 
     <!-- Asignación de Agente -->
     <div style="margin-top:1rem; padding:.8rem; background:rgba(255,165,0,.06); border:1px solid rgba(255,165,0,.2); border-radius:10px;">
-        <div class="det-label" style="color:#ffa500; font-weight:700; margin-bottom:.5rem;">👮 ASIGNACIÓN DE AGENTE</div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.5rem;">
+            <div class="det-label" style="color:#ffa500; font-weight:700;">👮 ASIGNACIÓN DE AGENTE</div>
+            <div style="font-family:monospace; font-size:.9rem; font-weight:900; color:#4da6ff; background:rgba(77,166,255,.1); padding:.2rem .6rem; border-radius:6px; border:1px solid rgba(77,166,255,.3);">📋 CASO ${a.numero_caso || '—'}</div>
+        </div>
         <div id="det-agente-asignado" style="display:none; padding:.5rem .7rem; background:rgba(0,214,143,.08); border:1px solid rgba(0,214,143,.25); border-radius:8px; margin-bottom:.5rem;">
         </div>
         <div style="position:relative;">

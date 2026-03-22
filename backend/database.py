@@ -181,6 +181,7 @@ def init_db():
                 id_emergencia        TEXT PRIMARY KEY,
                 id_institucion       TEXT NOT NULL REFERENCES instituciones(id_institucion),
                 id_vecino            TEXT,
+                numero_caso          TEXT DEFAULT '',
                 nombre_vecino        TEXT DEFAULT 'Desconocido',
                 telefono_vecino      TEXT DEFAULT '',
                 num_identificacion   TEXT DEFAULT '',
@@ -275,6 +276,7 @@ def init_db():
                 id_emergencia        TEXT PRIMARY KEY,
                 id_institucion       TEXT NOT NULL,
                 id_vecino            TEXT,
+                numero_caso          TEXT DEFAULT '',
                 nombre_vecino        TEXT DEFAULT 'Desconocido',
                 telefono_vecino      TEXT DEFAULT '',
                 num_identificacion   TEXT DEFAULT '',
@@ -665,10 +667,23 @@ class Database:
     # ── EMERGENCIAS ──────────────────────────────────────────
 
     def crear_emergencia(self, data: dict) -> dict:
+        # Generar número de caso secuencial
+        with get_conn() as conn:
+            # Obtener nombre de institución para el prefijo
+            inst = _fetchone(conn, _ph("SELECT nombre_institucion FROM instituciones WHERE id_institucion=?"), (data["id_institucion"],))
+            prefijo = ''.join(c for c in (inst["nombre_institucion"] if inst else "XXX").upper() if c.isalpha())[:3]
+            if len(prefijo) < 3:
+                prefijo = prefijo.ljust(3, 'X')
+            # Contar emergencias existentes para esta institución
+            cnt = _fetchone(conn, _ph("SELECT COUNT(*) as cnt FROM emergencias WHERE id_institucion=?"), (data["id_institucion"],))
+            siguiente = (cnt["cnt"] if cnt else 0) + 1
+            numero_caso = f"{prefijo}-{siguiente:03d}"
+
         e = {
             "id_emergencia":        str(uuid.uuid4()),
             "id_institucion":       data["id_institucion"],
             "id_vecino":            data.get("id_vecino"),
+            "numero_caso":          numero_caso,
             "nombre_vecino":        data.get("nombre_vecino","Desconocido"),
             "telefono_vecino":      data.get("telefono_vecino",""),
             "num_identificacion":   data.get("num_identificacion",""),
@@ -684,10 +699,10 @@ class Database:
         with get_conn() as conn:
             _execute(conn, _ph("""
                 INSERT INTO emergencias
-                (id_emergencia,id_institucion,id_vecino,nombre_vecino,telefono_vecino,num_identificacion,
+                (id_emergencia,id_institucion,id_vecino,numero_caso,nombre_vecino,telefono_vecino,num_identificacion,
                  direccion_vecino,gps_latitud,gps_longitud,direccion_aproximada,estatus,notas_operador,fecha_creacion,fecha_atencion)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-            """), (e["id_emergencia"], e["id_institucion"], e["id_vecino"], e["nombre_vecino"],
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            """), (e["id_emergencia"], e["id_institucion"], e["id_vecino"], e["numero_caso"], e["nombre_vecino"],
                    e["telefono_vecino"], e["num_identificacion"], e["direccion_vecino"],
                    e["gps_latitud"], e["gps_longitud"], e["direccion_aproximada"],
                    e["estatus"], e["notas_operador"], e["fecha_creacion"], e["fecha_atencion"]))

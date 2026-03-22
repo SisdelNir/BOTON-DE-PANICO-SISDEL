@@ -138,6 +138,7 @@ class EmergenciaResponse(BaseModel):
     id_emergencia:     str
     id_institucion:    str
     id_vecino:         Optional[str]
+    numero_caso:       str = ""
     nombre_vecino:     str
     telefono_vecino:   str
     num_identificacion:str
