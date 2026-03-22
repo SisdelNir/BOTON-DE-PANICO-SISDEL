@@ -256,6 +256,9 @@ function renderAlertas(alertas) {
 }
 
 // ── DETALLE ───────────────────────────────────────
+let _detTimerInterval = null;
+let _agentesAsignados = [];  // lista de agentes asignados a la alerta actual
+
 async function verDet(id) {
     try {
         const res = await fetch(`${API}/api/emergencias/${INST.id_institucion}`);
@@ -265,6 +268,9 @@ async function verDet(id) {
     if (!alertaActual) return;
     const a = alertaActual;
     const mUrl = a.gps_latitud ? `https://maps.google.com/?q=${a.gps_latitud},${a.gps_longitud}` : null;
+
+    // Limpiar agentes asignados al abrir nueva alerta
+    _agentesAsignados = [];
 
     document.getElementById('det-body').innerHTML = `
     <div class="det-grid">
@@ -282,14 +288,23 @@ async function verDet(id) {
         ${a.notas_operador?`<div class="det-item"><div class="det-label">Notas</div><div class="det-val">${a.notas_operador}</div></div>`:''}
     </div>
 
+    <!-- Reloj de Tiempo de Respuesta -->
+    <div style="margin-top:1rem; padding:.6rem 1rem; background:rgba(255,59,59,.06); border:1px solid rgba(255,59,59,.25); border-radius:10px; display:flex; justify-content:space-between; align-items:center;">
+        <div>
+            <div style="font-size:.7rem; color:#ff3b3b; text-transform:uppercase; font-weight:700; letter-spacing:.5px;">⏱️ TIEMPO DE RESPUESTA</div>
+        </div>
+        <div id="det-timer" style="font-family:monospace; font-size:1.4rem; font-weight:900; color:#ff3b3b; letter-spacing:2px;">00:00:00</div>
+    </div>
+
     <!-- Asignación de Agente -->
     <div style="margin-top:1rem; padding:.8rem; background:rgba(255,165,0,.06); border:1px solid rgba(255,165,0,.2); border-radius:10px;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.5rem;">
             <div class="det-label" style="color:#ffa500; font-weight:700;">👮 ASIGNACIÓN DE AGENTE</div>
             <div style="font-family:monospace; font-size:.9rem; font-weight:900; color:#4da6ff; background:rgba(77,166,255,.1); padding:.2rem .6rem; border-radius:6px; border:1px solid rgba(77,166,255,.3);">📋 CASO ${a.numero_caso || '—'}</div>
         </div>
-        <div id="det-agente-asignado" style="display:none; padding:.5rem .7rem; background:rgba(0,214,143,.08); border:1px solid rgba(0,214,143,.25); border-radius:8px; margin-bottom:.5rem;">
-        </div>
+        <!-- Lista de agentes asignados -->
+        <div id="det-agentes-lista" style="margin-bottom:.5rem;"></div>
+        <!-- Buscador -->
         <div style="position:relative;">
             <div style="display:flex; background:#0b0d17; border:1px solid #2a2d45; border-radius:8px; padding:.35rem .5rem; align-items:center; gap:.3rem;">
                 <span style="font-size:.75rem;">🔍</span>
@@ -302,11 +317,63 @@ async function verDet(id) {
         </div>
     </div>`;
 
+    // Iniciar reloj de respuesta
+    iniciarTimerRespuesta(a.fecha_creacion);
+
     document.getElementById('modal-det').style.display='flex';
     if (mapaL && a.gps_latitud) { mapaL.setView([a.gps_latitud,a.gps_longitud],16); if(marcadores[id]) marcadores[id].openPopup(); }
 }
+
+function iniciarTimerRespuesta(fechaCreacion) {
+    if (_detTimerInterval) clearInterval(_detTimerInterval);
+    const inicio = new Date(fechaCreacion + 'Z').getTime();
+
+    const tick = () => {
+        const el = document.getElementById('det-timer');
+        if (!el) { clearInterval(_detTimerInterval); return; }
+        const diff = Date.now() - inicio;
+        const h = Math.floor(diff / 3600000);
+        const m = Math.floor((diff % 3600000) / 60000);
+        const s = Math.floor((diff % 60000) / 1000);
+        el.textContent = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+
+        // Color según tiempo: verde <5min, amarillo 5-15min, rojo >15min
+        const mins = diff / 60000;
+        if (mins < 5) { el.style.color = '#00d68f'; }
+        else if (mins < 15) { el.style.color = '#ffa500'; }
+        else { el.style.color = '#ff3b3b'; }
+    };
+    tick();
+    _detTimerInterval = setInterval(tick, 1000);
+}
+
+function renderAgentesAsignados() {
+    const el = document.getElementById('det-agentes-lista');
+    if (!el) return;
+    if (!_agentesAsignados.length) {
+        el.innerHTML = '<div style="padding:.4rem; color:#6b7294; font-size:.75rem; text-align:center;">Sin agentes asignados aún</div>';
+        return;
+    }
+    el.innerHTML = _agentesAsignados.map((ag, i) => `
+        <div style="padding:.4rem .6rem; background:rgba(0,214,143,.08); border:1px solid rgba(0,214,143,.2); border-radius:8px; margin-bottom:.4rem; display:flex; justify-content:space-between; align-items:center;">
+            <div style="display:flex; align-items:center; gap:.4rem;">
+                <span style="background:#00d68f; color:#0b0d17; width:20px; height:20px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:.65rem; font-weight:900;">${i+1}</span>
+                <div>
+                    <div style="font-weight:700; color:#00d68f; font-size:.8rem;">${ag.nombre}</div>
+                    <div style="font-size:.65rem; color:#6b7294;">Doc: ${ag.doc} | ${ag.puesto}</div>
+                </div>
+            </div>
+            <div style="text-align:right;">
+                <div style="font-family:monospace; color:#ffa500; font-weight:700; font-size:.78rem;">${ag.codigo}</div>
+                <div style="font-size:.65rem; color:#6b7294;">📱 ${ag.telefono}</div>
+            </div>
+        </div>
+    `).join('');
+}
+
 function closeDet(e) {
     if (e && e.target!==document.getElementById('modal-det')) return;
+    if (_detTimerInterval) { clearInterval(_detTimerInterval); _detTimerInterval = null; }
     document.getElementById('modal-det').style.display='none'; alertaActual=null;
 }
 async function cambiarEstatus(estatus) {
@@ -702,21 +769,10 @@ function asignarAgente(nombre, telefono, doc, puesto, codigo) {
     if (resultados) resultados.style.display = 'none';
     if (input) input.value = '';
 
-    // Mostrar agente asignado
-    const box = document.getElementById('det-agente-asignado');
-    if (box) {
-        box.style.display = 'block';
-        box.innerHTML = `
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-                <div>
-                    <div style="font-weight:700; color:#00d68f; font-size:.85rem;">✅ ${nombre}</div>
-                    <div style="font-size:.7rem; color:#6b7294;">Doc: ${doc} | ${puesto}</div>
-                </div>
-                <div style="text-align:right;">
-                    <div style="font-family:monospace; color:#ffa500; font-weight:700;">${codigo}</div>
-                    <div style="font-size:.68rem; color:#6b7294;">📱 ${telefono}</div>
-                </div>
-            </div>
-        `;
-    }
+    // Evitar duplicados
+    if (_agentesAsignados.some(a => a.doc === doc)) return;
+
+    // Agregar a la lista
+    _agentesAsignados.push({ nombre, telefono, doc, puesto, codigo });
+    renderAgentesAsignados();
 }
