@@ -524,17 +524,38 @@ function renderHistorial(lista) {
             day: '2-digit', month: '2-digit', year: 'numeric',
             hour: '2-digit', minute: '2-digit', hour12: false, timeZone: tz
         });
-        const gps = a.gps_latitud ? `${a.gps_latitud.toFixed(4)},${a.gps_longitud.toFixed(4)}` : '—';
+
+        // Calcular tiempo de respuesta
+        let tiempoResp = '—';
+        let tiempoColor = '#6b7294';
+        if (a.fecha_atencion && a.fecha_creacion) {
+            const inicio = new Date(a.fecha_creacion + 'Z').getTime();
+            const fin = new Date(a.fecha_atencion + 'Z').getTime();
+            const diff = fin - inicio;
+            if (diff > 0) {
+                const h = Math.floor(diff / 3600000);
+                const m = Math.floor((diff % 3600000) / 60000);
+                const s = Math.floor((diff % 60000) / 1000);
+                tiempoResp = h > 0 ? `${h}h ${m}m ${s}s` : m > 0 ? `${m}m ${s}s` : `${s}s`;
+                const mins = diff / 60000;
+                tiempoColor = mins < 5 ? '#00d68f' : mins < 15 ? '#ffa500' : '#ff3b3b';
+            }
+        }
 
         return `<tr style="border-bottom:1px solid #1a1f3e; ${i % 2 === 0 ? 'background:rgba(30,35,70,.3)' : ''}">
-            <td style="padding:.5rem .7rem; color:#4da6ff; font-weight:700;">${i + 1}</td>
+            <td style="padding:.5rem .7rem;"><span style="font-family:monospace; color:#4da6ff; font-weight:700; font-size:.72rem;">${a.numero_caso || (i + 1)}</span></td>
             <td style="padding:.5rem .7rem;"><span style="${badgeColor} padding:.2rem .5rem; border-radius:6px; font-size:.7rem; font-weight:700;">${a.estatus.replace('_', ' ')}</span></td>
             <td style="padding:.5rem .7rem; font-weight:600;">${a.nombre_vecino}</td>
             <td style="padding:.5rem .7rem;">${a.telefono_vecino}</td>
             <td style="padding:.5rem .7rem; font-family:monospace; color:#7c5cfc;">${a.num_identificacion}</td>
-            <td style="padding:.5rem .7rem; color:#6b7294;">${a.direccion_vecino || a.direccion_aproximada || '—'}</td>
-            <td style="padding:.5rem .7rem; font-family:monospace; font-size:.72rem;">${gps}</td>
             <td style="padding:.5rem .7rem; font-size:.72rem;">${fechaStr}</td>
+            <td style="padding:.5rem .7rem; font-family:monospace; font-weight:700; color:${tiempoColor}; font-size:.78rem;">${tiempoResp}</td>
+            <td style="padding:.5rem .7rem;">
+                <button onclick="cerrarHistorial(); setTimeout(()=>verDet('${a.id_emergencia}'),200);"
+                    style="background:rgba(77,166,255,.12); border:1px solid rgba(77,166,255,.3); color:#4da6ff; padding:.2rem .5rem; border-radius:6px; font-size:.68rem; font-weight:700; cursor:pointer;">
+                    👁️ Ver
+                </button>
+            </td>
         </tr>`;
     }).join('');
 }
