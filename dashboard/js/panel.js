@@ -217,7 +217,9 @@ function setFiltro(f,btn) {
 }
 
 function renderAlertas(alertas) {
-    let lista = filtro==='todas' ? alertas : alertas.filter(a=>a.estatus===filtro);
+    // Filtrar: alertas ATENDIDA y FALSA_ALARMA van al historial, no a la tabla principal
+    const activas = alertas.filter(a => a.estatus === 'ACTIVA' || a.estatus === 'EN_CAMINO');
+    let lista = filtro === 'todas' ? activas : activas.filter(a => a.estatus === filtro);
     const tbody = document.getElementById('alertas-tbody');
 
     if (!lista.length) {
@@ -380,6 +382,75 @@ document.addEventListener('click', (e) => {
         container.style.display = 'none';
     }
 });
+
+// ── HISTORIAL ─────────────────────────────────────
+let _historialAlertas = [];
+
+async function abrirHistorial() {
+    document.getElementById('historial-busqueda').value = '';
+    document.getElementById('historial-tbody').innerHTML = '<tr><td colspan="8" style="text-align:center; padding:2rem; color:#6b7294;">Cargando...</td></tr>';
+    document.getElementById('modal-historial').style.display = 'flex';
+
+    try {
+        const res = await fetch(`${API}/api/emergencias/${INST.id_institucion}`);
+        const todas = await res.json();
+        _historialAlertas = todas.filter(a => a.estatus === 'ATENDIDA' || a.estatus === 'FALSA_ALARMA');
+        renderHistorial(_historialAlertas);
+    } catch {
+        document.getElementById('historial-tbody').innerHTML = '<tr><td colspan="8" style="text-align:center; color:#ff3b3b; padding:1rem;">Error al cargar historial</td></tr>';
+    }
+}
+
+function cerrarHistorial(e) {
+    if (e && e.target !== document.getElementById('modal-historial')) return;
+    document.getElementById('modal-historial').style.display = 'none';
+}
+
+function filtrarHistorial(texto) {
+    texto = texto.trim().toLowerCase();
+    if (texto.length < 2) {
+        renderHistorial(_historialAlertas);
+        return;
+    }
+    const filtrados = _historialAlertas.filter(a => {
+        return (a.nombre_vecino || '').toLowerCase().includes(texto)
+            || (a.telefono_vecino || '').toLowerCase().includes(texto)
+            || (a.num_identificacion || '').toLowerCase().includes(texto);
+    });
+    renderHistorial(filtrados);
+}
+
+function renderHistorial(lista) {
+    const tbody = document.getElementById('historial-tbody');
+    const countEl = document.getElementById('historial-count');
+    if (countEl) countEl.textContent = `${lista.length} registro${lista.length !== 1 ? 's' : ''}`;
+
+    if (!lista.length) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:2rem; color:#6b7294;">No se encontraron alertas</td></tr>';
+        return;
+    }
+
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    tbody.innerHTML = lista.map((a, i) => {
+        const badgeColor = a.estatus === 'ATENDIDA' ? 'background:rgba(0,214,143,.15);color:#00d68f;border:1px solid rgba(0,214,143,.3);' : 'background:rgba(255,59,59,.15);color:#ff3b3b;border:1px solid rgba(255,59,59,.3);';
+        const fechaStr = new Date(a.fecha_creacion + 'Z').toLocaleString([], {
+            day: '2-digit', month: '2-digit', year: 'numeric',
+            hour: '2-digit', minute: '2-digit', hour12: false, timeZone: tz
+        });
+        const gps = a.gps_latitud ? `${a.gps_latitud.toFixed(4)},${a.gps_longitud.toFixed(4)}` : '—';
+
+        return `<tr style="border-bottom:1px solid #1a1f3e; ${i % 2 === 0 ? 'background:rgba(30,35,70,.3)' : ''}">
+            <td style="padding:.5rem .7rem; color:#4da6ff; font-weight:700;">${i + 1}</td>
+            <td style="padding:.5rem .7rem;"><span style="${badgeColor} padding:.2rem .5rem; border-radius:6px; font-size:.7rem; font-weight:700;">${a.estatus.replace('_', ' ')}</span></td>
+            <td style="padding:.5rem .7rem; font-weight:600;">${a.nombre_vecino}</td>
+            <td style="padding:.5rem .7rem;">${a.telefono_vecino}</td>
+            <td style="padding:.5rem .7rem; font-family:monospace; color:#7c5cfc;">${a.num_identificacion}</td>
+            <td style="padding:.5rem .7rem; color:#6b7294;">${a.direccion_vecino || a.direccion_aproximada || '—'}</td>
+            <td style="padding:.5rem .7rem; font-family:monospace; font-size:.72rem;">${gps}</td>
+            <td style="padding:.5rem .7rem; font-size:.72rem;">${fechaStr}</td>
+        </tr>`;
+    }).join('');
+}
 
 // ── CLAVES ────────────────────────────────────────
 function abrirClaves() {

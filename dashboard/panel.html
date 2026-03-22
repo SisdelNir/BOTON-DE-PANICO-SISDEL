@@ -44,6 +44,7 @@
             </div>
             <button class="btn-sm-icon" style="background:rgba(77,166,255,.12);border-color:rgba(77,166,255,.35);color:#4da6ff;" onclick="abrirMapa()">🗺️ Mapa Central</button>
             <button class="btn-sm-icon" style="background:rgba(0,214,143,.12);border-color:rgba(0,214,143,.35);color:#00d68f;" onclick="abrirRegistroVecino()">📋 Registrar Vecino</button>
+            <button class="btn-sm-icon" style="background:rgba(124,92,252,.12);border-color:rgba(124,92,252,.35);color:#7c5cfc;" onclick="abrirHistorial()">📜 Historial</button>
         </div>
         <!-- Salir: esquina superior derecha -->
         <button class="btn-sm-icon btn-sm-red" onclick="logout()" style="position:fixed; top:8px; right:12px; z-index:9999; font-size:.75rem; padding:.3rem .8rem;">Salir</button>
@@ -60,7 +61,6 @@
                     <button class="ftab active" onclick="setFiltro('todas',this)">Todas</button>
                     <button class="ftab" onclick="setFiltro('ACTIVA',this)">Activas</button>
                     <button class="ftab" onclick="setFiltro('EN_CAMINO',this)">En Camino</button>
-                    <button class="ftab" onclick="setFiltro('ATENDIDA',this)">Atendidas</button>
                 </div>
             </div>
             <div class="tbl-wrap">
@@ -157,6 +157,36 @@
         <div class="modal-hdr"><h3>💬 Avisar a Familiares</h3><button class="modal-close" onclick="cerrarAvisar()">✕</button></div>
         <div class="modal-body" id="avisar-body" style="display:flex; flex-direction:column; gap:.5rem;">
             <!-- Buttons dynamically inserted here -->
+        </div>
+    </div>
+</div>
+
+<!-- MODAL HISTORIAL -->
+<div class="modal-overlay" id="modal-historial" style="display:none;" onclick="cerrarHistorial(event)">
+    <div class="modal-box" style="width:95%; max-width:1100px; max-height:90vh; display:flex; flex-direction:column;" onclick="event.stopPropagation()">
+        <div class="modal-hdr">
+            <h3>📜 Historial de Alertas Atendidas</h3>
+            <button class="modal-close" onclick="cerrarHistorial()">✕</button>
+        </div>
+        <div style="padding:.75rem 1.5rem; border-bottom:1px solid #1a1f3e; display:flex; gap:.5rem; align-items:center;">
+            <div style="display:flex; flex:1; background:#0b0d17; border:1px solid #2a2d45; border-radius:8px; padding:.4rem .6rem; align-items:center; gap:.4rem;">
+                <span style="font-size:.8rem;">🔍</span>
+                <input type="text" id="historial-busqueda" placeholder="Buscar por nombre, teléfono o documento..."
+                       oninput="filtrarHistorial(this.value)"
+                       style="flex:1; background:transparent; border:none; color:#fff; font-size:.82rem; outline:none;">
+            </div>
+            <span id="historial-count" style="font-size:.75rem; color:#6b7294; white-space:nowrap;"></span>
+        </div>
+        <div class="modal-body" style="flex:1; overflow-y:auto; padding:0;">
+            <table class="tbl" style="font-size:.8rem;">
+                <thead><tr>
+                    <th>#</th><th>Estado</th><th>Vecino</th><th>Teléfono</th>
+                    <th>Identificación</th><th>Dirección</th><th>GPS</th><th>Fecha / Hora</th>
+                </tr></thead>
+                <tbody id="historial-tbody">
+                    <tr><td colspan="8" style="text-align:center; padding:2rem; color:#6b7294;">Cargando...</td></tr>
+                </tbody>
+            </table>
         </div>
     </div>
 </div>
