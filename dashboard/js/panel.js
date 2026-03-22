@@ -258,6 +258,7 @@ function renderAlertas(alertas) {
 // ── DETALLE ───────────────────────────────────────
 let _detTimerInterval = null;
 let _agentesAsignados = [];  // lista de agentes asignados a la alerta actual
+let _slotsAsignados = {};    // {1: {doc, nombre, ...}, 2: {...}, ...}
 
 async function verDet(id) {
     try {
@@ -271,6 +272,7 @@ async function verDet(id) {
 
     // Limpiar agentes asignados al abrir nueva alerta
     _agentesAsignados = [];
+    _slotsAsignados = {};
 
     document.getElementById('det-body').innerHTML = `
     <div class="det-grid">
@@ -382,6 +384,21 @@ function closeDet(e) {
 async function cambiarEstatus(estatus) {
     if (!alertaActual) return;
     try {
+        // Guardar asignaciones de agentes pendientes
+        for (const slot of Object.keys(_slotsAsignados)) {
+            const ag = _slotsAsignados[slot];
+            await fetch(`${API}/api/agentes/asignar`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id_emergencia: alertaActual.id_emergencia,
+                    id_institucion: INST.id_institucion,
+                    num_identificacion: ag.doc,
+                    slot: parseInt(slot)
+                })
+            });
+        }
+        // Cambiar estatus
         await fetch(`${API}/api/emergencias/${alertaActual.id_emergencia}/estatus`,{
             method:'PATCH', headers:{'Content-Type':'application/json'},
             body: JSON.stringify({estatus})
@@ -791,6 +808,9 @@ async function asignarEnSlot(slot, nombre, telefono, doc, puesto, codigo) {
     if (container) container.style.display = 'none';
     if (input) input.style.display = 'none';
 
+    // Guardar en memoria para persistir al cambiar estatus
+    _slotsAsignados[slot] = { nombre, telefono, doc, puesto, codigo };
+
     // Mostrar info del agente en el slot
     const info = document.getElementById(`slot-${slot}-info`);
     const nombreEl = document.getElementById(`slot-${slot}-nombre`);
@@ -805,7 +825,7 @@ async function asignarEnSlot(slot, nombre, telefono, doc, puesto, codigo) {
     const slotDiv = document.getElementById(`slot-${slot}`);
     if (slotDiv) slotDiv.style.borderColor = 'rgba(0,214,143,.4)';
 
-    // Persistir en backend
+    // Persistir en backend inmediatamente también
     if (!alertaActual) return;
     try {
         await fetch(`${API}/api/agentes/asignar`, {
