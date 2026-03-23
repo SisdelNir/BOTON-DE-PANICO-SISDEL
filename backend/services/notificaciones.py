@@ -7,7 +7,7 @@ load_dotenv()
 # Configuración de Twilio desde .env
 TWILIO_SID = os.getenv("TWILIO_ACCOUNT_SID")
 TWILIO_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
-TWILIO_FROM = os.getenv("TWILIO_WHATSAPP_NUMBER")
+TWILIO_FROM = os.getenv("TWILIO_WHATSAPP_NUMBER", "whatsapp:+14155238886")
 TEMPLATE_NAME = os.getenv("TWILIO_TEMPLATE_NAME", "alerta_panico")
 
 client = None
