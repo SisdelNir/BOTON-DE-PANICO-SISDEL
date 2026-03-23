@@ -679,6 +679,21 @@ async function enviarAlerta() {
 
     if (navigator.vibrate) navigator.vibrate([200,100,200,100,500]);
 
+    // 🔊 Reproducir audio de alerta pregrabado (si existe)
+    try {
+        const cfg = JSON.parse(localStorage.getItem('sisdel_config') || '{}');
+        if (cfg.audioGrabado) {
+            const audioAlerta = new Audio(cfg.audioGrabado);
+            audioAlerta.volume = 1.0;
+            let repeticiones = 0;
+            audioAlerta.onended = () => {
+                repeticiones++;
+                if (repeticiones < 3) audioAlerta.play().catch(() => {});
+            };
+            audioAlerta.play().catch(err => console.warn('No se pudo reproducir audio:', err));
+        }
+    } catch (e) { console.warn('Error audio alerta:', e); }
+
     // Mostrar overlay con contador
     document.getElementById('env-alerta-num').textContent = `Alerta #${_alertaCount} de 10`;
     document.getElementById('env-coords').textContent =
