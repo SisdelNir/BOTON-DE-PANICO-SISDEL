@@ -341,6 +341,25 @@
             </div>
         </div>
 
+        <!-- AGITAR PARA ALERTA -->
+        <div style="background:#111325; border:1px solid #2a2d45; border-radius:12px; padding:.8rem 1rem; margin-bottom:.6rem;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <div style="font-weight:700; color:#fff; font-size:.85rem;">📱 Agitar para Alertar</div>
+                    <div style="font-size:.7rem; color:#6b7294;">Agita el celular fuerte 3 veces para enviar alerta</div>
+                </div>
+                <label style="position:relative; display:inline-block; width:44px; height:24px;">
+                    <input type="checkbox" id="cfg-agitar" onchange="guardarConfig(); toggleShakeDetection();"
+                        style="opacity:0; width:0; height:0;">
+                    <span style="position:absolute; cursor:pointer; inset:0; background:#333; border-radius:24px; transition:.3s;"
+                        class="cfg-slider"></span>
+                </label>
+            </div>
+            <p style="font-size:.62rem; color:#6b7294; margin-top:.4rem; text-align:center;">
+                ⚠️ Funciona solo con la app abierta. Agita fuerte el teléfono 3 veces seguidas para disparar la alerta.
+            </p>
+        </div>
+
         <!-- COMANDO DE VOZ -->
         <div style="background:#111325; border:1px solid #2a2d45; border-radius:12px; padding:.8rem 1rem; margin-bottom:.6rem;">
             <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -445,6 +464,7 @@ function cargarConfig() {
     const cfg = JSON.parse(localStorage.getItem('sisdel_config') || '{}');
     document.getElementById('cfg-vibracion').checked = cfg.vibracion !== false;
     document.getElementById('cfg-voz').checked = cfg.voz === true;
+    document.getElementById('cfg-agitar').checked = cfg.agitar === true;
     if (cfg.voz) {
         document.getElementById('cfg-voz-extra').style.display = 'block';
     }
@@ -461,6 +481,7 @@ function guardarConfig() {
     const cfg = {
         vibracion: document.getElementById('cfg-vibracion').checked,
         voz: document.getElementById('cfg-voz').checked,
+        agitar: document.getElementById('cfg-agitar').checked,
         audioGrabado: cfgActual.audioGrabado || null
     };
     localStorage.setItem('sisdel_config', JSON.stringify(cfg));
@@ -480,6 +501,7 @@ function cerrarConfiguracion() {
     document.getElementById('modal-config').style.display = 'none';
     const cfg = JSON.parse(localStorage.getItem('sisdel_config') || '{}');
     if (cfg.voz) iniciarEscuchaVoz();
+    toggleShakeDetection();
 }
 
 function verificarEstadoGPS() {
@@ -720,8 +742,73 @@ function detenerEscuchaVoz() {
     if (ind) ind.style.display = 'none';
 }
 
+// ══ AGITAR PARA ALERTAR (SHAKE DETECTION) ══
+let _shakeListening = false;
+let _shakeTimestamps = [];
+const SHAKE_THRESHOLD = 25;       // fuerza mínima (m/s²)
+const SHAKE_COUNT     = 3;        // agitaciones requeridas
+const SHAKE_WINDOW    = 2000;     // ventana en ms
+const SHAKE_COOLDOWN  = 10000;    // pausa entre alertas (ms)
+let _lastShakeAlert   = 0;
+
+function _handleMotion(e) {
+    const acc = e.accelerationIncludingGravity || e.acceleration;
+    if (!acc) return;
+    const fuerza = Math.sqrt(acc.x * acc.x + acc.y * acc.y + acc.z * acc.z);
+    if (fuerza > SHAKE_THRESHOLD) {
+        const now = Date.now();
+        _shakeTimestamps.push(now);
+        // Limpiar agitaciones viejas
+        _shakeTimestamps = _shakeTimestamps.filter(t => now - t < SHAKE_WINDOW);
+        if (_shakeTimestamps.length >= SHAKE_COUNT) {
+            _shakeTimestamps = [];
+            // Cooldown
+            if (now - _lastShakeAlert < SHAKE_COOLDOWN) return;
+            _lastShakeAlert = now;
+            // Solo disparar si estamos en la pantalla de pánico
+            const panicVisible = document.getElementById('paso-panico')?.style.display !== 'none';
+            if (panicVisible && typeof enviarAlerta === 'function') {
+                if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+                console.log('🚨 Shake detected! Enviando alerta...');
+                enviarAlerta();
+            }
+        }
+    }
+}
+
+function toggleShakeDetection() {
+    const cfg = JSON.parse(localStorage.getItem('sisdel_config') || '{}');
+    if (cfg.agitar && !_shakeListening) {
+        // iOS 13+ requiere permiso explícito
+        if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+            DeviceMotionEvent.requestPermission()
+                .then(state => {
+                    if (state === 'granted') {
+                        window.addEventListener('devicemotion', _handleMotion);
+                        _shakeListening = true;
+                    } else {
+                        alert('⚠️ Permiso de movimiento denegado. Actívalo en Ajustes → Safari → Movimiento y orientación.');
+                    }
+                })
+                .catch(() => {
+                    alert('⚠️ No se pudo solicitar permiso de movimiento.');
+                });
+        } else if ('DeviceMotionEvent' in window) {
+            window.addEventListener('devicemotion', _handleMotion);
+            _shakeListening = true;
+        }
+    } else if (!cfg.agitar && _shakeListening) {
+        window.removeEventListener('devicemotion', _handleMotion);
+        _shakeListening = false;
+    }
+}
+
 // Inicializar al cargar
 document.addEventListener('DOMContentLoaded', () => {
+    // Auto-activar shake si estaba habilitado
+    const cfgInit = JSON.parse(localStorage.getItem('sisdel_config') || '{}');
+    if (cfgInit.agitar) toggleShakeDetection();
+
     const cfg = JSON.parse(localStorage.getItem('sisdel_config') || '{}');
     if (cfg.voz) {
         const ind = document.getElementById('voz-indicador');
