@@ -36,15 +36,18 @@ def enviar_alerta_whatsapp(destinatario: str, nombre_vecino: str, ubicacion: str
         print(f"Plantilla: {TEMPLATE_NAME}")
         print(f"Variables: 1={nombre_vecino}, 2={ubicacion}")
 
-        # Enviando el mensaje
-        # Nota: Twilio Content API usa ContentSid, pero para plantillas tradicionales
-        # se puede usar body si Twilio hace el match automático (aunque lo ideal es usar variables)
+        # Enviar el cuerpo exacto de la plantilla aprobada por Meta
+        # Twilio matchea automáticamente el body con la plantilla si coincide
+        body_plantilla = (
+            f"🚨 ALERTA DE PÁNICO: Sisdel Internacional.\n"
+            f"El usuario {nombre_vecino} ha activado el Botón de Emergencia.\n"
+            f"📍 Ubicación aproximada: {ubicacion}\n"
+            f"Acude de inmediato o da aviso."
+        )
+
         message = client.messages.create(
             from_=TWILIO_FROM,
-            body=f"Alerta de pánico para {nombre_vecino}", # El body es ignorado si Twilio detecta la plantilla
-            # Para usar plantillas oficiales con variables, a veces se requiere el ContentSid
-            # pero intentaremos la forma estándar que Twilio recomienda para templates de Meta
-            content_variables=f'{{"1":"{nombre_vecino}", "2":"{ubicacion}"}}',
+            body=body_plantilla,
             to=target
         )
         print(f"✅ WhatsApp enviado con éxito. SID: {message.sid}")
