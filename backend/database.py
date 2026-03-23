@@ -173,7 +173,9 @@ def init_db():
                 fam_nombre_4       TEXT DEFAULT '',
                 fam_tel_4          TEXT DEFAULT '',
                 fam_nombre_5       TEXT DEFAULT '',
+                fam_nombre_5       TEXT DEFAULT '',
                 fam_tel_5          TEXT DEFAULT '',
+                voz_alerta         TEXT DEFAULT '',
                 UNIQUE (id_institucion, num_identificacion)
             );
 
@@ -267,7 +269,9 @@ def init_db():
                 fam_nombre_4       TEXT DEFAULT '',
                 fam_tel_4          TEXT DEFAULT '',
                 fam_nombre_5       TEXT DEFAULT '',
+                fam_nombre_5       TEXT DEFAULT '',
                 fam_tel_5          TEXT DEFAULT '',
+                voz_alerta         TEXT DEFAULT '',
                 FOREIGN KEY (id_institucion) REFERENCES instituciones(id_institucion),
                 UNIQUE (id_institucion, num_identificacion)
             );
@@ -329,6 +333,9 @@ def init_db():
     # Migración: agregar numero_caso y tabla agentes si no existen
     _migrar_emergencias_y_agentes()
 
+    # Migración: agregar voz_alerta si no existe
+    _migrar_columna_voz_alerta()
+
     # Restaurar instituciones desde env var
     _seed_from_env()
 
@@ -351,6 +358,21 @@ def _migrar_columnas_familiares():
                         _execute(conn, f"ALTER TABLE vecinos ADD COLUMN {col} TEXT DEFAULT ''")
             except Exception:
                 pass  # columna ya existe
+
+def _migrar_columna_voz_alerta():
+    """Agrega columna voz_alerta a tabla vecinos si no existe."""
+    col = 'voz_alerta'
+    with get_conn() as conn:
+        try:
+            if USE_PG:
+                _execute(conn, f"ALTER TABLE vecinos ADD COLUMN IF NOT EXISTS {col} TEXT DEFAULT ''")
+            else:
+                existing = _fetchall(conn, "PRAGMA table_info(vecinos)")
+                col_names = [r['name'] for r in existing]
+                if col not in col_names:
+                    _execute(conn, f"ALTER TABLE vecinos ADD COLUMN {col} TEXT DEFAULT ''")
+        except Exception:
+            pass
 
 
 def _migrar_emergencias_y_agentes():
@@ -621,9 +643,9 @@ class Database:
                     'fam_nombre_3','fam_tel_3','fam_nombre_4','fam_tel_4',
                     'fam_nombre_5','fam_tel_5']
         if existente:
-            # Actualizar datos + familiares
+            # Actualizar datos + familiares + voz
             campos_editar = {k: data[k] for k in
-                ("nombre","telefono","direccion","sexo","edad","correo") + tuple(FAM_COLS)
+                ("nombre","telefono","direccion","sexo","edad","correo","voz_alerta") + tuple(FAM_COLS)
                 if k in data}
             sets = [f"{k}={PH}" for k in campos_editar]
             vals = list(campos_editar.values()) + [existente["id_vecino"]]
@@ -646,6 +668,7 @@ class Database:
             "clave_acceso":       data.get("clave_acceso", ""),
             "activo":             True,
             "fecha_registro":     datetime.now().isoformat(),
+            "voz_alerta":         data.get("voz_alerta", ""),
             # Familiares
             "fam_nombre_1": data.get("fam_nombre_1", ""),
             "fam_tel_1":    data.get("fam_tel_1", ""),
@@ -662,8 +685,8 @@ class Database:
             _execute(conn, _ph("""
                 INSERT INTO vecinos
                 (id_vecino,id_institucion,nombre,telefono,num_identificacion,direccion,sexo,edad,correo,codigo_vecino,clave_acceso,activo,fecha_registro,
-                 fam_nombre_1,fam_tel_1,fam_nombre_2,fam_tel_2,fam_nombre_3,fam_tel_3,fam_nombre_4,fam_tel_4,fam_nombre_5,fam_tel_5)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                 fam_nombre_1,fam_tel_1,fam_nombre_2,fam_tel_2,fam_nombre_3,fam_tel_3,fam_nombre_4,fam_tel_4,fam_nombre_5,fam_tel_5,voz_alerta)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """), (vecino["id_vecino"], vecino["id_institucion"], vecino["nombre"], vecino["telefono"],
                    vecino["num_identificacion"], vecino["direccion"], vecino["sexo"], vecino["edad"],
                    vecino["correo"], vecino["codigo_vecino"], vecino["clave_acceso"],
@@ -672,7 +695,8 @@ class Database:
                    vecino["fam_nombre_2"], vecino["fam_tel_2"],
                    vecino["fam_nombre_3"], vecino["fam_tel_3"],
                    vecino["fam_nombre_4"], vecino["fam_tel_4"],
-                   vecino["fam_nombre_5"], vecino["fam_tel_5"]))
+                   vecino["fam_nombre_5"], vecino["fam_tel_5"],
+                   vecino["voz_alerta"]))
             if data.get("clave_acceso"):
                 _execute(conn, _ph(
                     "UPDATE claves_vecinos SET usada=?, id_vecino=? WHERE UPPER(clave)=UPPER(?)"
@@ -713,7 +737,7 @@ class Database:
         campos = ["nombre","telefono","direccion","sexo","edad","correo",
                   "fam_nombre_1","fam_tel_1","fam_nombre_2","fam_tel_2",
                   "fam_nombre_3","fam_tel_3","fam_nombre_4","fam_tel_4",
-                  "fam_nombre_5","fam_tel_5"]
+                  "fam_nombre_5","fam_tel_5", "voz_alerta"]
         sets   = [f"{c}={PH}" for c in campos if c in data]
         vals   = [data[c] for c in campos if c in data]
         if not sets: return None

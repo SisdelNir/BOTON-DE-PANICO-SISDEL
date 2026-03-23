@@ -93,6 +93,7 @@ class VecinoCreate(BaseModel):
     fam_tel_4:         str = ""
     fam_nombre_5:      str = ""
     fam_tel_5:         str = ""
+    voz_alerta:        Optional[str] = ""
 
 class VecinoResponse(BaseModel):
     id_vecino:         str
@@ -118,6 +119,7 @@ class VecinoResponse(BaseModel):
     fam_tel_4:         str = ""
     fam_nombre_5:      str = ""
     fam_tel_5:         str = ""
+    voz_alerta:        Optional[str] = ""
     class Config: from_attributes = True
 
 

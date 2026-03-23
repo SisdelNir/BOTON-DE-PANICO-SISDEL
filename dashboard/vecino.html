@@ -555,21 +555,33 @@ async function iniciarGrabacion() {
         };
 
         _mediaRecorder.onstop = () => {
-            // FIX IOS: usar el mimeType original o nada para que use default mp4/aac
             const mime = _mediaRecorder.mimeType || '';
             const blob = new Blob(_audioChunks, { type: mime });
             
-            // Guardar como base64
             const reader = new FileReader();
-            reader.onload = () => {
+            reader.onload = async () => {
+                const base64 = reader.result;
                 const cfg = JSON.parse(localStorage.getItem('sisdel_config') || '{}');
-                cfg.audioGrabado = reader.result;
+                cfg.audioGrabado = base64;
                 localStorage.setItem('sisdel_config', JSON.stringify(cfg));
                 estado.innerHTML = '✅ Frase grabada correctamente';
                 document.getElementById('btn-escuchar').style.display = 'block';
+
+                // Sincronizar con el servidor si hay sesión
+                if (typeof vecinoData !== 'undefined' && vecinoData && vecinoData.id_vecino) {
+                    try {
+                        const res = await fetch(`${API}/api/vecinos/${vecinoData.id_vecino}`, {
+                            method: 'PUT', 
+                            headers: {'Content-Type':'application/json'},
+                            body: JSON.stringify({ voz_alerta: base64 })
+                        });
+                        if (res.ok) {
+                            estado.innerHTML = '✅ Grabación guardada en la nube';
+                        }
+                    } catch (err) { console.error('Error sync voz:', err); }
+                }
             };
             reader.readAsDataURL(blob);
-            // Detener stream
             _audioStream.getTracks().forEach(t => t.stop());
         };
 

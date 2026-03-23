@@ -11,6 +11,17 @@ let gpsLon       = null;
 let holdInterval = null;
 let holdProgress = 0;
 
+// ── SINCRONIZACIÓN DE VOZ ──────────────────────
+function sincronizarVozAlerta(voz) {
+    if (!voz) return;
+    const cfg = JSON.parse(localStorage.getItem('sisdel_config') || '{}');
+    cfg.audioGrabado = voz;
+    localStorage.setItem('sisdel_config', JSON.stringify(cfg));
+    // Refrescar visibilidad del botón si el modal está abierto
+    const btnEscuchar = document.getElementById('btn-escuchar');
+    if (btnEscuchar) btnEscuchar.style.display = 'block';
+}
+
 // ── LADA / PAÍS ────────────────────────────────
 function actualizarLada() {
     const codigo = document.getElementById('reg-pais')?.value || '502';
@@ -112,6 +123,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (savedVecino) {
         vecinoData = JSON.parse(savedVecino);
+        sincronizarVozAlerta(vecinoData.voz_alerta);
         if (savedInst) instData = JSON.parse(savedInst);
         mostrarPaso('paso-panico');
         iniciarPasoParanica();
@@ -167,6 +179,7 @@ async function validarClave() {
             if (data.vecino) {
                 // Ya registrado → ir directo a pánico
                 vecinoData = data.vecino;
+                sincronizarVozAlerta(vecinoData.voz_alerta);
                 sessionStorage.setItem('sisdel_vecino', JSON.stringify(vecinoData));
                 mostrarPaso('paso-panico');
                 iniciarPasoParanica();
@@ -231,6 +244,7 @@ async function buscarVecinoPorId() {
             }
             if (contactosDelVecino.length > 0) {
                 // Nuevo backend: datos vienen en el objeto vecino
+                sincronizarVozAlerta(v.voz_alerta);
                 cargarContactosFamiliaresEnForm(contactosDelVecino);
                 sessionStorage.setItem('sisdel_familiares', JSON.stringify(contactosDelVecino));
             } else if (v.id_vecino) {
@@ -315,6 +329,7 @@ async function registrarVecino() {
         });
         if (res.ok) {
             vecinoData = await res.json();
+            sincronizarVozAlerta(vecinoData.voz_alerta);
         } else {
             const err = await res.json();
             // Pydantic devuelve detail como array de objetos
