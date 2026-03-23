@@ -643,9 +643,16 @@ async function enviarAlerta() {
     _alertaCount++;
     const instId = vecinoData.id_institucion || new URLSearchParams(window.location.search).get('inst') || '';
 
+    // Asegurar que tengamos el id_vecino (a veces se pierde en el estado pero está en storage)
+    let finalIdVecino = vecinoData.id_vecino;
+    if (!finalIdVecino) {
+        const saved = JSON.parse(sessionStorage.getItem('sisdel_vecino') || '{}');
+        finalIdVecino = saved.id_vecino || null;
+    }
+
     const payload = {
         id_institucion:    instId,
-        id_vecino:         vecinoData.id_vecino    || null,
+        id_vecino:         finalIdVecino,
         nombre_vecino:     vecinoData.nombre        || 'Sin nombre',
         telefono_vecino:   vecinoData.telefono      || 'Sin teléfono',
         num_identificacion:vecinoData.num_identificacion || 'Sin ID',
