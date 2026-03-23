@@ -2,7 +2,7 @@
 from fastapi import APIRouter, HTTPException
 from models import EmergenciaCreate, EmergenciaResponse, EstatusUpdate, StatsResponse
 from database import db
-from services.notificaciones import enviar_alerta_whatsapp
+from services.notificaciones import enviar_alerta_sms
 
 router = APIRouter(prefix="/api/emergencias", tags=["Emergencias"])
 
@@ -28,9 +28,9 @@ async def crear(data: EmergenciaCreate):
         for c in contactos:
             tel = c.get("telefono")
             if tel:
-                enviar_alerta_whatsapp(tel, nombre, ubicacion)
+                enviar_alerta_sms(tel, nombre, ubicacion)
     else:
-        print("⚠️ No se pudo enviar WhatsApp: id_vecino es nulo.")
+        print("⚠️ No se pudo enviar SMS: id_vecino es nulo.")
     
     return nueva_emergencia
 
