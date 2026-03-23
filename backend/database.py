@@ -850,6 +850,17 @@ class Database:
             vecinos = _fetchone(conn, _ph("SELECT COUNT(*) as cnt FROM vecinos WHERE id_institucion=?"), (id_institucion,))["cnt"]
         return {"total": total, "activas": activas, "en_camino": camino, "atendidas": atend, "vecinos_registrados": vecinos}
 
+    def limpiar_emergencias(self, id_institucion: str) -> int:
+        """Elimina TODAS las emergencias de una institución. Retorna cuántas se borraron."""
+        with get_conn() as conn:
+            # Primero borrar asignaciones de agentes relacionadas
+            _execute(conn, _ph("""
+                DELETE FROM asignaciones_agentes WHERE id_emergencia IN
+                (SELECT id_emergencia FROM emergencias WHERE id_institucion=?)
+            """), (id_institucion,))
+            cur = _execute(conn, _ph("DELETE FROM emergencias WHERE id_institucion=?"), (id_institucion,))
+        return cur.rowcount
+
 
 # Inicializar tablas y objeto global
 init_db()

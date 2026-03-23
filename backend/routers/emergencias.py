@@ -51,3 +51,12 @@ async def actualizar_estatus(id_emergencia: str, data: EstatusUpdate):
     if not e:
         raise HTTPException(404, "Emergencia no encontrada")
     return e
+
+
+@router.delete("/{id_institucion}/limpiar")
+async def limpiar_emergencias(id_institucion: str):
+    """Elimina TODAS las emergencias de una institución."""
+    if not db.obtener_institucion(id_institucion):
+        raise HTTPException(404, "Institución no encontrada")
+    count = db.limpiar_emergencias(id_institucion)
+    return {"mensaje": f"Se eliminaron {count} emergencia(s)", "eliminadas": count}
