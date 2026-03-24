@@ -249,393 +249,240 @@ input:checked + .cfg-slider::before { transform:translateX(22px); }
 
 <script>
 const API = (window.location.hostname==='localhost'||window.location.protocol==='file:') ? 'http://localhost:8000' : 'https://boton-de-panico-sisdel.onrender.com';
-let PILOTO = null;
-let ID_EMPRESA = null;
-let gpsLat = null, gpsLon = null;
-let holdInterval = null, holdProgress = 0;
-const HOLD_MS = 3000;
-let _alertaCount = 0;
-let _countdownInterval = null;
-let mediaRecorder = null;
-let audioChunks = [];
-let _shakeEnabled = false;
-let _vozStream = null;
+let PILOTO=null, ID_EMPRESA=null, gpsLat=null, gpsLon=null, gpsWatchId=null;
+let holdInterval=null, holdProgress=0;
+const HOLD_MS=3000;
+let _alertaCount=0, _countdownInterval=null, mediaRecorder=null, audioChunks=[];
+let _shakeEnabled=true, _shakeActive=false;
+let _vozCtx=null, _vozAnalyser=null, _vozStream=null, _vozActiva=false, _lastVozAlert=0;
 
-function showToast(msg, type='success', duration=3500) {
-    const icons = {success:'✅',error:'❌',info:'💡',warning:'⚠️'};
-    const container = document.getElementById('toast-container');
-    const t = document.createElement('div');
-    t.className = `sisdel-toast toast-${type}`;
-    t.innerHTML = `<span style="font-size:1.3rem;flex-shrink:0">${icons[type]||'ℹ️'}</span><span style="flex:1">${msg}</span><span style="cursor:pointer;opacity:.7;font-size:1rem" onclick="this.parentElement.classList.add('toast-out');setTimeout(()=>this.parentElement.remove(),300)">✕</span>`;
-    container.appendChild(t);
-    setTimeout(() => { t.classList.add('toast-out'); setTimeout(() => t.remove(), 300); }, duration);
-}
+function showToast(msg,type='success',dur=3500){const i={success:'✅',error:'❌',info:'💡',warning:'⚠️'};const c=document.getElementById('toast-container');const t=document.createElement('div');t.className=`sisdel-toast toast-${type}`;t.innerHTML=`<span style="font-size:1.3rem;flex-shrink:0">${i[type]||'ℹ️'}</span><span style="flex:1">${msg}</span><span style="cursor:pointer;opacity:.7;font-size:1rem" onclick="this.parentElement.classList.add('toast-out');setTimeout(()=>this.parentElement.remove(),300)">✕</span>`;c.appendChild(t);setTimeout(()=>{t.classList.add('toast-out');setTimeout(()=>t.remove(),300);},dur);}
 
-// ── INIT ──────────────────
-document.addEventListener('DOMContentLoaded', async () => {
-    const params = new URLSearchParams(window.location.search);
-    ID_EMPRESA = params.get('emp');
-    if (!ID_EMPRESA) {
-        document.getElementById('error-clave').textContent = 'Error: No se especificó empresa en el link.';
-        document.getElementById('error-clave').style.display = 'block';
-        return;
-    }
-    const saved = sessionStorage.getItem('sisdel_piloto');
-    if (saved) {
-        PILOTO = JSON.parse(saved);
-        mostrarPanico();
-    } else {
-        const dpi = sessionStorage.getItem('sisdel_piloto_dpi');
-        if (dpi) {
-            sessionStorage.removeItem('sisdel_piloto_dpi');
-            try {
-                const res = await fetch(`${API}/api/pilotos/${ID_EMPRESA}`);
-                if (res.ok) {
-                    const pilotos = await res.json();
-                    const p = pilotos.find(x =>
-                        (x.num_identificacion||'').toUpperCase() === dpi.toUpperCase() ||
-                        (x.codigo_piloto||'').toUpperCase() === dpi.toUpperCase()
-                    );
-                    if (p) { PILOTO = p; sessionStorage.setItem('sisdel_piloto', JSON.stringify(p)); mostrarPanico(); }
-                }
-            } catch {}
+document.addEventListener('DOMContentLoaded', async()=>{
+    const params=new URLSearchParams(window.location.search);
+    ID_EMPRESA=params.get('emp');
+    if(!ID_EMPRESA){document.getElementById('error-clave').textContent='Error: No se especificó empresa.';document.getElementById('error-clave').style.display='block';return;}
+    const saved=sessionStorage.getItem('sisdel_piloto');
+    if(saved){PILOTO=JSON.parse(saved);mostrarPanico();}
+    else{const dpi=sessionStorage.getItem('sisdel_piloto_dpi');
+        if(dpi){sessionStorage.removeItem('sisdel_piloto_dpi');
+            try{const r=await fetch(`${API}/api/pilotos/${ID_EMPRESA}`);if(r.ok){const ps=await r.json();const p=ps.find(x=>(x.num_identificacion||'').toUpperCase()===dpi.toUpperCase()||(x.codigo_piloto||'').toUpperCase()===dpi.toUpperCase());if(p){PILOTO=p;sessionStorage.setItem('sisdel_piloto',JSON.stringify(p));mostrarPanico();}}}catch{}
         }
     }
-    cargarLocalConfig();
-    document.getElementById('inp-clave').addEventListener('keydown', e => { if(e.key==='Enter') loginPiloto(); });
+    document.getElementById('inp-clave').addEventListener('keydown',e=>{if(e.key==='Enter')loginPiloto();});
 });
 
-async function loginPiloto() {
-    const clave = document.getElementById('inp-clave').value.trim();
-    if (!clave) { showErr('Ingresa tu código o DPI'); return; }
-    if (!ID_EMPRESA) { showErr('Error: Falta el parámetro de empresa en el enlace (?emp=...)'); return; }
-    try {
-        const res = await fetch(`${API}/api/pilotos/${ID_EMPRESA}`);
-        if (!res.ok) { showErr(`Error del servidor: ${res.status}`); return; }
-        const pilotos = await res.json();
-        const p = pilotos.find(x =>
-            (x.num_identificacion||'').toUpperCase() === clave.toUpperCase() ||
-            (x.codigo_piloto||'').toUpperCase() === clave.toUpperCase()
-        );
-        if (!p) { showErr(`Código o DPI "${clave}" no encontrado`); return; }
-        PILOTO = p;
-        sessionStorage.setItem('sisdel_piloto', JSON.stringify(p));
-        mostrarPanico();
-    } catch(e) { showErr('Error de conexión: ' + (e.message||'')); }
+async function loginPiloto(){
+    const clave=document.getElementById('inp-clave').value.trim();
+    if(!clave){showErr('Ingresa tu código o DPI');return;}
+    try{const r=await fetch(`${API}/api/pilotos/${ID_EMPRESA}`);if(!r.ok){showErr('Error del servidor');return;}
+        const ps=await r.json();
+        const p=ps.find(x=>(x.num_identificacion||'').toUpperCase()===clave.toUpperCase()||(x.codigo_piloto||'').toUpperCase()===clave.toUpperCase());
+        if(!p){showErr('Código o DPI no encontrado');return;}
+        PILOTO=p;sessionStorage.setItem('sisdel_piloto',JSON.stringify(p));mostrarPanico();
+    }catch(e){showErr('Error de conexión');}
 }
-function showErr(m) { const e=document.getElementById('error-clave'); e.textContent=m; e.style.display='block'; }
+function showErr(m){const e=document.getElementById('error-clave');e.textContent=m;e.style.display='block';}
 
-function mostrarPanico() {
-    document.querySelectorAll('.paso').forEach(p => p.style.display='none');
-    document.getElementById('paso-panico').style.display = 'block';
-    document.getElementById('vecino-nombre-bar').textContent = PILOTO.nombre?.split(' ')[0] || 'Piloto';
-    const vi = [];
-    if (PILOTO.placas_vehiculo) vi.push(`🚗 ${PILOTO.placas_vehiculo}`);
-    if (PILOTO.tipo_vehiculo) vi.push(PILOTO.tipo_vehiculo);
-    if (PILOTO.color_vehiculo) vi.push(PILOTO.color_vehiculo);
-    document.getElementById('panico-vehiculo').textContent = vi.join(' — ');
+async function mostrarPanico(){
+    document.querySelectorAll('.paso').forEach(p=>p.style.display='none');
+    document.getElementById('paso-panico').style.display='block';
+    document.getElementById('vecino-nombre-bar').textContent=PILOTO.nombre?.split(' ')[0]||'Piloto';
+    const vi=[];
+    if(PILOTO.placas_vehiculo)vi.push('🚗 '+PILOTO.placas_vehiculo);
+    if(PILOTO.tipo_vehiculo)vi.push(PILOTO.tipo_vehiculo);
+    if(PILOTO.color_vehiculo)vi.push(PILOTO.color_vehiculo);
+    document.getElementById('panico-vehiculo').textContent=vi.join(' — ');
+    cargarLocalConfig();
+    // AUTO-PERMISOS
     requestLocationPermission();
-    if (_shakeEnabled) iniciarShake();
+    if(typeof DeviceMotionEvent!=='undefined'&&typeof DeviceMotionEvent.requestPermission==='function'){try{await DeviceMotionEvent.requestPermission();}catch{}}
+    iniciarShake();
+    document.getElementById('shake-notice').style.display=_shakeEnabled?'block':'none';
+    try{const s=await navigator.mediaDevices.getUserMedia({audio:true});s.getTracks().forEach(t=>t.stop());}catch{}
+    const cfg=JSON.parse(localStorage.getItem('sisdel_piloto_config')||'{}');
+    if(cfg.voz!==false)iniciarDeteccionVoz();
 }
+function logout(){sessionStorage.removeItem('sisdel_piloto');sessionStorage.removeItem('sisdel_tipo');PILOTO=null;window.location.href='index.html';}
 
-function logout() { sessionStorage.removeItem('sisdel_piloto'); sessionStorage.removeItem('sisdel_tipo'); PILOTO=null; window.location.href='index.html'; }
-
-// ── GPS ──────────────────
-function requestLocationPermission() {
-    if (!navigator.geolocation) { _errorBarraGPS('GPS no disponible'); return; }
-    navigator.geolocation.watchPosition(
-        pos => { gpsLat=pos.coords.latitude; gpsLon=pos.coords.longitude; _actualizarBarraGPS(gpsLat,gpsLon,pos.coords.accuracy); },
-        () => { _errorBarraGPS('Sin señal GPS'); },
-        {enableHighAccuracy:true, timeout:15000, maximumAge:5000}
+// GPS
+function requestLocationPermission(){
+    if(!navigator.geolocation){_errorBarraGPS('GPS no disponible');return;}
+    if(gpsWatchId!==null)navigator.geolocation.clearWatch(gpsWatchId);
+    navigator.geolocation.getCurrentPosition(
+        pos=>{gpsLat=pos.coords.latitude;gpsLon=pos.coords.longitude;_actualizarBarraGPS(gpsLat,gpsLon,pos.coords.accuracy);},
+        err=>{_errorBarraGPS('Activa GPS en configuración');},
+        {enableHighAccuracy:true,timeout:15000}
+    );
+    gpsWatchId=navigator.geolocation.watchPosition(
+        pos=>{gpsLat=pos.coords.latitude;gpsLon=pos.coords.longitude;_actualizarBarraGPS(gpsLat,gpsLon,pos.coords.accuracy);},
+        err=>{_errorBarraGPS('Sin señal GPS');},
+        {enableHighAccuracy:true,timeout:30000,maximumAge:5000}
     );
 }
-function _actualizarBarraGPS(lat,lon,acc) {
-    const bar=document.getElementById('gps-bar'); const dot=document.getElementById('gps-dot');
-    document.getElementById('gps-status').textContent=`📍 ${lat.toFixed(5)}, ${lon.toFixed(5)} (±${Math.round(acc||0)}m)`;
-    dot.style.background='#00d68f'; dot.style.boxShadow='0 0 8px rgba(0,214,143,.6)';
-    bar.style.borderColor='rgba(0,214,143,.25)';
-    const cfgE=document.getElementById('cfg-gps-estado');
-    if(cfgE){cfgE.textContent='✅ Activo';cfgE.style.background='rgba(0,214,143,.12)';cfgE.style.color='#00d68f';cfgE.style.borderColor='rgba(0,214,143,.2)';}
+function _actualizarBarraGPS(lat,lon,acc){
+    document.getElementById('gps-status').textContent=`✅ 📍 ${lat.toFixed(5)}, ${lon.toFixed(5)} (±${Math.round(acc||0)}m)`;
+    const d=document.getElementById('gps-dot');d.style.background='#00d68f';d.style.boxShadow='0 0 8px rgba(0,214,143,.6)';
+    document.getElementById('gps-bar').style.borderColor='rgba(0,214,143,.25)';document.getElementById('gps-bar').style.background='rgba(0,214,143,.06)';
+    const c=document.getElementById('cfg-gps-estado');
+    if(c){c.textContent='✅ Activo';c.style.background='rgba(0,214,143,.12)';c.style.color='#00d68f';c.style.borderColor='rgba(0,214,143,.2)';}
 }
-function _errorBarraGPS(msg) {
-    document.getElementById('gps-status').textContent='⚠️ '+msg;
-    document.getElementById('gps-dot').style.background='#ffa500';
-}
-function activarGPS() { requestLocationPermission(); showToast('Solicitando permisos GPS...','info'); }
-function ensureLocation() {
-    return new Promise((resolve,reject) => {
-        if (gpsLat!==null) { resolve(); return; }
-        navigator.geolocation.getCurrentPosition(pos => { gpsLat=pos.coords.latitude; gpsLon=pos.coords.longitude; resolve(); }, reject, {enableHighAccuracy:true,timeout:10000});
-    });
-}
+function _errorBarraGPS(msg){document.getElementById('gps-status').textContent='⚠️ '+msg;document.getElementById('gps-dot').style.background='#ffa500';}
+function activarGPS(){requestLocationPermission();showToast('Solicitando GPS...','info');}
+function ensureLocation(){return new Promise((res,rej)=>{if(gpsLat!==null){res();return;}navigator.geolocation.getCurrentPosition(p=>{gpsLat=p.coords.latitude;gpsLon=p.coords.longitude;res();},rej,{enableHighAccuracy:true,timeout:10000});});}
 
-// ── HOLD-TO-SEND PANIC ──────────────────
-function iniciarPanico(e) {
-    e.preventDefault();
-    document.getElementById('btn-panico').classList.add('pressing');
-    document.getElementById('hold-bar-wrap').style.display = 'block';
-    document.getElementById('hint-panico').textContent = '¡Mantén presionado!';
-    holdProgress = 0;
-    const start = Date.now();
-    holdInterval = setInterval(() => {
-        holdProgress = Math.min(((Date.now()-start)/HOLD_MS)*100, 100);
-        document.getElementById('hold-bar').style.width = holdProgress+'%';
-        if (holdProgress >= 100) { clearInterval(holdInterval); holdInterval=null; enviarAlerta(); }
-    }, 50);
-}
-function cancelarPanico(e) {
-    e.preventDefault();
-    document.getElementById('btn-panico').classList.remove('pressing');
-    if (holdInterval) { clearInterval(holdInterval); holdInterval=null; }
-    if (holdProgress < 100) {
-        document.getElementById('hold-bar-wrap').style.display='none';
-        document.getElementById('hold-bar').style.width='0%';
-        document.getElementById('hint-panico').textContent='Mantén presionado 3 segundos para enviar alerta';
-    }
-}
-
-async function enviarAlerta() {
-    if (!PILOTO) return;
-    if (_alertaCount >= 10) { showToast('Has enviado 10 alertas. El panel ya fue notificado.','warning'); return; }
-    try { await ensureLocation(); } catch {}
-    _alertaCount++;
-    const cfg = JSON.parse(localStorage.getItem('sisdel_piloto_config')||'{}');
-    if (cfg.vibracion !== false && navigator.vibrate) navigator.vibrate([200,100,200,100,500]);
-    // Play recorded audio
-    try {
-        if (cfg.audioGrabado) {
-            const a = new Audio(cfg.audioGrabado); a.volume=1.0;
-            let rep=0; a.onended=()=>{rep++;if(rep<3)a.play().catch(()=>{});}; a.play().catch(()=>{});
+// SHAKE — 4 agitaciones fuertes en 3 segundos
+function iniciarShake(){
+    if(_shakeActive)return;_shakeActive=true;
+    let shakeTimes=[],lastX=null,lastY=null,lastZ=null,lastT=0,lastAlert=0;
+    window.addEventListener('devicemotion',(e)=>{
+        if(!_shakeEnabled||!PILOTO)return;
+        const a=e.accelerationIncludingGravity;if(!a||a.x===null)return;
+        const now=Date.now();if((now-lastT)<150)return;
+        if(lastX!==null){
+            const force=Math.abs(a.x-lastX)+Math.abs(a.y-lastY)+Math.abs(a.z-lastZ);
+            if(force>20){
+                shakeTimes=shakeTimes.filter(t=>(now-t)<3000);
+                shakeTimes.push(now);
+                const n=document.getElementById('shake-notice');
+                if(n)n.textContent=`📳 Agitaciones: ${shakeTimes.length}/4`;
+                if(shakeTimes.length>=4&&(now-lastAlert)>5000){
+                    lastAlert=now;shakeTimes=[];
+                    if(n)n.textContent='📳 ¡ALERTA ACTIVADA!';
+                    showToast('🚨 ¡Alerta por agitación!','warning');
+                    enviarAlerta();
+                    setTimeout(()=>{if(n)n.textContent='📳 Agita 4 veces para alerta rápida';},3000);
+                }
+            }
         }
-    } catch {}
-    // Show overlay
-    document.getElementById('env-alerta-num').textContent = `Alerta #${_alertaCount} de 10`;
-    document.getElementById('env-coords').textContent = gpsLat ? `📍 ${gpsLat.toFixed(6)}, ${gpsLon.toFixed(6)}` : '📍 Sin coordenadas GPS';
-    document.getElementById('overlay-enviado').style.display = 'flex';
-    // WhatsApp
-    const contactos = [];
-    for (let i=1;i<=5;i++) { const n=PILOTO[`fam_nombre_${i}`]; const t=PILOTO[`fam_tel_${i}`]; if(t) contactos.push({nombre:n||`Contacto ${i}`,telefono:t}); }
-    const waDiv = document.getElementById('wa-botones');
-    const waFam = document.getElementById('wa-familiares');
-    if (contactos.length) {
-        const msg = encodeURIComponent(`🚨 ALERTA DE EMERGENCIA\n${PILOTO.nombre} activó su botón de alerta.\n${gpsLat?'📍 https://maps.google.com/?q='+gpsLat+','+gpsLon:'Sin GPS'}`);
-        waDiv.innerHTML = contactos.map(c => `<a href="https://wa.me/${c.telefono}?text=${msg}" target="_blank" style="display:flex;align-items:center;gap:.5rem;padding:.5rem .8rem;background:rgba(37,211,102,.1);border:1px solid rgba(37,211,102,.3);border-radius:10px;color:#25d366;text-decoration:none;font-size:.82rem;font-weight:700;">💬 ${c.nombre}</a>`).join('');
-        waFam.style.display='block';
-    } else { waFam.style.display='none'; }
-    // Countdown
-    let sec=45;
-    document.getElementById('env-countdown').textContent=`Se cierra en ${sec}s`;
-    if(_countdownInterval) clearInterval(_countdownInterval);
-    _countdownInterval=setInterval(()=>{sec--;document.getElementById('env-countdown').textContent=`Se cierra en ${sec}s`;if(sec<=0){clearInterval(_countdownInterval);ocultarConfirmacion();}},1000);
-    // Send to backend
-    try {
-        await fetch(`${API}/api/empresa/alertas`, {
-            method:'POST', headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({
-                id_empresa: ID_EMPRESA, id_piloto: PILOTO.id_piloto,
-                nombre_piloto: PILOTO.nombre, telefono_piloto: PILOTO.telefono,
-                num_identificacion: PILOTO.num_identificacion,
-                placas_vehiculo: PILOTO.placas_vehiculo||'', tipo_vehiculo: PILOTO.tipo_vehiculo||'',
-                color_vehiculo: PILOTO.color_vehiculo||'', direccion_piloto: PILOTO.direccion||'',
-                gps_latitud: gpsLat, gps_longitud: gpsLon,
-                direccion_aproximada: gpsLat?`${gpsLat.toFixed(6)}, ${gpsLon.toFixed(6)}`:'Sin coordenadas'
-            })
-        });
-    } catch { showToast('Error al enviar alerta al servidor','error'); }
-    // Reset button
-    document.getElementById('btn-panico').classList.remove('pressing');
-    document.getElementById('hold-bar-wrap').style.display='none';
-    document.getElementById('hold-bar').style.width='0%';
-    document.getElementById('hint-panico').textContent='Mantén presionado 3 segundos para enviar alerta';
-}
-function enviarOtraAlerta() { ocultarConfirmacion(); }
-function ocultarConfirmacion() {
-    document.getElementById('overlay-enviado').style.display='none';
-    if(_countdownInterval){clearInterval(_countdownInterval);_countdownInterval=null;}
-}
-
-// ── CONFIG MODAL ──────────────────
-function abrirConfiguracion() { document.getElementById('modal-config').style.display='block'; cargarLocalConfig(); }
-function cerrarConfiguracion() { guardarLocalConfig(); document.getElementById('modal-config').style.display='none'; }
-function guardarLocalConfig() {
-    const cfg = JSON.parse(localStorage.getItem('sisdel_piloto_config')||'{}');
-    cfg.vibracion = document.getElementById('cfg-vibracion').checked;
-    cfg.agitar = document.getElementById('cfg-agitar').checked;
-    cfg.voz = document.getElementById('cfg-voz').checked;
-    localStorage.setItem('sisdel_piloto_config', JSON.stringify(cfg));
-}
-function cargarLocalConfig() {
-    const cfg = JSON.parse(localStorage.getItem('sisdel_piloto_config')||'{}');
-    if (cfg.vibracion!==undefined) document.getElementById('cfg-vibracion').checked = cfg.vibracion;
-    if (cfg.agitar) { document.getElementById('cfg-agitar').checked = true; _shakeEnabled=true; iniciarShake(); }
-    if (cfg.voz) { document.getElementById('cfg-voz').checked = true; document.getElementById('cfg-voz-extra').style.display='block'; }
-    if (cfg.audioGrabado) { document.getElementById('audio-status-card').style.display='block'; }
-    const n = document.getElementById('shake-notice');
-    if(n) n.style.display = _shakeEnabled?'block':'none';
-}
-function toggleShakeDetection() {
-    _shakeEnabled = document.getElementById('cfg-agitar').checked;
-    const n = document.getElementById('shake-notice');
-    if(n) n.style.display = _shakeEnabled?'block':'none';
-    if (_shakeEnabled) iniciarShake();
-}
-function toggleVoz() {
-    const on = document.getElementById('cfg-voz').checked;
-    document.getElementById('cfg-voz-extra').style.display = on?'block':'none';
-    guardarLocalConfig();
-    if (on) { document.getElementById('voz-indicador').style.display='block'; }
-    else { document.getElementById('voz-indicador').style.display='none'; if(_vozStream){_vozStream.getTracks().forEach(t=>t.stop());_vozStream=null;} }
-}
-async function solicitarPermisoMic() {
-    try { const s = await navigator.mediaDevices.getUserMedia({audio:true}); s.getTracks().forEach(t=>t.stop()); showToast('Micrófono activado','success'); } catch { showToast('Error: no se pudo acceder al micrófono','error'); }
-}
-function escucharGrabacion() {
-    const cfg = JSON.parse(localStorage.getItem('sisdel_piloto_config')||'{}');
-    if (cfg.audioGrabado) { const a=new Audio(cfg.audioGrabado); a.play().catch(()=>{}); }
-}
-async function toggleGrabacion() {
-    const btn=document.getElementById('btn-grabar');
-    const ind=document.getElementById('grabacion-indicador');
-    if (mediaRecorder && mediaRecorder.state==='recording') {
-        mediaRecorder.stop(); btn.textContent='🎤 GRABAR FRASE'; ind.style.display='none'; return;
-    }
-    try {
-        const stream = await navigator.mediaDevices.getUserMedia({audio:true});
-        audioChunks=[];
-        mediaRecorder = new MediaRecorder(stream);
-        mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
-        mediaRecorder.onstop = () => {
-            const blob=new Blob(audioChunks,{type:'audio/webm'});
-            const reader=new FileReader();
-            reader.onload=(e)=>{
-                const cfg=JSON.parse(localStorage.getItem('sisdel_piloto_config')||'{}');
-                cfg.audioGrabado=e.target.result;
-                localStorage.setItem('sisdel_piloto_config',JSON.stringify(cfg));
-                document.getElementById('audio-status-card').style.display='block';
-                document.getElementById('cfg-voz-estado').textContent='✅ Audio guardado correctamente';
-            };
-            reader.readAsDataURL(blob);
-            stream.getTracks().forEach(t=>t.stop());
-        };
-        mediaRecorder.start();
-        btn.textContent='⏹️ DETENER'; ind.style.display='block';
-        // Volume bar
-        const ctx=new AudioContext(); const src=ctx.createMediaStreamSource(stream);
-        const analyser=ctx.createAnalyser(); analyser.fftSize=256; src.connect(analyser);
-        const data=new Uint8Array(analyser.frequencyBinCount);
-        const updateVol=()=>{if(mediaRecorder?.state!=='recording')return;analyser.getByteFrequencyData(data);const avg=data.reduce((a,b)=>a+b,0)/data.length;document.getElementById('volumen-nivel').style.width=Math.min(avg*1.5,100)+'%';requestAnimationFrame(updateVol);};
-        updateVol();
-    } catch { document.getElementById('cfg-voz-estado').textContent='❌ No se pudo acceder al micrófono'; }
-}
-
-// ── SHAKE ──────────────────
-let _shakeActive = false;
-function iniciarShake() {
-    if (_shakeActive) return; _shakeActive = true;
-    let lastX=null,lastY=null,lastZ=null,lastTime=0;
-    window.addEventListener('devicemotion', (e) => {
-        if (!_shakeEnabled || !PILOTO) return;
-        const acc=e.accelerationIncludingGravity; if(!acc) return;
-        const now=Date.now(); if((now-lastTime)<300) return;
-        const dx=Math.abs(acc.x-(lastX||0)), dy=Math.abs(acc.y-(lastY||0)), dz=Math.abs(acc.z-(lastZ||0));
-        if ((dx+dy+dz)>25) { lastTime=now; enviarAlerta(); }
-        lastX=acc.x; lastY=acc.y; lastZ=acc.z;
+        lastX=a.x;lastY=a.y;lastZ=a.z;lastT=now;
     });
 }
 
-// ── EDITAR DATOS ──────────────────
-function editarDatos() {
-    document.querySelectorAll('.paso').forEach(p => p.style.display='none');
-    document.getElementById('paso-config').style.display = 'block';
-    mostrarConfig();
+// VOZ — detección de grito
+async function iniciarDeteccionVoz(){
+    if(_vozActiva)return;
+    try{
+        _vozStream=await navigator.mediaDevices.getUserMedia({audio:true});
+        _vozCtx=new(window.AudioContext||window.webkitAudioContext)();
+        const src=_vozCtx.createMediaStreamSource(_vozStream);
+        _vozAnalyser=_vozCtx.createAnalyser();_vozAnalyser.fftSize=512;
+        src.connect(_vozAnalyser);_vozActiva=true;
+        document.getElementById('voz-indicador').style.display='block';
+        monitorearVoz();
+    }catch(e){console.warn('Voz:',e);}
+}
+function detenerDeteccionVoz(){
+    _vozActiva=false;
+    if(_vozStream){_vozStream.getTracks().forEach(t=>t.stop());_vozStream=null;}
+    if(_vozCtx){_vozCtx.close().catch(()=>{});_vozCtx=null;}
+    document.getElementById('voz-indicador').style.display='none';
+}
+function monitorearVoz(){
+    if(!_vozActiva||!_vozAnalyser)return;
+    const d=new Uint8Array(_vozAnalyser.frequencyBinCount);
+    _vozAnalyser.getByteFrequencyData(d);
+    const avg=d.reduce((a,b)=>a+b,0)/d.length;
+    const now=Date.now();
+    if(avg>80&&PILOTO&&(now-_lastVozAlert)>5000){
+        _lastVozAlert=now;
+        showToast('🎙️ ¡Grito detectado! Enviando alerta...','warning');
+        enviarAlerta();
+    }
+    requestAnimationFrame(monitorearVoz);
 }
 
-// ── CONFIG (DATOS) ──────────────────
-function actualizarLadaConfig() {
-    const codigo = document.getElementById('cfg-pais')?.value || '502';
-    const badge = document.getElementById('cfg-lada-badge');
-    if (badge) badge.textContent = '+' + codigo;
-    document.querySelectorAll('.cfg-lada-fam').forEach(el => el.textContent = '+' + codigo);
+// HOLD-TO-SEND
+function iniciarPanico(e){e.preventDefault();document.getElementById('btn-panico').classList.add('pressing');document.getElementById('hold-bar-wrap').style.display='block';document.getElementById('hint-panico').textContent='¡Mantén presionado!';holdProgress=0;const s=Date.now();holdInterval=setInterval(()=>{holdProgress=Math.min(((Date.now()-s)/HOLD_MS)*100,100);document.getElementById('hold-bar').style.width=holdProgress+'%';if(holdProgress>=100){clearInterval(holdInterval);holdInterval=null;enviarAlerta();}},50);}
+function cancelarPanico(e){e.preventDefault();document.getElementById('btn-panico').classList.remove('pressing');if(holdInterval){clearInterval(holdInterval);holdInterval=null;}if(holdProgress<100){document.getElementById('hold-bar-wrap').style.display='none';document.getElementById('hold-bar').style.width='0%';document.getElementById('hint-panico').textContent='Mantén presionado 3 segundos para enviar alerta';}}
+
+async function enviarAlerta(){
+    if(!PILOTO)return;
+    if(_alertaCount>=10){showToast('10 alertas enviadas','warning');return;}
+    try{await ensureLocation();}catch{}
+    _alertaCount++;
+    const cfg=JSON.parse(localStorage.getItem('sisdel_piloto_config')||'{}');
+    if(cfg.vibracion!==false&&navigator.vibrate)navigator.vibrate([200,100,200,100,500]);
+    try{if(cfg.audioGrabado){const a=new Audio(cfg.audioGrabado);a.volume=1;let r=0;a.onended=()=>{r++;if(r<3)a.play().catch(()=>{});};a.play().catch(()=>{});}}catch{}
+    document.getElementById('env-alerta-num').textContent=`Alerta #${_alertaCount} de 10`;
+    document.getElementById('env-coords').textContent=gpsLat?`📍 ${gpsLat.toFixed(6)}, ${gpsLon.toFixed(6)}`:'📍 Sin coordenadas';
+    document.getElementById('overlay-enviado').style.display='flex';
+    // WhatsApp
+    const cts=[];for(let i=1;i<=5;i++){const n=PILOTO[`fam_nombre_${i}`];const t=PILOTO[`fam_tel_${i}`];if(t)cts.push({nombre:n||`Contacto ${i}`,telefono:t});}
+    const wd=document.getElementById('wa-botones'),wf=document.getElementById('wa-familiares');
+    if(cts.length){const m=encodeURIComponent(`🚨 ALERTA\n${PILOTO.nombre} activó alerta.\n${gpsLat?'📍 https://maps.google.com/?q='+gpsLat+','+gpsLon:'Sin GPS'}`);wd.innerHTML=cts.map(c=>`<a href="https://wa.me/${c.telefono}?text=${m}" target="_blank" style="display:flex;align-items:center;gap:.5rem;padding:.5rem .8rem;background:rgba(37,211,102,.1);border:1px solid rgba(37,211,102,.3);border-radius:10px;color:#25d366;text-decoration:none;font-size:.82rem;font-weight:700;">💬 ${c.nombre}</a>`).join('');wf.style.display='block';}else{wf.style.display='none';}
+    let sec=45;document.getElementById('env-countdown').textContent=`Se cierra en ${sec}s`;
+    if(_countdownInterval)clearInterval(_countdownInterval);
+    _countdownInterval=setInterval(()=>{sec--;document.getElementById('env-countdown').textContent=`Se cierra en ${sec}s`;if(sec<=0){clearInterval(_countdownInterval);ocultarConfirmacion();}},1000);
+    try{await fetch(`${API}/api/empresa/alertas`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id_empresa:ID_EMPRESA,id_piloto:PILOTO.id_piloto,nombre_piloto:PILOTO.nombre,telefono_piloto:PILOTO.telefono,num_identificacion:PILOTO.num_identificacion,placas_vehiculo:PILOTO.placas_vehiculo||'',tipo_vehiculo:PILOTO.tipo_vehiculo||'',color_vehiculo:PILOTO.color_vehiculo||'',direccion_piloto:PILOTO.direccion||'',gps_latitud:gpsLat,gps_longitud:gpsLon,direccion_aproximada:gpsLat?`${gpsLat.toFixed(6)}, ${gpsLon.toFixed(6)}`:'Sin coordenadas'})});}catch{showToast('Error al enviar','error');}
+    document.getElementById('btn-panico').classList.remove('pressing');document.getElementById('hold-bar-wrap').style.display='none';document.getElementById('hold-bar').style.width='0%';document.getElementById('hint-panico').textContent='Mantén presionado 3 segundos para enviar alerta';
+}
+function enviarOtraAlerta(){ocultarConfirmacion();}
+function ocultarConfirmacion(){document.getElementById('overlay-enviado').style.display='none';if(_countdownInterval){clearInterval(_countdownInterval);_countdownInterval=null;}}
+
+// CONFIG MODAL
+function abrirConfiguracion(){document.getElementById('modal-config').style.display='block';cargarLocalConfig();}
+function cerrarConfiguracion(){guardarLocalConfig();document.getElementById('modal-config').style.display='none';}
+function guardarLocalConfig(){const c=JSON.parse(localStorage.getItem('sisdel_piloto_config')||'{}');c.vibracion=document.getElementById('cfg-vibracion').checked;c.agitar=document.getElementById('cfg-agitar').checked;c.voz=document.getElementById('cfg-voz').checked;localStorage.setItem('sisdel_piloto_config',JSON.stringify(c));}
+function cargarLocalConfig(){
+    const c=JSON.parse(localStorage.getItem('sisdel_piloto_config')||'{}');
+    document.getElementById('cfg-vibracion').checked=c.vibracion!==false;
+    document.getElementById('cfg-agitar').checked=c.agitar!==false;
+    _shakeEnabled=c.agitar!==false;
+    document.getElementById('cfg-voz').checked=c.voz!==false;
+    if(c.voz!==false)document.getElementById('cfg-voz-extra').style.display='block';
+    if(c.audioGrabado)document.getElementById('audio-status-card').style.display='block';
+    const n=document.getElementById('shake-notice');if(n)n.style.display=_shakeEnabled?'block':'none';
+}
+function toggleShakeDetection(){_shakeEnabled=document.getElementById('cfg-agitar').checked;document.getElementById('shake-notice').style.display=_shakeEnabled?'block':'none';guardarLocalConfig();if(_shakeEnabled)iniciarShake();}
+function toggleVoz(){const on=document.getElementById('cfg-voz').checked;document.getElementById('cfg-voz-extra').style.display=on?'block':'none';guardarLocalConfig();if(on)iniciarDeteccionVoz();else detenerDeteccionVoz();}
+async function solicitarPermisoMic(){try{const s=await navigator.mediaDevices.getUserMedia({audio:true});s.getTracks().forEach(t=>t.stop());showToast('Micrófono activado ✅','success');}catch{showToast('Error de micrófono','error');}}
+function escucharGrabacion(){const c=JSON.parse(localStorage.getItem('sisdel_piloto_config')||'{}');if(c.audioGrabado){const a=new Audio(c.audioGrabado);a.play().catch(()=>{});}}
+async function toggleGrabacion(){
+    const btn=document.getElementById('btn-grabar'),ind=document.getElementById('grabacion-indicador');
+    if(mediaRecorder&&mediaRecorder.state==='recording'){mediaRecorder.stop();btn.textContent='🎤 GRABAR FRASE';ind.style.display='none';return;}
+    try{const stream=await navigator.mediaDevices.getUserMedia({audio:true});audioChunks=[];
+        mediaRecorder=new MediaRecorder(stream);
+        mediaRecorder.ondataavailable=e=>audioChunks.push(e.data);
+        mediaRecorder.onstop=()=>{const blob=new Blob(audioChunks,{type:'audio/webm'});const reader=new FileReader();reader.onload=(ev)=>{const c=JSON.parse(localStorage.getItem('sisdel_piloto_config')||'{}');c.audioGrabado=ev.target.result;localStorage.setItem('sisdel_piloto_config',JSON.stringify(c));document.getElementById('audio-status-card').style.display='block';document.getElementById('cfg-voz-estado').textContent='✅ Audio guardado';};reader.readAsDataURL(blob);stream.getTracks().forEach(t=>t.stop());};
+        mediaRecorder.start();btn.textContent='⏹️ DETENER';ind.style.display='block';
+        const ctx=new(window.AudioContext||window.webkitAudioContext)();const src=ctx.createMediaStreamSource(stream);const an=ctx.createAnalyser();an.fftSize=256;src.connect(an);const buf=new Uint8Array(an.frequencyBinCount);
+        const upd=()=>{if(mediaRecorder?.state!=='recording'){ctx.close();return;}an.getByteFrequencyData(buf);const avg=buf.reduce((a,b)=>a+b,0)/buf.length;document.getElementById('volumen-nivel').style.width=Math.min(avg*1.5,100)+'%';requestAnimationFrame(upd);};upd();
+    }catch{document.getElementById('cfg-voz-estado').textContent='❌ Error de micrófono';}
 }
 
-function mostrarConfig() {
-    document.getElementById('cfg-nombre').value = PILOTO.nombre || '';
-    const tel = PILOTO.telefono || '';
-    const lada = document.getElementById('cfg-pais')?.value || '502';
-    document.getElementById('cfg-tel').value = tel.replace(new RegExp('^' + lada), '');
-    document.getElementById('cfg-correo').value = PILOTO.correo || '';
-    document.getElementById('cfg-sexo').value = PILOTO.sexo || '';
-    document.getElementById('cfg-edad').value = PILOTO.edad || '';
-    document.getElementById('cfg-licencia').value = PILOTO.num_licencia || '';
-    document.getElementById('cfg-placas').value = PILOTO.placas_vehiculo || '';
-    document.getElementById('cfg-tipo').value = PILOTO.tipo_vehiculo || '';
-    document.getElementById('cfg-color').value = PILOTO.color_vehiculo || '';
-    document.getElementById('cfg-dir').value = PILOTO.direccion || '';
-    for (let i=1;i<=5;i++) {
-        document.getElementById(`cfg-c${i}n`).value = PILOTO[`fam_nombre_${i}`] || '';
-        const ctel = PILOTO[`fam_tel_${i}`] || '';
-        document.getElementById(`cfg-c${i}t`).value = ctel.replace(new RegExp('^' + lada), '');
-    }
-    if (PILOTO.foto_vehiculo) {
-        document.getElementById('cfg-foto-img').src = PILOTO.foto_vehiculo;
-        document.getElementById('cfg-foto-preview').style.display = 'block';
-    }
+// EDITAR DATOS
+function editarDatos(){document.querySelectorAll('.paso').forEach(p=>p.style.display='none');document.getElementById('paso-config').style.display='block';llenarFormConfig();}
+function actualizarLadaConfig(){const c=document.getElementById('cfg-pais')?.value||'502';const b=document.getElementById('cfg-lada-badge');if(b)b.textContent='+'+c;document.querySelectorAll('.cfg-lada-fam').forEach(el=>el.textContent='+'+c);}
+function llenarFormConfig(){
+    document.getElementById('cfg-nombre').value=PILOTO.nombre||'';
+    const l=document.getElementById('cfg-pais')?.value||'502';
+    document.getElementById('cfg-tel').value=(PILOTO.telefono||'').replace(new RegExp('^'+l),'');
+    document.getElementById('cfg-correo').value=PILOTO.correo||'';
+    document.getElementById('cfg-sexo').value=PILOTO.sexo||'';
+    document.getElementById('cfg-edad').value=PILOTO.edad||'';
+    document.getElementById('cfg-licencia').value=PILOTO.num_licencia||'';
+    document.getElementById('cfg-placas').value=PILOTO.placas_vehiculo||'';
+    document.getElementById('cfg-tipo').value=PILOTO.tipo_vehiculo||'';
+    document.getElementById('cfg-color').value=PILOTO.color_vehiculo||'';
+    document.getElementById('cfg-dir').value=PILOTO.direccion||'';
+    for(let i=1;i<=5;i++){document.getElementById(`cfg-c${i}n`).value=PILOTO[`fam_nombre_${i}`]||'';document.getElementById(`cfg-c${i}t`).value=(PILOTO[`fam_tel_${i}`]||'').replace(new RegExp('^'+l),'');}
+    if(PILOTO.foto_vehiculo){document.getElementById('cfg-foto-img').src=PILOTO.foto_vehiculo;document.getElementById('cfg-foto-preview').style.display='block';}
     actualizarLadaConfig();
 }
-
-function previsualizarFotoConfig(event) {
-    const file = event.target.files[0]; if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (e) => { document.getElementById('cfg-foto-img').src=e.target.result; document.getElementById('cfg-foto-preview').style.display='block'; };
-    reader.readAsDataURL(file);
+function previsualizarFotoConfig(event){const f=event.target.files[0];if(!f)return;const r=new FileReader();r.onload=(e)=>{document.getElementById('cfg-foto-img').src=e.target.result;document.getElementById('cfg-foto-preview').style.display='block';};r.readAsDataURL(f);}
+async function guardarConfig(){
+    const l=document.getElementById('cfg-pais')?.value||'502';let foto=null;
+    const ff=document.getElementById('cfg-foto').files[0];
+    if(ff){foto=await new Promise(res=>{const r=new FileReader();r.onload=e=>{const img=new Image();img.onload=()=>{const c=document.createElement('canvas');const ratio=Math.min(800/img.width,800/img.height,1);c.width=img.width*ratio;c.height=img.height*ratio;c.getContext('2d').drawImage(img,0,0,c.width,c.height);res(c.toDataURL('image/jpeg',0.6));};img.src=e.target.result;};r.readAsDataURL(ff);});}
+    const t=(document.getElementById('cfg-tel').value||'').replace(/\D/g,'');
+    const data={nombre:document.getElementById('cfg-nombre').value.trim(),telefono:t?l+t:'',correo:document.getElementById('cfg-correo').value.trim(),sexo:document.getElementById('cfg-sexo').value,edad:parseInt(document.getElementById('cfg-edad').value)||0,num_licencia:document.getElementById('cfg-licencia').value.trim(),placas_vehiculo:document.getElementById('cfg-placas').value.trim(),tipo_vehiculo:document.getElementById('cfg-tipo').value,color_vehiculo:document.getElementById('cfg-color').value.trim(),direccion:document.getElementById('cfg-dir').value.trim()};
+    if(foto)data.foto_vehiculo=foto;
+    for(let i=1;i<=5;i++){data[`fam_nombre_${i}`]=document.getElementById(`cfg-c${i}n`).value.trim();const ct=(document.getElementById(`cfg-c${i}t`).value||'').replace(/\D/g,'');data[`fam_tel_${i}`]=ct?l+ct:'';}
+    try{const r=await fetch(`${API}/api/pilotos/${PILOTO.id_piloto}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});PILOTO=await r.json();sessionStorage.setItem('sisdel_piloto',JSON.stringify(PILOTO));showToast('Datos actualizados ✅','success');volverPanico();}catch{showToast('Error al guardar','error');}
 }
-
-async function guardarConfig() {
-    const lada = document.getElementById('cfg-pais')?.value || '502';
-    let fotoBase64 = null;
-    const fotoFile = document.getElementById('cfg-foto').files[0];
-    if (fotoFile) {
-        fotoBase64 = await new Promise((resolve) => {
-            const reader = new FileReader();
-            reader.onload = (e) => { const img=new Image(); img.onload=()=>{ const c=document.createElement('canvas'); const r=Math.min(800/img.width,800/img.height,1); c.width=img.width*r; c.height=img.height*r; c.getContext('2d').drawImage(img,0,0,c.width,c.height); resolve(c.toDataURL('image/jpeg',0.6)); }; img.src=e.target.result; };
-            reader.readAsDataURL(fotoFile);
-        });
-    }
-    const telRaw = (document.getElementById('cfg-tel').value || '').replace(/\D/g,'');
-    const data = {
-        nombre: document.getElementById('cfg-nombre').value.trim(),
-        telefono: telRaw ? lada + telRaw : '',
-        correo: document.getElementById('cfg-correo').value.trim(),
-        sexo: document.getElementById('cfg-sexo').value,
-        edad: parseInt(document.getElementById('cfg-edad').value) || 0,
-        num_licencia: document.getElementById('cfg-licencia').value.trim(),
-        placas_vehiculo: document.getElementById('cfg-placas').value.trim(),
-        tipo_vehiculo: document.getElementById('cfg-tipo').value,
-        color_vehiculo: document.getElementById('cfg-color').value.trim(),
-        direccion: document.getElementById('cfg-dir').value.trim(),
-    };
-    if (fotoBase64) data.foto_vehiculo = fotoBase64;
-    for (let i=1;i<=5;i++) {
-        data[`fam_nombre_${i}`] = document.getElementById(`cfg-c${i}n`).value.trim();
-        const ctel = (document.getElementById(`cfg-c${i}t`).value || '').replace(/\D/g,'');
-        data[`fam_tel_${i}`] = ctel ? lada + ctel : '';
-    }
-    try {
-        const res = await fetch(`${API}/api/pilotos/${PILOTO.id_piloto}`, {
-            method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data)
-        });
-        PILOTO = await res.json();
-        sessionStorage.setItem('sisdel_piloto', JSON.stringify(PILOTO));
-        showToast('Datos actualizados correctamente.','success');
-        volverPanico();
-    } catch { showToast('Error al guardar.','error'); }
-}
-
-function volverPanico() {
-    document.getElementById('paso-config').style.display = 'none';
-    mostrarPanico();
-}
+function volverPanico(){document.getElementById('paso-config').style.display='none';mostrarPanico();}
+function mostrarConfig(){llenarFormConfig();}
 </script>
 </body>
 </html>
-
