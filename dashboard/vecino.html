@@ -306,117 +306,140 @@
 
 
 <!-- ══ MODAL CONFIGURACIÓN ══════════════════════ -->
-<div id="modal-config" style="display:none; position:fixed; inset:0; background:rgba(10,13,30,.97); z-index:9998; overflow-y:auto; padding:1rem;">
+<div id="modal-config" style="display:none; position:fixed; inset:0; background:rgba(6,8,20,.98); z-index:9998; overflow-y:auto; padding:1rem;">
     <div style="max-width:500px; margin:0 auto;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
-            <h2 style="color:#fff; font-size:1.2rem; margin:0;">⚙️ Configuración</h2>
-            <button onclick="cerrarConfiguracion()" style="background:rgba(0,214,143,.15); border:1px solid rgba(0,214,143,.4); color:#00d68f; border-radius:8px; padding:.4rem .9rem; font-size:.85rem; font-weight:700; cursor:pointer;">💾 Guardar y Cerrar</button>
+
+        <!-- Header -->
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.2rem; padding-bottom:.8rem; border-bottom:1px solid rgba(255,255,255,.06);">
+            <div>
+                <h2 style="color:#fff; font-size:1.25rem; margin:0;">⚙️ Configuración</h2>
+                <p style="font-size:.68rem; color:#6b7294; margin:.2rem 0 0;">Personaliza tu botón de pánico</p>
+            </div>
+            <button onclick="cerrarConfiguracion()" style="background:linear-gradient(135deg,#00d68f,#00b377); border:none; color:#fff; border-radius:10px; padding:.5rem 1rem; font-size:.82rem; font-weight:700; cursor:pointer; box-shadow:0 4px 15px rgba(0,214,143,.25);">💾 Guardar</button>
         </div>
 
         <!-- GPS -->
-        <div style="background:#111325; border:1px solid #2a2d45; border-radius:12px; padding:.8rem 1rem; margin-bottom:.6rem;">
+        <div style="background:linear-gradient(135deg,rgba(17,19,37,.9),rgba(20,23,45,.9)); border:1px solid rgba(77,166,255,.15); border-left:3px solid #4da6ff; border-radius:14px; padding:.9rem 1rem; margin-bottom:.7rem;">
             <div style="display:flex; justify-content:space-between; align-items:center;">
-                <div>
-                    <div style="font-weight:700; color:#fff; font-size:.85rem;">📍 Ubicación GPS</div>
-                    <div style="font-size:.7rem; color:#6b7294;">Comparte tu ubicación al enviar alerta</div>
+                <div style="display:flex; align-items:center; gap:.6rem;">
+                    <div style="width:36px; height:36px; border-radius:10px; background:rgba(77,166,255,.12); display:flex; align-items:center; justify-content:center; font-size:1.1rem;">📍</div>
+                    <div>
+                        <div style="font-weight:700; color:#fff; font-size:.85rem;">Ubicación GPS</div>
+                        <div style="font-size:.68rem; color:#6b7294;">Comparte tu ubicación al enviar alerta</div>
+                    </div>
                 </div>
-                <div id="cfg-gps-estado" style="padding:.2rem .6rem; border-radius:6px; font-size:.7rem; font-weight:700; background:rgba(255,165,0,.15); color:#ffa500; border:1px solid rgba(255,165,0,.3);">Verificando...</div>
+                <div id="cfg-gps-estado" style="padding:.25rem .6rem; border-radius:8px; font-size:.68rem; font-weight:700; background:rgba(255,165,0,.12); color:#ffa500; border:1px solid rgba(255,165,0,.2);">Verificando...</div>
             </div>
-            <button onclick="activarGPS()" style="width:100%; margin-top:.5rem; padding:.4rem; background:rgba(0,214,143,.12); color:#00d68f; border:1px solid rgba(0,214,143,.3); border-radius:8px; font-size:.75rem; font-weight:700; cursor:pointer;">📍 Activar Ubicación</button>
+            <button onclick="activarGPS()" style="width:100%; margin-top:.6rem; padding:.45rem; background:rgba(77,166,255,.08); color:#4da6ff; border:1px solid rgba(77,166,255,.2); border-radius:10px; font-size:.75rem; font-weight:700; cursor:pointer;">📍 Activar Ubicación</button>
         </div>
 
         <!-- VIBRACIÓN -->
-        <div style="background:#111325; border:1px solid #2a2d45; border-radius:12px; padding:.8rem 1rem; margin-bottom:.6rem;">
+        <div style="background:linear-gradient(135deg,rgba(17,19,37,.9),rgba(20,23,45,.9)); border:1px solid rgba(124,92,252,.15); border-left:3px solid #7c5cfc; border-radius:14px; padding:.9rem 1rem; margin-bottom:.7rem;">
             <div style="display:flex; justify-content:space-between; align-items:center;">
-                <div>
-                    <div style="font-weight:700; color:#fff; font-size:.85rem;">📳 Vibración Fuerte</div>
-                    <div style="font-size:.7rem; color:#6b7294;">Vibrar al enviar y confirmar alerta</div>
+                <div style="display:flex; align-items:center; gap:.6rem;">
+                    <div style="width:36px; height:36px; border-radius:10px; background:rgba(124,92,252,.12); display:flex; align-items:center; justify-content:center; font-size:1.1rem;">📳</div>
+                    <div>
+                        <div style="font-weight:700; color:#fff; font-size:.85rem;">Vibración Fuerte</div>
+                        <div style="font-size:.68rem; color:#6b7294;">Vibrar al enviar y confirmar alerta</div>
+                    </div>
                 </div>
-                <label style="position:relative; display:inline-block; width:44px; height:24px;">
-                    <input type="checkbox" id="cfg-vibracion" onchange="guardarConfig()" checked
-                        style="opacity:0; width:0; height:0;">
-                    <span style="position:absolute; cursor:pointer; inset:0; background:#333; border-radius:24px; transition:.3s;"
-                        class="cfg-slider"></span>
+                <label style="position:relative; display:inline-block; width:48px; height:26px;">
+                    <input type="checkbox" id="cfg-vibracion" onchange="guardarConfig()" checked style="opacity:0; width:0; height:0;">
+                    <span style="position:absolute; cursor:pointer; inset:0; background:#2a2d45; border-radius:26px; transition:.3s;" class="cfg-slider"></span>
                 </label>
             </div>
         </div>
 
-        <!-- AGITAR PARA ALERTA -->
-        <div style="background:#111325; border:1px solid #2a2d45; border-radius:12px; padding:.8rem 1rem; margin-bottom:.6rem;">
+        <!-- AGITAR -->
+        <div style="background:linear-gradient(135deg,rgba(17,19,37,.9),rgba(20,23,45,.9)); border:1px solid rgba(255,165,0,.15); border-left:3px solid #ffa500; border-radius:14px; padding:.9rem 1rem; margin-bottom:.7rem;">
             <div style="display:flex; justify-content:space-between; align-items:center;">
-                <div>
-                    <div style="font-weight:700; color:#fff; font-size:.85rem;">📱 Agitar para Alertar</div>
-                    <div style="font-size:.7rem; color:#6b7294;">Agita el celular fuerte 3 veces para enviar alerta</div>
+                <div style="display:flex; align-items:center; gap:.6rem;">
+                    <div style="width:36px; height:36px; border-radius:10px; background:rgba(255,165,0,.12); display:flex; align-items:center; justify-content:center; font-size:1.1rem;">📱</div>
+                    <div>
+                        <div style="font-weight:700; color:#fff; font-size:.85rem;">Agitar para Alertar</div>
+                        <div style="font-size:.68rem; color:#6b7294;">Agita 3 veces fuerte para activar</div>
+                    </div>
                 </div>
-                <label style="position:relative; display:inline-block; width:44px; height:24px;">
-                    <input type="checkbox" id="cfg-agitar" onchange="guardarConfig(); toggleShakeDetection();"
-                        style="opacity:0; width:0; height:0;">
-                    <span style="position:absolute; cursor:pointer; inset:0; background:#333; border-radius:24px; transition:.3s;"
-                        class="cfg-slider"></span>
+                <label style="position:relative; display:inline-block; width:48px; height:26px;">
+                    <input type="checkbox" id="cfg-agitar" onchange="guardarConfig(); toggleShakeDetection();" style="opacity:0; width:0; height:0;">
+                    <span style="position:absolute; cursor:pointer; inset:0; background:#2a2d45; border-radius:26px; transition:.3s;" class="cfg-slider"></span>
                 </label>
             </div>
-            <p style="font-size:.62rem; color:#6b7294; margin-top:.4rem; text-align:center;">
-                ⚠️ Funciona solo con la app abierta. Agita fuerte el teléfono 3 veces seguidas para disparar la alerta.
-            </p>
+            <div style="margin-top:.5rem; padding:.35rem .6rem; background:rgba(255,165,0,.05); border-radius:8px;">
+                <p style="font-size:.6rem; color:#6b7294; margin:0; text-align:center;">⚠️ Solo funciona con la app abierta</p>
+            </div>
         </div>
 
-        <!-- COMANDO DE VOZ -->
-        <div style="background:#111325; border:1px solid #2a2d45; border-radius:12px; padding:.8rem 1rem; margin-bottom:.6rem;">
+        <!-- ALERTA POR VOZ -->
+        <div style="background:linear-gradient(135deg,rgba(17,19,37,.9),rgba(20,23,45,.9)); border:1px solid rgba(255,59,59,.15); border-left:3px solid #ff3b3b; border-radius:14px; padding:.9rem 1rem; margin-bottom:.7rem;">
             <div style="display:flex; justify-content:space-between; align-items:center;">
-                <div>
-                    <div style="font-weight:700; color:#fff; font-size:.85rem;">🎙️ Alerta por Voz</div>
-                    <div style="font-size:.7rem; color:#6b7294;">Grita tu palabra clave para enviar alerta</div>
+                <div style="display:flex; align-items:center; gap:.6rem;">
+                    <div style="width:36px; height:36px; border-radius:10px; background:rgba(255,59,59,.12); display:flex; align-items:center; justify-content:center; font-size:1.1rem;">🎙️</div>
+                    <div>
+                        <div style="font-weight:700; color:#fff; font-size:.85rem;">Alerta por Voz</div>
+                        <div style="font-size:.68rem; color:#6b7294;">Grita fuerte para enviar alerta</div>
+                    </div>
                 </div>
-                <label style="position:relative; display:inline-block; width:44px; height:24px;">
-                    <input type="checkbox" id="cfg-voz" onchange="toggleVoz()"
-                        style="opacity:0; width:0; height:0;">
-                    <span style="position:absolute; cursor:pointer; inset:0; background:#333; border-radius:24px; transition:.3s;"
-                        class="cfg-slider"></span>
+                <label style="position:relative; display:inline-block; width:48px; height:26px;">
+                    <input type="checkbox" id="cfg-voz" onchange="toggleVoz()" style="opacity:0; width:0; height:0;">
+                    <span style="position:absolute; cursor:pointer; inset:0; background:#2a2d45; border-radius:26px; transition:.3s;" class="cfg-slider"></span>
                 </label>
             </div>
-            <div id="cfg-voz-extra" style="display:none; margin-top:.6rem; padding-top:.5rem; border-top:1px solid #2a2d45;">
-                <button id="btn-permiso-mic" onclick="solicitarPermisoMic()" style="width:100%; margin-bottom:.8rem; padding:.6rem; background:rgba(255,165,0,.15); color:#ffa500; border:1px solid rgba(255,165,0,.3); border-radius:8px; font-size:.8rem; font-weight:700; cursor:pointer; text-transform:uppercase;">
+
+            <div id="cfg-voz-extra" style="display:none; margin-top:.7rem; padding-top:.6rem; border-top:1px solid rgba(255,255,255,.05);">
+                <button id="btn-permiso-mic" onclick="solicitarPermisoMic()" style="width:100%; margin-bottom:.7rem; padding:.55rem; background:linear-gradient(135deg,rgba(255,165,0,.12),rgba(255,140,0,.08)); color:#ffa500; border:1px solid rgba(255,165,0,.25); border-radius:10px; font-size:.78rem; font-weight:700; cursor:pointer;">
                     🎙️ Permitir Usar Micrófono
                 </button>
-            
-                <!-- Paso 1: Grabar frase -->
-                <p style="font-size:.72rem; color:#6b7294; margin-bottom:.3rem;">🔑 Graba tu frase de emergencia (di la palabra varias veces):</p>
-                <div style="display:flex; gap:.4rem; align-items:center; flex-wrap:wrap;">
-                    <button id="btn-grabar" onclick="toggleGrabacion()" style="flex:1; padding:.5rem; background:rgba(255,59,59,.15); color:#ff3b3b; border:1px solid rgba(255,59,59,.3); border-radius:8px; font-size:.8rem; font-weight:700; cursor:pointer; text-transform:uppercase;">
-                        🎤 Grabar Frase
-                    </button>
-                    <button id="btn-escuchar" onclick="escucharGrabacion()" style="flex:1; padding:.5rem; background:rgba(77,166,255,.12); color:#4da6ff; border:1px solid rgba(77,166,255,.3); border-radius:8px; font-size:.8rem; font-weight:700; cursor:pointer; display:none; text-transform:uppercase;">
-                        ▶️ Escuchar
-                    </button>
-                </div>
 
-                <!-- Indicador de grabación MUY CLARO -->
-                <div id="grabacion-indicador" style="display:none; margin-top:.8rem; text-align:center; padding:.8rem; background:rgba(255,59,59,.1); border:2px dashed #ff3b3b; border-radius:12px; animation: pulsoRojo 1s infinite alternate;">
-                    <div style="font-size:1.2rem; color:#ff3b3b; font-weight:800; margin-bottom:.4rem; letter-spacing:1px;">🔴 GRABANDO AHORA</div>
-                    <div id="volumen-barra" style="height:10px; background:#1a1f3e; border-radius:5px; overflow:hidden; border:1px solid rgba(255,255,255,.1);">
-                        <div id="volumen-nivel" style="height:100%; width:0; background:linear-gradient(90deg,#00d68f,#ffa500,#ff3b3b); border-radius:5px; transition:width .1s;"></div>
+                <!-- Audio guardado -->
+                <div id="audio-status-card" style="margin-bottom:.7rem; padding:.55rem .8rem; background:rgba(0,214,143,.06); border:1px solid rgba(0,214,143,.15); border-radius:10px; display:none;">
+                    <div style="display:flex; align-items:center; gap:.5rem;">
+                        <div style="width:8px; height:8px; border-radius:50%; background:#00d68f; box-shadow:0 0 6px rgba(0,214,143,.5);"></div>
+                        <span style="font-size:.75rem; color:#00d68f; font-weight:700;">Audio guardado</span>
+                        <button id="btn-escuchar" onclick="escucharGrabacion()" style="margin-left:auto; padding:.3rem .7rem; background:rgba(77,166,255,.12); color:#4da6ff; border:1px solid rgba(77,166,255,.25); border-radius:8px; font-size:.72rem; font-weight:700; cursor:pointer;">▶️ Escuchar</button>
                     </div>
-                    <div style="font-size:.7rem; color:#fff; margin-top:.4rem; font-weight:600;">HABLA FUERTE... Luego toca el botón ROJO de arriba para detener.</div>
                 </div>
 
-                <div id="cfg-voz-estado" style="text-align:center; margin-top:.6rem; font-size:.75rem; color:#00d68f; font-weight:700;"></div>
-                <p style="font-size:.62rem; color:#6b7294; margin-top:.6rem; text-align:center;">
-                    ⚠️ Al activar, la app escucha el micrófono. Cuando grites fuerte, enviará la alerta automáticamente.
-                </p>
+                <!-- Grabar -->
+                <p style="font-size:.72rem; color:#8b8fa8; margin-bottom:.4rem;">🔑 Graba tu frase de emergencia:</p>
+                <button id="btn-grabar" onclick="toggleGrabacion()" style="width:100%; padding:.6rem; background:linear-gradient(135deg,rgba(255,59,59,.12),rgba(200,0,0,.08)); color:#ff3b3b; border:1px solid rgba(255,59,59,.25); border-radius:10px; font-size:.82rem; font-weight:800; cursor:pointer; letter-spacing:.5px;">
+                    🎤 GRABAR FRASE
+                </button>
+
+                <!-- Indicador de grabación -->
+                <div id="grabacion-indicador" style="display:none; margin-top:.7rem; text-align:center; padding:.8rem; background:rgba(255,59,59,.08); border:2px solid rgba(255,59,59,.3); border-radius:14px; animation: pulsoRojo 1s infinite alternate;">
+                    <div style="font-size:1rem; color:#ff3b3b; font-weight:800; margin-bottom:.4rem;">🔴 GRABANDO</div>
+                    <div id="volumen-barra" style="height:8px; background:rgba(255,255,255,.05); border-radius:4px; overflow:hidden;">
+                        <div id="volumen-nivel" style="height:100%; width:0; background:linear-gradient(90deg,#00d68f,#ffa500,#ff3b3b); border-radius:4px; transition:width .1s;"></div>
+                    </div>
+                    <div style="font-size:.66rem; color:rgba(255,255,255,.6); margin-top:.4rem;">Habla fuerte... Toca 🎤 para detener</div>
+                </div>
+
+                <div id="cfg-voz-estado" style="text-align:center; margin-top:.5rem; font-size:.75rem; color:#00d68f; font-weight:700;"></div>
+                <div style="margin-top:.4rem; padding:.35rem .6rem; background:rgba(255,59,59,.04); border-radius:8px;">
+                    <p style="font-size:.58rem; color:#6b7294; margin:0; text-align:center;">⚠️ Solo funciona con la app abierta y visible</p>
+                </div>
             </div>
         </div>
 
         <!-- EDITAR DATOS -->
-        <div style="background:#111325; border:1px solid #2a2d45; border-radius:12px; padding:.8rem 1rem; margin-bottom:.6rem;">
-            <button onclick="editarDatos(); cerrarConfiguracion();" style="width:100%; padding:.5rem; background:rgba(255,165,0,.12); color:#ffa500; border:1px solid rgba(255,165,0,.3); border-radius:8px; font-size:.82rem; font-weight:700; cursor:pointer;">✏️ Editar Mis Datos y Familiares</button>
+        <div style="background:linear-gradient(135deg,rgba(17,19,37,.9),rgba(20,23,45,.9)); border:1px solid rgba(255,165,0,.12); border-left:3px solid #ffa500; border-radius:14px; padding:.9rem 1rem; margin-bottom:.7rem;">
+            <button onclick="editarDatos(); cerrarConfiguracion();" style="width:100%; padding:.55rem; background:rgba(255,165,0,.08); color:#ffa500; border:1px solid rgba(255,165,0,.2); border-radius:10px; font-size:.82rem; font-weight:700; cursor:pointer;">✏️ Editar Mis Datos y Familiares</button>
         </div>
 
         <!-- INSTALAR APP -->
-        <div id="cfg-instalar" style="display:none; background:#111325; border:1px solid #2a2d45; border-radius:12px; padding:.8rem 1rem; margin-bottom:.6rem;">
-            <div style="font-weight:700; color:#fff; font-size:.85rem;">📲 Instalar en tu celular</div>
-            <div style="font-size:.7rem; color:#6b7294; margin-bottom:.4rem;">Agrega la app a tu pantalla de inicio para acceso rápido</div>
-            <button id="btn-instalar-pwa" onclick="instalarPWA()" style="width:100%; padding:.5rem; background:linear-gradient(135deg,#4da6ff,#7c5cfc); color:#fff; border:none; border-radius:8px; font-size:.82rem; font-weight:700; cursor:pointer;">📲 Instalar App</button>
+        <div id="cfg-instalar" style="display:none; background:linear-gradient(135deg,rgba(17,19,37,.9),rgba(20,23,45,.9)); border:1px solid rgba(77,166,255,.15); border-left:3px solid #4da6ff; border-radius:14px; padding:.9rem 1rem; margin-bottom:.7rem;">
+            <div style="display:flex; align-items:center; gap:.6rem; margin-bottom:.5rem;">
+                <div style="width:36px; height:36px; border-radius:10px; background:rgba(77,166,255,.12); display:flex; align-items:center; justify-content:center; font-size:1.1rem;">📲</div>
+                <div>
+                    <div style="font-weight:700; color:#fff; font-size:.85rem;">Instalar en tu celular</div>
+                    <div style="font-size:.68rem; color:#6b7294;">Acceso rápido desde pantalla de inicio</div>
+                </div>
+            </div>
+            <button id="btn-instalar-pwa" onclick="instalarPWA()" style="width:100%; padding:.55rem; background:linear-gradient(135deg,#4da6ff,#7c5cfc); color:#fff; border:none; border-radius:10px; font-size:.82rem; font-weight:700; cursor:pointer; box-shadow:0 4px 15px rgba(77,166,255,.2);">📲 Instalar App</button>
         </div>
+
+        <p style="text-align:center; font-size:.58rem; color:#3a3d55; margin-top:1rem;">SISDEL Botón de Pánico v1.0</p>
     </div>
 </div>
 
@@ -427,11 +450,11 @@
 }
 /* Toggle sliders */
 .cfg-slider::before {
-    content:""; position:absolute; height:18px; width:18px; left:3px; bottom:3px;
+    content:""; position:absolute; height:20px; width:20px; left:3px; bottom:3px;
     background:#fff; border-radius:50%; transition:.3s;
 }
 input:checked + .cfg-slider { background:#00d68f; }
-input:checked + .cfg-slider::before { transform:translateX(20px); }
+input:checked + .cfg-slider::before { transform:translateX(22px); }
 </style>
 
 <script src="js/vecino.js"></script>
@@ -468,10 +491,12 @@ function cargarConfig() {
     if (cfg.voz) {
         document.getElementById('cfg-voz-extra').style.display = 'block';
     }
-    // Mostrar botón escuchar si ya hay grabación
+    // Mostrar tarjeta de audio si ya hay grabación
     if (cfg.audioGrabado) {
+        const card = document.getElementById('audio-status-card');
+        if (card) card.style.display = 'block';
         const btn = document.getElementById('btn-escuchar');
-        if (btn) btn.style.display = 'block';
+        if (btn) btn.style.display = 'inline-block';
     }
     return cfg;
 }
@@ -586,8 +611,12 @@ async function iniciarGrabacion() {
                 const cfg = JSON.parse(localStorage.getItem('sisdel_config') || '{}');
                 cfg.audioGrabado = base64;
                 localStorage.setItem('sisdel_config', JSON.stringify(cfg));
-                estado.innerHTML = '✅ Frase grabada correctamente';
-                document.getElementById('btn-escuchar').style.display = 'block';
+                estado.innerHTML = '✅ Frase grabada — reemplaza la anterior';
+                // Mostrar tarjeta de audio guardado
+                const card = document.getElementById('audio-status-card');
+                if (card) card.style.display = 'block';
+                const btnEsc = document.getElementById('btn-escuchar');
+                if (btnEsc) btnEsc.style.display = 'inline-block';
 
                 // Sincronizar con el servidor si hay sesión
                 if (typeof vecinoData !== 'undefined' && vecinoData && vecinoData.id_vecino) {
