@@ -130,8 +130,9 @@
 <!-- ══ OVERLAY CONFIRMACIÓN ════════════════════════ -->
 <div id="overlay-enviado" class="overlay-enviado" style="display:none;">
     <div class="enviado-card">
-        <div class="enviado-icon">📡</div>
-        <h2>¡ALERTA ENVIADA!</h2>
+        <div class="enviado-icon" style="font-size:4rem; animation: checkPop .5s cubic-bezier(.175,.885,.32,1.275);">✅</div>
+        <div style="font-size:2rem; font-weight:900; color:#00d68f; letter-spacing:4px; margin-bottom:.25rem; text-shadow:0 0 20px rgba(0,214,143,.5);">ENVIADO</div>
+        <h2 style="color:#fff; font-size:1.1rem; margin:.2rem 0;">¡ALERTA ENVIADA!</h2>
         <p id="env-alerta-num" style="color:#ff8c00; font-weight:700; font-size:1rem;"></p>
         <p>El panel de seguridad recibió tu señal de emergencia.</p>
         <p id="env-coords" class="enviado-coords"></p>
@@ -166,6 +167,11 @@
 
 <style>
 @keyframes pulsoRojo { from{box-shadow:0 0 5px rgba(255,59,59,.2);background:rgba(255,59,59,.05);} to{box-shadow:0 0 15px rgba(255,59,59,.4);background:rgba(255,59,59,.15);} }
+@keyframes checkPop {
+    0%   { transform: scale(0); opacity: 0; }
+    70%  { transform: scale(1.3); }
+    100% { transform: scale(1); opacity: 1; }
+}
 .cfg-slider::before { content:"";position:absolute;height:20px;width:20px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.3s; }
 input:checked + .cfg-slider { background:#00d68f; }
 input:checked + .cfg-slider::before { transform:translateX(22px); }
