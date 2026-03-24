@@ -533,7 +533,19 @@ function verificarEstadoGPS(){
 function toggleShakeDetection(){_shakeEnabled=document.getElementById('cfg-agitar').checked;document.getElementById('shake-notice').style.display=_shakeEnabled?'block':'none';guardarLocalConfig();if(_shakeEnabled)iniciarShake();}
 async function toggleVoz(){const chk=document.getElementById('cfg-voz');if(chk.checked){try{const s=await navigator.mediaDevices.getUserMedia({audio:true});s.getTracks().forEach(t=>t.stop());showToast('🎙️ Micrófono activado ✅','success');document.getElementById('cfg-voz-extra').style.display='block';guardarLocalConfig();iniciarDeteccionVoz();}catch(e){chk.checked=false;document.getElementById('cfg-voz-extra').style.display='none';showToast('❌ Permiso de micrófono requerido para usar Alerta por Voz','error');}}else{document.getElementById('cfg-voz-extra').style.display='none';guardarLocalConfig();detenerDeteccionVoz();}}
 async function solicitarPermisoMic(){try{const s=await navigator.mediaDevices.getUserMedia({audio:true});s.getTracks().forEach(t=>t.stop());showToast('Micrófono activado ✅','success');}catch{showToast('Error de micrófono','error');}}
-async function escucharGrabacion(){const audio=await cargarAudioDB();if(audio){const a=new Audio(audio);a.play().catch(()=>{});}}
+function escucharGrabacion(){
+    const a = new Audio();
+    cargarAudioDB().then(audio => {
+        if(audio){
+            a.src = audio;
+            a.play()
+             .then(() => showToast('▶️ Reproduciendo audio...','info'))
+             .catch(e => { console.warn('Play error:', e); showToast('❌ El navegador bloqueó la reproducción.','error'); });
+        } else {
+            showToast('❌ No se encontró audio guardado','error');
+        }
+    }).catch(() => showToast('❌ Error al cargar audio','error'));
+}
 async function toggleGrabacion(){
     const btn=document.getElementById('btn-grabar'),ind=document.getElementById('grabacion-indicador');
     if(mediaRecorder&&mediaRecorder.state==='recording'){mediaRecorder.stop();btn.textContent='🎤 GRABAR FRASE';ind.style.display='none';return;}
