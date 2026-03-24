@@ -19,9 +19,39 @@
         .badge-atendida { background: rgba(0,214,143,.15); color:#00d68f; border:1px solid rgba(0,214,143,.3); }
         .badge-falsa { background: rgba(107,114,148,.15); color:#6b7294; border:1px solid rgba(107,114,148,.3); }
         .vehiculo-card { background: rgba(255,140,0,.05); border: 1px solid rgba(255,140,0,.2); border-radius: 12px; padding: .75rem; margin-top: .5rem; }
+        /* ═══ TOAST & CONFIRM ═══ */
+        .sisdel-toast-container { position:fixed;top:20px;right:20px;z-index:99999;display:flex;flex-direction:column;gap:.5rem;pointer-events:none; }
+        .sisdel-toast { pointer-events:auto;display:flex;align-items:center;gap:.7rem;padding:.75rem 1.2rem;border-radius:14px;font-size:.85rem;font-weight:600;color:#fff;min-width:280px;max-width:420px;box-shadow:0 8px 32px rgba(0,0,0,.45);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);animation:toastIn .4s cubic-bezier(.23,1,.32,1);transition:all .3s; }
+        .sisdel-toast.toast-success { background:linear-gradient(135deg,rgba(0,214,143,.92),rgba(0,168,112,.92));border:1px solid rgba(0,214,143,.5); }
+        .sisdel-toast.toast-error { background:linear-gradient(135deg,rgba(255,59,59,.92),rgba(200,30,30,.92));border:1px solid rgba(255,59,59,.5); }
+        .sisdel-toast.toast-info { background:linear-gradient(135deg,rgba(77,166,255,.92),rgba(40,120,220,.92));border:1px solid rgba(77,166,255,.5); }
+        .sisdel-toast.toast-warning { background:linear-gradient(135deg,rgba(255,140,0,.92),rgba(220,120,0,.92));border:1px solid rgba(255,140,0,.5); }
+        .sisdel-toast .toast-icon { font-size:1.3rem;flex-shrink:0; }
+        .sisdel-toast .toast-msg { flex:1; }
+        .sisdel-toast .toast-close { cursor:pointer;opacity:.7;font-size:1rem;padding:0 .2rem; }
+        .sisdel-toast .toast-close:hover { opacity:1; }
+        .sisdel-toast.toast-out { animation:toastOut .3s ease forwards; }
+        @keyframes toastIn { from { opacity:0;transform:translateX(60px) scale(.9); } to { opacity:1;transform:translateX(0) scale(1); } }
+        @keyframes toastOut { from { opacity:1;transform:translateX(0); } to { opacity:0;transform:translateX(60px) scale(.9); } }
+        .sisdel-confirm-overlay { position:fixed;inset:0;background:rgba(0,0,0,.65);backdrop-filter:blur(6px);z-index:99998;display:flex;align-items:center;justify-content:center;animation:fadeIn .2s; }
+        .sisdel-confirm-box { background:linear-gradient(145deg,#151829,#111325);border:1px solid rgba(255,140,0,.25);border-radius:18px;padding:2rem;max-width:400px;width:90%;text-align:center;box-shadow:0 16px 48px rgba(0,0,0,.5);animation:scaleIn .3s cubic-bezier(.23,1,.32,1); }
+        .sisdel-confirm-box .cf-icon { font-size:2.5rem;margin-bottom:.8rem; }
+        .sisdel-confirm-box .cf-title { font-size:1.1rem;font-weight:800;color:#fff;margin-bottom:.5rem; }
+        .sisdel-confirm-box .cf-msg { font-size:.85rem;color:#9da3c0;margin-bottom:1.2rem;line-height:1.5; }
+        .sisdel-confirm-box .cf-btns { display:flex;gap:.5rem; }
+        .sisdel-confirm-box .cf-btn { flex:1;padding:.6rem;border-radius:10px;font-weight:700;font-size:.85rem;cursor:pointer;border:none;transition:all .2s; }
+        .sisdel-confirm-box .cf-btn-cancel { background:rgba(107,114,148,.15);border:1px solid rgba(107,114,148,.3);color:#9da3c0; }
+        .sisdel-confirm-box .cf-btn-cancel:hover { background:rgba(107,114,148,.25); }
+        .sisdel-confirm-box .cf-btn-ok { background:linear-gradient(135deg,#ff8c00,#ff6600);color:#fff; }
+        .sisdel-confirm-box .cf-btn-ok:hover { transform:scale(1.03);box-shadow:0 4px 16px rgba(255,140,0,.4); }
+        .sisdel-confirm-box .cf-btn-danger { background:linear-gradient(135deg,#ff3b3b,#cc2020);color:#fff; }
+        .sisdel-confirm-box .cf-btn-danger:hover { transform:scale(1.03);box-shadow:0 4px 16px rgba(255,59,59,.4); }
+        @keyframes fadeIn { from{opacity:0}to{opacity:1} }
+        @keyframes scaleIn { from{opacity:0;transform:scale(.85)}to{opacity:1;transform:scale(1)} }
     </style>
 </head>
 <body>
+<div class="sisdel-toast-container" id="toast-container"></div>
 
 <div class="panel-layout" id="panel-layout">
     <header class="panel-topbar">
@@ -272,21 +302,23 @@
         <div class="modal-body" style="flex:1;overflow-y:auto;">
             <form id="form-agente" onsubmit="guardarAgente(event)">
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:.7rem;">
-                    <div style="grid-column:1/-1;"><label class="lbl-sm">No. Documento *</label><input type="text" id="ag-doc" required class="form-input inp-sm"></div>
-                    <div style="grid-column:1/-1;"><label class="lbl-sm">Nombre Completo *</label><input type="text" id="ag-nombre" required class="form-input inp-sm"></div>
-                    <div><label class="lbl-sm">Teléfono *</label><input type="tel" id="ag-tel" required class="form-input inp-sm"></div>
-                    <div><label class="lbl-sm">Edad</label><input type="number" id="ag-edad" min="0" max="150" value="0" class="form-input inp-sm"></div>
-                    <div><label class="lbl-sm">Sexo</label><select id="ag-sexo" class="form-input inp-sm"><option value="">—</option><option value="M">M</option><option value="F">F</option></select></div>
-                    <div><label class="lbl-sm">País</label><input type="text" id="ag-pais" value="Guatemala" class="form-input inp-sm"></div>
-                    <div><label class="lbl-sm">Puesto</label><input type="text" id="ag-puesto" class="form-input inp-sm"></div>
-                    <div><label class="lbl-sm">Jefe Inmediato</label><input type="text" id="ag-jefe" class="form-input inp-sm"></div>
+                    <div style="grid-column:1/-1;"><label class="lbl-sm">🪨 No. Documento * <span style="color:#ff3b3b;font-size:.65rem;font-weight:900;">(LLAVE PRIMARIA)</span></label><input type="text" id="ag-doc" required class="form-input inp-sm" autocomplete="off" onblur="buscarAgentePorDoc()" style="border-color:#ffa500;font-size:1.05rem;font-weight:700;" placeholder="DPI — Ingrese primero este dato"><span id="ag-hint-doc" style="display:none;font-size:.78rem;margin-top:.3rem;padding:.3rem .6rem;border-radius:6px;font-weight:600;"></span></div>
+                    <div style="grid-column:1/-1;"><label class="lbl-sm">👤 Nombre Completo *</label><input type="text" id="ag-nombre" required class="form-input inp-sm"></div>
+                    <div><label class="lbl-sm">📱 Teléfono *</label><input type="tel" id="ag-tel" required class="form-input inp-sm"></div>
+                    <div><label class="lbl-sm">🎂 Edad</label><input type="number" id="ag-edad" min="0" max="150" value="0" class="form-input inp-sm"></div>
+                    <div><label class="lbl-sm">⚥ Sexo</label><select id="ag-sexo" class="form-input inp-sm"><option value="">—</option><option value="M">M</option><option value="F">F</option></select></div>
+                    <div><label class="lbl-sm">🌎 País</label><input type="text" id="ag-pais" value="Guatemala" class="form-input inp-sm"></div>
+                    <div><label class="lbl-sm">💼 Puesto</label><input type="text" id="ag-puesto" class="form-input inp-sm"></div>
+                    <div><label class="lbl-sm">👨‍💼 Jefe Inmediato</label><input type="text" id="ag-jefe" class="form-input inp-sm"></div>
                 </div>
                 <div id="ag-codigo-box" style="display:none;margin-top:1rem;padding:.7rem 1rem;background:rgba(0,214,143,.08);border:1px solid rgba(0,214,143,.3);border-radius:10px;text-align:center;">
                     <span style="font-size:.72rem;color:#6b7294;text-transform:uppercase;">Código de Acceso</span>
                     <div id="ag-codigo-val" style="font-size:1.5rem;font-weight:900;color:#00d68f;font-family:monospace;letter-spacing:3px;margin-top:.3rem;"></div>
                 </div>
-                <div style="display:flex;gap:.5rem;margin-top:1.2rem;">
-                    <button type="submit" style="flex:1;background:linear-gradient(135deg,#ffa500,#ff8c00);color:#fff;font-weight:700;font-size:.85rem;padding:.6rem;border:none;border-radius:8px;cursor:pointer;">💾 Guardar Agente</button>
+                <div style="display:flex;gap:.5rem;margin-top:1.2rem;flex-wrap:wrap;">
+                    <button type="submit" id="ag-btn-guardar" style="flex:2;background:linear-gradient(135deg,#ffa500,#ff8c00);color:#fff;font-weight:700;font-size:.85rem;padding:.6rem;border:none;border-radius:8px;cursor:pointer;">💾 Guardar Agente</button>
+                    <button type="button" id="ag-btn-modificar" onclick="modificarAgente()" style="flex:1;background:linear-gradient(135deg,#4da6ff,#4da6ff80);color:#fff;font-weight:700;font-size:.85rem;padding:.6rem;border:none;border-radius:8px;cursor:pointer;display:none;">✏️ Modificar</button>
+                    <button type="button" onclick="limpiarFormAgente()" style="flex:1;background:rgba(107,114,148,.12);border:1px solid rgba(107,114,148,.3);color:#6b7294;font-weight:700;font-size:.85rem;padding:.6rem;border-radius:8px;cursor:pointer;">🔄 Nuevo</button>
                     <button type="button" onclick="verListaAgentes()" style="flex:1;background:rgba(124,92,252,.12);color:#7c5cfc;font-weight:700;font-size:.85rem;padding:.6rem;border:1px solid rgba(124,92,252,.3);border-radius:8px;cursor:pointer;">👥 Ver Agentes</button>
                 </div>
             </form>
@@ -311,6 +343,39 @@ let _audioCtx = null;
 let todosLosPilotos = [];
 let todosLosAgentes = [];
 let todasLasAlertas = [];
+
+// ══ TOAST & CONFIRM ══════════════════
+function showToast(msg, type='success', duration=3500) {
+    const icons = {success:'✅',error:'❌',info:'💡',warning:'⚠️'};
+    const container = document.getElementById('toast-container');
+    const t = document.createElement('div');
+    t.className = `sisdel-toast toast-${type}`;
+    t.innerHTML = `<span class="toast-icon">${icons[type]||'ℹ️'}</span><span class="toast-msg">${msg}</span><span class="toast-close" onclick="this.parentElement.classList.add('toast-out');setTimeout(()=>this.parentElement.remove(),300)">✕</span>`;
+    container.appendChild(t);
+    setTimeout(() => { t.classList.add('toast-out'); setTimeout(() => t.remove(), 300); }, duration);
+}
+
+function showConfirm(title, msg, {icon='⚠️', okText='Confirmar', cancelText='Cancelar', danger=false} = {}) {
+    return new Promise(resolve => {
+        const overlay = document.createElement('div');
+        overlay.className = 'sisdel-confirm-overlay';
+        overlay.innerHTML = `
+            <div class="sisdel-confirm-box">
+                <div class="cf-icon">${icon}</div>
+                <div class="cf-title">${title}</div>
+                <div class="cf-msg">${msg}</div>
+                <div class="cf-btns">
+                    <button class="cf-btn cf-btn-cancel" id="cf-cancel">${cancelText}</button>
+                    <button class="cf-btn ${danger?'cf-btn-danger':'cf-btn-ok'}" id="cf-ok">${okText}</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+        overlay.querySelector('#cf-cancel').onclick = () => { overlay.remove(); resolve(false); };
+        overlay.querySelector('#cf-ok').onclick = () => { overlay.remove(); resolve(true); };
+        overlay.addEventListener('click', e => { if(e.target===overlay) { overlay.remove(); resolve(false); } });
+    });
+}
 
 // ── INIT ──────────────────
 document.addEventListener('DOMContentLoaded', () => {
@@ -499,7 +564,7 @@ async function cambiarEstatus(estatus) {
             body: JSON.stringify({estatus})
         });
         closeDet(); cargarAlertas();
-    } catch { alert('Error al cambiar estatus.'); }
+    } catch { showToast('Error al cambiar estatus.','error'); }
 }
 
 async function guardarAsignaciones() {
@@ -515,7 +580,7 @@ async function guardarAsignaciones() {
             } catch {}
         }
     }
-    alert('✅ Agentes asignados correctamente.');
+    showToast('Agentes asignados correctamente.','success');
 }
 
 // ── PILOTOS ──────────────────
@@ -601,7 +666,7 @@ function limpiarFormPiloto() {
 }
 
 async function modificarPiloto() {
-    if (!_pilotoEditId) { alert('Busque un piloto primero por DPI.'); return; }
+    if (!_pilotoEditId) { showToast('Busque un piloto primero por DPI.','warning'); return; }
     const lada = document.getElementById('pl-pais')?.value || '502';
     const telRaw = (document.getElementById('pl-tel').value || '').replace(/\D/g,'');
     const data = {
@@ -646,19 +711,20 @@ async function modificarPiloto() {
             method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data)
         });
         cargarPilotos();
-        alert('✅ Piloto modificado correctamente.');
-    } catch { alert('Error al modificar.'); }
+        showToast('Piloto modificado correctamente.','success');
+    } catch { showToast('Error al modificar.','error'); }
 }
 
 async function eliminarPiloto() {
     if (!_pilotoEditId) return;
-    if (!confirm('¿Eliminar este piloto permanentemente?')) return;
+    const ok = await showConfirm('Eliminar Piloto', '¿Está seguro de eliminar este piloto permanentemente? Esta acción no se puede deshacer.', {icon:'🗑️',okText:'Sí, Eliminar',danger:true});
+    if (!ok) return;
     try {
         await fetch(`${API}/api/pilotos/${_pilotoEditId}`, { method:'DELETE' });
         limpiarFormPiloto();
         cargarPilotos();
-        alert('✅ Piloto eliminado.');
-    } catch { alert('Error al eliminar.'); }
+        showToast('Piloto eliminado.','success');
+    } catch { showToast('Error al eliminar.','error'); }
 }
 function cerrarModalPiloto(e) { if(e&&e.target!==document.getElementById('modal-piloto')) return; document.getElementById('modal-piloto').style.display='none'; }
 
@@ -731,8 +797,8 @@ async function guardarPiloto(event) {
         document.getElementById('pl-codigo-box').style.display = 'block';
         document.getElementById('pl-codigo-val').textContent = p.codigo_piloto || '';
         cargarPilotos();
-        alert('✅ Piloto guardado correctamente.');
-    } catch { alert('Error al guardar piloto.'); }
+        showToast('Piloto guardado correctamente.','success');
+    } catch { showToast('Error al guardar piloto.','error'); }
 }
 
 async function verListaPilotos() {
@@ -769,8 +835,71 @@ function buscarPiloto(q) {
 }
 
 // ── AGENTES ──────────────────
+let _agenteEditId = null;
 function abrirRegistroAgente() { document.getElementById('modal-agente').style.display='flex'; cargarAgentes(); }
 function cerrarModalAgente(e) { if(e&&e.target!==document.getElementById('modal-agente')) return; document.getElementById('modal-agente').style.display='none'; }
+
+async function buscarAgentePorDoc() {
+    const numId = document.getElementById('ag-doc').value.trim();
+    const hintEl = document.getElementById('ag-hint-doc');
+    if (!numId || numId.length < 2) { hintEl.style.display='none'; return; }
+    try {
+        await cargarAgentes();
+        const a = todosLosAgentes.find(x => x.num_identificacion === numId);
+        if (a) {
+            _agenteEditId = a.id_agente || a.num_identificacion;
+            document.getElementById('ag-nombre').value = a.nombre || '';
+            document.getElementById('ag-tel').value = a.telefono || '';
+            document.getElementById('ag-edad').value = a.edad || 0;
+            document.getElementById('ag-sexo').value = a.sexo || '';
+            document.getElementById('ag-pais').value = a.pais || 'Guatemala';
+            document.getElementById('ag-puesto').value = a.puesto || '';
+            document.getElementById('ag-jefe').value = a.jefe_inmediato || '';
+            document.getElementById('ag-codigo-box').style.display = 'block';
+            document.getElementById('ag-codigo-val').textContent = a.codigo_agente || '';
+            hintEl.textContent = '✅ Agente encontrado — datos auto-rellenados';
+            hintEl.style.cssText = 'display:inline-block;font-size:.78rem;margin-top:.3rem;padding:.3rem .6rem;border-radius:6px;font-weight:600;background:rgba(0,214,143,.12);color:#00d68f;border:1px solid rgba(0,214,143,.3);';
+            document.getElementById('ag-btn-guardar').style.display = 'none';
+            document.getElementById('ag-btn-modificar').style.display = 'inline-flex';
+        } else {
+            _agenteEditId = null;
+            hintEl.textContent = '🆕 Nuevo agente — complete todos los campos';
+            hintEl.style.cssText = 'display:inline-block;font-size:.78rem;margin-top:.3rem;padding:.3rem .6rem;border-radius:6px;font-weight:600;background:rgba(77,166,255,.12);color:#4da6ff;border:1px solid rgba(77,166,255,.3);';
+            document.getElementById('ag-btn-guardar').style.display = 'inline-flex';
+            document.getElementById('ag-btn-modificar').style.display = 'none';
+        }
+    } catch { hintEl.style.display='none'; }
+}
+
+function limpiarFormAgente() {
+    _agenteEditId = null;
+    document.getElementById('form-agente').reset();
+    document.getElementById('ag-hint-doc').style.display = 'none';
+    document.getElementById('ag-codigo-box').style.display = 'none';
+    document.getElementById('ag-btn-guardar').style.display = 'inline-flex';
+    document.getElementById('ag-btn-modificar').style.display = 'none';
+    document.getElementById('ag-pais').value = 'Guatemala';
+}
+
+async function modificarAgente() {
+    if (!_agenteEditId) { showToast('Busque un agente primero por Documento.','warning'); return; }
+    try {
+        await fetch(`${API}/api/empresa/agentes/${_agenteEditId}`, {
+            method:'PUT', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({
+                nombre: document.getElementById('ag-nombre').value.trim(),
+                telefono: document.getElementById('ag-tel').value.trim(),
+                edad: parseInt(document.getElementById('ag-edad').value)||0,
+                sexo: document.getElementById('ag-sexo').value,
+                pais: document.getElementById('ag-pais').value.trim(),
+                puesto: document.getElementById('ag-puesto').value.trim(),
+                jefe_inmediato: document.getElementById('ag-jefe').value.trim(),
+            })
+        });
+        cargarAgentes();
+        showToast('Agente modificado correctamente.','success');
+    } catch { showToast('Error al modificar agente.','error'); }
+}
 
 async function cargarAgentes() {
     try { todosLosAgentes = await (await fetch(`${API}/api/empresa/agentes/lista/${EMP.id_empresa}`)).json(); } catch {}
@@ -797,8 +926,8 @@ async function guardarAgente(event) {
         document.getElementById('ag-codigo-box').style.display = 'block';
         document.getElementById('ag-codigo-val').textContent = ag.codigo_agente || '';
         cargarAgentes();
-        alert('✅ Agente guardado.');
-    } catch { alert('Error.'); }
+        showToast('Agente guardado.','success');
+    } catch { showToast('Error al guardar agente.','error'); }
 }
 
 async function verListaAgentes() {
@@ -818,7 +947,7 @@ async function verListaAgentes() {
 
 // ── AVISAR CONTACTOS ──────────────────
 async function avisarContactosPiloto(id_piloto, nombre, lat, lon) {
-    if (!id_piloto) { alert('Sin ID de piloto.'); return; }
+    if (!id_piloto) { showToast('Sin ID de piloto.','warning'); return; }
     document.getElementById('avisar-body').innerHTML = '<p style="color:#6b7294;font-size:.85rem;text-align:center;">Buscando contactos...</p>';
     document.getElementById('modal-avisar').style.display='flex';
     try {
