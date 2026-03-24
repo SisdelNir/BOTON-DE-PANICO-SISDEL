@@ -277,6 +277,9 @@ let _vozCtx=null, _vozAnalyser=null, _vozStream=null, _vozActiva=false, _lastVoz
 function showToast(msg,type='success',dur=3500){const i={success:'✅',error:'❌',info:'💡',warning:'⚠️'};const c=document.getElementById('toast-container');const t=document.createElement('div');t.className=`sisdel-toast toast-${type}`;t.innerHTML=`<span style="font-size:1.3rem;flex-shrink:0">${i[type]||'ℹ️'}</span><span style="flex:1">${msg}</span><span style="cursor:pointer;opacity:.7;font-size:1rem" onclick="this.parentElement.classList.add('toast-out');setTimeout(()=>this.parentElement.remove(),300)">✕</span>`;c.appendChild(t);setTimeout(()=>{t.classList.add('toast-out');setTimeout(()=>t.remove(),300);},dur);}
 
 document.addEventListener('DOMContentLoaded', async()=>{
+    // Auto-activar shake si estaba habilitado
+    const _cfgInit=JSON.parse(localStorage.getItem('sisdel_piloto_config')||'{}');
+    if(_cfgInit.agitar) setTimeout(()=>toggleShakeDetection(),300);
     const params=new URLSearchParams(window.location.search);
     ID_EMPRESA=params.get('emp');
     if(!ID_EMPRESA){document.getElementById('error-clave').textContent='Error: No se especificó empresa.';document.getElementById('error-clave').style.display='block';return;}
@@ -327,8 +330,14 @@ function irAPanico(){
     if(PILOTO.color_vehiculo)vi.push(PILOTO.color_vehiculo);
     document.getElementById('panico-vehiculo').textContent=vi.join(' — ');
     cargarLocalConfig();
+    // Auto-activar funciones según config guardada
+    setTimeout(() => toggleShakeDetection(), 300);
     const cfg=JSON.parse(localStorage.getItem('sisdel_piloto_config')||'{}');
-    if(cfg.voz) iniciarEscuchaVoz();
+    if(cfg.voz){
+        const ind=document.getElementById('voz-indicador');
+        if(ind) ind.style.display='block';
+        setTimeout(()=>iniciarEscuchaVoz(), 500);
+    }
 }
 
 // Called from user tap gesture — this is KEY for mobile permission requests
@@ -517,7 +526,13 @@ function ocultarConfirmacion(){document.getElementById('overlay-enviado').style.
 
 // CONFIG MODAL
 function abrirConfiguracion(){document.getElementById('modal-config').style.display='block';cargarLocalConfig();verificarEstadoGPS();}
-function cerrarConfiguracion(){guardarLocalConfig();document.getElementById('modal-config').style.display='none';}
+function cerrarConfiguracion(){
+    guardarLocalConfig();
+    document.getElementById('modal-config').style.display='none';
+    const cfg=JSON.parse(localStorage.getItem('sisdel_piloto_config')||'{}');
+    toggleShakeDetection();
+    if(cfg.voz) iniciarEscuchaVoz();
+}
 function guardarLocalConfig(){const c=JSON.parse(localStorage.getItem('sisdel_piloto_config')||'{}');c.vibracion=document.getElementById('cfg-vibracion').checked;c.agitar=document.getElementById('cfg-agitar').checked;c.voz=document.getElementById('cfg-voz').checked;localStorage.setItem('sisdel_piloto_config',JSON.stringify(c));}
 function cargarLocalConfig(){
     const c=JSON.parse(localStorage.getItem('sisdel_piloto_config')||'{}');

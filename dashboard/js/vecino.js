@@ -480,6 +480,18 @@ function iniciarPasoParanica() {
         mostrarBotonWAmasivo();
     }
     obtenerGPS();
+
+    // ── AUTO-ACTIVAR funciones según config guardada ──
+    const cfg = JSON.parse(localStorage.getItem('sisdel_config') || '{}');
+    if (cfg.agitar) {
+        // pequeño delay para que el DOM esté listo
+        setTimeout(() => toggleShakeDetection(), 300);
+    }
+    if (cfg.voz) {
+        const ind = document.getElementById('voz-indicador');
+        if (ind) ind.style.display = 'block';
+        setTimeout(() => iniciarEscuchaVoz(), 500);
+    }
 }
 
 function obtenerGPS() {
