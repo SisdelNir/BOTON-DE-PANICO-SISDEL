@@ -21,7 +21,7 @@ class InstitucionResponse(BaseModel):
     telefono:          str
     correo:            str
     direccion:         str
-    pais:              str
+    pais:              str = "502"
     clave_acceso:      str
     activo:            bool
     fecha_registro:    str
