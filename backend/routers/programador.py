@@ -1,7 +1,13 @@
-"""Router: Programador — gestión de instituciones (clave maestra 1122)"""
+"""Router: Programador — gestión de instituciones + empresas (clave maestra 1122)"""
 from fastapi import APIRouter, HTTPException
-from models import InstitucionCreate, InstitucionUpdate, InstitucionResponse, LoginInstRequest, LoginInstResponse
-from database import db, CLAVE_PROGRAMADOR, login_agente_global
+from models import (InstitucionCreate, InstitucionUpdate, InstitucionResponse,
+                    LoginInstRequest, LoginInstResponse,
+                    EmpresaCreate, EmpresaUpdate, EmpresaResponse)
+from database import (db, CLAVE_PROGRAMADOR, login_agente_global,
+                      login_empresa, login_piloto, login_agente_empresa_global,
+                      crear_empresa, listar_empresas, toggle_empresa,
+                      editar_empresa, regenerar_clave_empresa, eliminar_empresa,
+                      listar_pilotos)
 
 router = APIRouter(prefix="/api/programador", tags=["Programador"])
 
@@ -59,6 +65,26 @@ async def login(data: LoginInstRequest):
             num_identificacion=ag["num_identificacion"]
         )
 
+    # ¿Es clave de empresa de seguridad?
+    emp = login_empresa(clave)
+    if emp:
+        return LoginInstResponse(
+            success=True, message="Acceso empresa",
+            tipo="empresa",
+            id_institucion=emp["id_empresa"],  # reusamos este campo para el ID
+        )
+
+    # ¿Es código de agente de empresa?
+    ag_emp = login_agente_empresa_global(clave)
+    if ag_emp:
+        ag = ag_emp["agente"]
+        return LoginInstResponse(
+            success=True, message="Acceso agente empresa",
+            tipo="agente_empresa",
+            id_institucion=ag["id_empresa"],
+            num_identificacion=ag["num_identificacion"]
+        )
+
     return LoginInstResponse(success=False, message="Clave inválida")
 
 
@@ -101,3 +127,44 @@ async def eliminar(id_inst: str):
     ok = db.eliminar_institucion(id_inst)
     if not ok:
         raise HTTPException(404, "Institución no encontrada")
+
+
+# ══ EMPRESAS DE SEGURIDAD ═══════════════════════════════════
+
+@router.get("/empresas")
+async def listar_emp():
+    return listar_empresas()
+
+
+@router.post("/empresas", status_code=201)
+async def crear_emp(data: EmpresaCreate):
+    return crear_empresa(data.model_dump())
+
+
+@router.patch("/empresas/{id_emp}/toggle")
+async def toggle_emp(id_emp: str):
+    r = toggle_empresa(id_emp)
+    if not r:
+        raise HTTPException(404, "Empresa no encontrada")
+    return r
+
+
+@router.patch("/empresas/{id_emp}/regenerar-clave")
+async def regen_emp(id_emp: str):
+    r = regenerar_clave_empresa(id_emp)
+    if not r:
+        raise HTTPException(404, "Empresa no encontrada")
+    return r
+
+
+@router.put("/empresas/{id_emp}")
+async def editar_emp(id_emp: str, data: EmpresaUpdate):
+    r = editar_empresa(id_emp, data.model_dump(exclude_unset=True))
+    if not r:
+        raise HTTPException(404, "Empresa no encontrada")
+    return r
+
+
+@router.delete("/empresas/{id_emp}", status_code=204)
+async def eliminar_emp(id_emp: str):
+    eliminar_empresa(id_emp)

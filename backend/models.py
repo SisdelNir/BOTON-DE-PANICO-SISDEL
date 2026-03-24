@@ -193,3 +193,88 @@ class AgenteResponse(BaseModel):
     activo:             bool = True
     fecha_registro:     str = ""
     class Config: from_attributes = True
+
+
+# ── EMPRESA DE SEGURIDAD ─────────────────────────────────────
+
+class EmpresaCreate(BaseModel):
+    nombre_empresa: str = Field(..., min_length=2, max_length=150)
+    nombre_admin:   str = Field(..., min_length=2, max_length=150)
+    telefono:       str = Field(default="", max_length=20)
+    correo:         str = Field(default="", max_length=150)
+    direccion:      str = Field(default="", max_length=250)
+
+class EmpresaResponse(BaseModel):
+    id_empresa:     str
+    nombre_empresa: str
+    nombre_admin:   str
+    telefono:       str
+    correo:         str
+    direccion:      str
+    clave_acceso:   str
+    activo:         bool
+    fecha_registro: str
+    class Config: from_attributes = True
+
+class EmpresaUpdate(BaseModel):
+    nombre_empresa: Optional[str] = None
+    nombre_admin:   Optional[str] = None
+    telefono:       Optional[str] = None
+    correo:         Optional[str] = None
+    direccion:      Optional[str] = None
+
+
+# ── PILOTOS ──────────────────────────────────────────────────
+
+class PilotoCreate(BaseModel):
+    id_empresa:         str
+    nombre:             str = Field(..., min_length=1, max_length=150)
+    telefono:           str = Field(..., min_length=1, max_length=20)
+    num_identificacion: str = Field(..., min_length=1, max_length=30)
+    num_licencia:       str = ""
+    empresa_labora:     str = ""
+    placas_vehiculo:    str = ""
+    tipo_vehiculo:      str = ""
+    color_vehiculo:     str = ""
+    foto_vehiculo:      Optional[str] = ""
+    direccion:          str = ""
+    sexo:               str = ""
+    edad:               int = 0
+    correo:             str = ""
+    fam_nombre_1: str = ""; fam_tel_1: str = ""
+    fam_nombre_2: str = ""; fam_tel_2: str = ""
+    fam_nombre_3: str = ""; fam_tel_3: str = ""
+    fam_nombre_4: str = ""; fam_tel_4: str = ""
+    fam_nombre_5: str = ""; fam_tel_5: str = ""
+    voz_alerta:   Optional[str] = ""
+
+
+# ── ALERTAS EMPRESA ──────────────────────────────────────────
+
+class AlertaEmpresaCreate(BaseModel):
+    id_empresa:         str
+    id_piloto:          Optional[str] = None
+    nombre_piloto:      str = "Desconocido"
+    telefono_piloto:    str = ""
+    num_identificacion: str = ""
+    placas_vehiculo:    str = ""
+    tipo_vehiculo:      str = ""
+    color_vehiculo:     str = ""
+    direccion_piloto:   str = ""
+    gps_latitud:        Optional[float] = None
+    gps_longitud:       Optional[float] = None
+    direccion_aproximada: str = ""
+
+
+# ── AGENTES EMPRESA ─────────────────────────────────────────
+
+class AgenteEmpresaCreate(BaseModel):
+    id_empresa:         str
+    nombre:             str = Field(..., min_length=1, max_length=150)
+    telefono:           str = Field(..., min_length=1, max_length=20)
+    num_identificacion: str = Field(..., min_length=1, max_length=30)
+    edad:               int = Field(default=0, ge=0, le=150)
+    sexo:               str = Field(default="", max_length=1)
+    pais:               str = Field(default="", max_length=60)
+    puesto:             str = Field(default="", max_length=100)
+    jefe_inmediato:     str = Field(default="", max_length=150)

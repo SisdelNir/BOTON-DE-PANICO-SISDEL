@@ -339,6 +339,8 @@ def init_db():
     # Restaurar instituciones desde env var
     _seed_from_env()
 
+    # Migración: tablas de Empresa de Seguridad
+    _migrar_tablas_empresas()
 
 def _migrar_columnas_familiares():
     """Agrega columnas fam_nombre/fam_tel 1-5 a tabla vecinos si no existen."""
@@ -458,6 +460,193 @@ def _migrar_emergencias_y_agentes():
                 """)
         except Exception:
             pass
+
+
+def _migrar_tablas_empresas():
+    """Crea las tablas del módulo Empresa de Seguridad (pilotos, alertas, agentes)."""
+    with get_conn() as conn:
+        if USE_PG:
+            _execute(conn, """
+                CREATE TABLE IF NOT EXISTS empresas_seguridad (
+                    id_empresa         TEXT PRIMARY KEY,
+                    nombre_empresa     TEXT NOT NULL,
+                    nombre_admin       TEXT NOT NULL,
+                    telefono           TEXT DEFAULT '',
+                    correo             TEXT DEFAULT '',
+                    direccion          TEXT DEFAULT '',
+                    clave_acceso       TEXT NOT NULL,
+                    activo             BOOLEAN DEFAULT TRUE,
+                    fecha_registro     TEXT NOT NULL
+                );
+
+                CREATE TABLE IF NOT EXISTS pilotos (
+                    id_piloto          TEXT PRIMARY KEY,
+                    id_empresa         TEXT NOT NULL REFERENCES empresas_seguridad(id_empresa),
+                    nombre             TEXT NOT NULL,
+                    telefono           TEXT NOT NULL,
+                    num_identificacion TEXT NOT NULL,
+                    num_licencia       TEXT DEFAULT '',
+                    empresa_labora     TEXT DEFAULT '',
+                    placas_vehiculo    TEXT DEFAULT '',
+                    tipo_vehiculo      TEXT DEFAULT '',
+                    color_vehiculo     TEXT DEFAULT '',
+                    foto_vehiculo      TEXT DEFAULT '',
+                    direccion          TEXT DEFAULT '',
+                    sexo               TEXT DEFAULT '',
+                    edad               INTEGER DEFAULT 0,
+                    correo             TEXT DEFAULT '',
+                    codigo_piloto      TEXT DEFAULT '',
+                    clave_acceso       TEXT DEFAULT '',
+                    activo             BOOLEAN DEFAULT TRUE,
+                    fecha_registro     TEXT NOT NULL,
+                    fam_nombre_1 TEXT DEFAULT '', fam_tel_1 TEXT DEFAULT '',
+                    fam_nombre_2 TEXT DEFAULT '', fam_tel_2 TEXT DEFAULT '',
+                    fam_nombre_3 TEXT DEFAULT '', fam_tel_3 TEXT DEFAULT '',
+                    fam_nombre_4 TEXT DEFAULT '', fam_tel_4 TEXT DEFAULT '',
+                    fam_nombre_5 TEXT DEFAULT '', fam_tel_5 TEXT DEFAULT '',
+                    voz_alerta         TEXT DEFAULT '',
+                    UNIQUE (id_empresa, num_identificacion)
+                );
+
+                CREATE TABLE IF NOT EXISTS alertas_empresa (
+                    id_alerta            TEXT PRIMARY KEY,
+                    id_empresa           TEXT NOT NULL REFERENCES empresas_seguridad(id_empresa),
+                    id_piloto            TEXT,
+                    numero_caso          TEXT UNIQUE NOT NULL,
+                    nombre_piloto        TEXT DEFAULT 'Desconocido',
+                    telefono_piloto      TEXT DEFAULT '',
+                    num_identificacion   TEXT DEFAULT '',
+                    placas_vehiculo      TEXT DEFAULT '',
+                    tipo_vehiculo        TEXT DEFAULT '',
+                    color_vehiculo       TEXT DEFAULT '',
+                    direccion_piloto     TEXT DEFAULT '',
+                    gps_latitud          REAL,
+                    gps_longitud         REAL,
+                    direccion_aproximada TEXT DEFAULT '',
+                    estatus              TEXT DEFAULT 'ACTIVA',
+                    notas_operador       TEXT,
+                    fecha_creacion       TEXT NOT NULL,
+                    fecha_atencion       TEXT
+                );
+
+                CREATE TABLE IF NOT EXISTS agentes_empresa (
+                    num_identificacion TEXT NOT NULL,
+                    id_empresa         TEXT NOT NULL REFERENCES empresas_seguridad(id_empresa),
+                    nombre             TEXT NOT NULL,
+                    telefono           TEXT DEFAULT '',
+                    edad               INTEGER DEFAULT 0,
+                    sexo               TEXT DEFAULT '',
+                    pais               TEXT DEFAULT '',
+                    puesto             TEXT DEFAULT '',
+                    jefe_inmediato     TEXT DEFAULT '',
+                    codigo_agente      TEXT DEFAULT '',
+                    activo             BOOLEAN DEFAULT TRUE,
+                    fecha_registro     TEXT NOT NULL,
+                    PRIMARY KEY (id_empresa, num_identificacion)
+                );
+
+                CREATE TABLE IF NOT EXISTS asignaciones_agentes_empresa (
+                    id_alerta          TEXT NOT NULL,
+                    id_empresa         TEXT NOT NULL,
+                    num_identificacion TEXT NOT NULL,
+                    slot               INTEGER NOT NULL CHECK (slot BETWEEN 1 AND 4),
+                    fecha_asignacion   TEXT NOT NULL,
+                    PRIMARY KEY (id_alerta, slot)
+                );
+            """)
+        else:
+            # SQLite
+            conn.executescript("""
+                CREATE TABLE IF NOT EXISTS empresas_seguridad (
+                    id_empresa         TEXT PRIMARY KEY,
+                    nombre_empresa     TEXT NOT NULL,
+                    nombre_admin       TEXT NOT NULL,
+                    telefono           TEXT DEFAULT '',
+                    correo             TEXT DEFAULT '',
+                    direccion          TEXT DEFAULT '',
+                    clave_acceso       TEXT NOT NULL,
+                    activo             INTEGER DEFAULT 1,
+                    fecha_registro     TEXT NOT NULL
+                );
+
+                CREATE TABLE IF NOT EXISTS pilotos (
+                    id_piloto          TEXT PRIMARY KEY,
+                    id_empresa         TEXT NOT NULL,
+                    nombre             TEXT NOT NULL,
+                    telefono           TEXT NOT NULL,
+                    num_identificacion TEXT NOT NULL,
+                    num_licencia       TEXT DEFAULT '',
+                    empresa_labora     TEXT DEFAULT '',
+                    placas_vehiculo    TEXT DEFAULT '',
+                    tipo_vehiculo      TEXT DEFAULT '',
+                    color_vehiculo     TEXT DEFAULT '',
+                    foto_vehiculo      TEXT DEFAULT '',
+                    direccion          TEXT DEFAULT '',
+                    sexo               TEXT DEFAULT '',
+                    edad               INTEGER DEFAULT 0,
+                    correo             TEXT DEFAULT '',
+                    codigo_piloto      TEXT DEFAULT '',
+                    clave_acceso       TEXT DEFAULT '',
+                    activo             INTEGER DEFAULT 1,
+                    fecha_registro     TEXT NOT NULL,
+                    fam_nombre_1 TEXT DEFAULT '', fam_tel_1 TEXT DEFAULT '',
+                    fam_nombre_2 TEXT DEFAULT '', fam_tel_2 TEXT DEFAULT '',
+                    fam_nombre_3 TEXT DEFAULT '', fam_tel_3 TEXT DEFAULT '',
+                    fam_nombre_4 TEXT DEFAULT '', fam_tel_4 TEXT DEFAULT '',
+                    fam_nombre_5 TEXT DEFAULT '', fam_tel_5 TEXT DEFAULT '',
+                    voz_alerta         TEXT DEFAULT '',
+                    FOREIGN KEY (id_empresa) REFERENCES empresas_seguridad(id_empresa),
+                    UNIQUE (id_empresa, num_identificacion)
+                );
+
+                CREATE TABLE IF NOT EXISTS alertas_empresa (
+                    id_alerta            TEXT PRIMARY KEY,
+                    id_empresa           TEXT NOT NULL,
+                    id_piloto            TEXT,
+                    numero_caso          TEXT UNIQUE NOT NULL,
+                    nombre_piloto        TEXT DEFAULT 'Desconocido',
+                    telefono_piloto      TEXT DEFAULT '',
+                    num_identificacion   TEXT DEFAULT '',
+                    placas_vehiculo      TEXT DEFAULT '',
+                    tipo_vehiculo        TEXT DEFAULT '',
+                    color_vehiculo       TEXT DEFAULT '',
+                    direccion_piloto     TEXT DEFAULT '',
+                    gps_latitud          REAL,
+                    gps_longitud         REAL,
+                    direccion_aproximada TEXT DEFAULT '',
+                    estatus              TEXT DEFAULT 'ACTIVA',
+                    notas_operador       TEXT,
+                    fecha_creacion       TEXT NOT NULL,
+                    fecha_atencion       TEXT,
+                    FOREIGN KEY (id_empresa) REFERENCES empresas_seguridad(id_empresa)
+                );
+
+                CREATE TABLE IF NOT EXISTS agentes_empresa (
+                    num_identificacion TEXT NOT NULL,
+                    id_empresa         TEXT NOT NULL,
+                    nombre             TEXT NOT NULL,
+                    telefono           TEXT DEFAULT '',
+                    edad               INTEGER DEFAULT 0,
+                    sexo               TEXT DEFAULT '',
+                    pais               TEXT DEFAULT '',
+                    puesto             TEXT DEFAULT '',
+                    jefe_inmediato     TEXT DEFAULT '',
+                    codigo_agente      TEXT DEFAULT '',
+                    activo             INTEGER DEFAULT 1,
+                    fecha_registro     TEXT NOT NULL,
+                    PRIMARY KEY (id_empresa, num_identificacion),
+                    FOREIGN KEY (id_empresa) REFERENCES empresas_seguridad(id_empresa)
+                );
+
+                CREATE TABLE IF NOT EXISTS asignaciones_agentes_empresa (
+                    id_alerta          TEXT NOT NULL,
+                    id_empresa         TEXT NOT NULL,
+                    num_identificacion TEXT NOT NULL,
+                    slot               INTEGER NOT NULL CHECK (slot BETWEEN 1 AND 4),
+                    fecha_asignacion   TEXT NOT NULL,
+                    PRIMARY KEY (id_alerta, slot)
+                );
+            """)
 
 
 def _seed_demo(conn):
@@ -1019,3 +1208,381 @@ def login_agente_global(identificador: str):
             return None
     # Usar la función existente con la institución encontrada
     return casos_por_agente(agente["id_institucion"], identificador)
+
+
+# ══════════════════════════════════════════════════════════════
+# ██  MÓDULO EMPRESA DE SEGURIDAD — CRUD  ██
+# ══════════════════════════════════════════════════════════════
+
+# ── EMPRESAS ─────────────────────────────────────────────────
+
+def crear_empresa(data: dict) -> dict:
+    eid = str(uuid.uuid4())
+    clave = generar_clave_6(data["nombre_empresa"])
+    now = datetime.now().isoformat()
+    emp = {
+        "id_empresa": eid,
+        "nombre_empresa": data["nombre_empresa"],
+        "nombre_admin": data["nombre_admin"],
+        "telefono": data.get("telefono", ""),
+        "correo": data.get("correo", ""),
+        "direccion": data.get("direccion", ""),
+        "clave_acceso": clave,
+        "activo": True if USE_PG else 1,
+        "fecha_registro": now,
+    }
+    with get_conn() as conn:
+        _execute(conn, _ph("""
+            INSERT INTO empresas_seguridad
+            (id_empresa,nombre_empresa,nombre_admin,telefono,correo,direccion,clave_acceso,activo,fecha_registro)
+            VALUES (?,?,?,?,?,?,?,?,?)
+        """), (emp["id_empresa"], emp["nombre_empresa"], emp["nombre_admin"],
+               emp["telefono"], emp["correo"], emp["direccion"],
+               emp["clave_acceso"], emp["activo"], emp["fecha_registro"]))
+    return emp
+
+
+def listar_empresas() -> list:
+    with get_conn() as conn:
+        return _fetchall(conn, "SELECT * FROM empresas_seguridad ORDER BY fecha_registro DESC")
+
+
+def obtener_empresa(id_empresa: str) -> dict:
+    with get_conn() as conn:
+        return _fetchone(conn, _ph("SELECT * FROM empresas_seguridad WHERE id_empresa=?"), (id_empresa,))
+
+
+def login_empresa(clave: str) -> dict:
+    with get_conn() as conn:
+        return _fetchone(conn, _ph(
+            "SELECT * FROM empresas_seguridad WHERE clave_acceso=? AND activo=?"
+        ), (clave.upper(), True if USE_PG else 1))
+
+
+def toggle_empresa(id_empresa: str) -> dict:
+    with get_conn() as conn:
+        row = _fetchone(conn, _ph("SELECT activo FROM empresas_seguridad WHERE id_empresa=?"), (id_empresa,))
+        if not row:
+            return None
+        new_val = not row["activo"] if USE_PG else (0 if row["activo"] else 1)
+        _execute(conn, _ph("UPDATE empresas_seguridad SET activo=? WHERE id_empresa=?"), (new_val, id_empresa))
+        return _fetchone(conn, _ph("SELECT * FROM empresas_seguridad WHERE id_empresa=?"), (id_empresa,))
+
+
+def editar_empresa(id_empresa: str, data: dict) -> dict:
+    with get_conn() as conn:
+        _execute(conn, _ph("""
+            UPDATE empresas_seguridad SET nombre_empresa=?, nombre_admin=?, telefono=?, correo=?, direccion=?
+            WHERE id_empresa=?
+        """), (data["nombre_empresa"], data["nombre_admin"], data.get("telefono",""),
+               data.get("correo",""), data.get("direccion",""), id_empresa))
+        return _fetchone(conn, _ph("SELECT * FROM empresas_seguridad WHERE id_empresa=?"), (id_empresa,))
+
+
+def regenerar_clave_empresa(id_empresa: str) -> dict:
+    with get_conn() as conn:
+        row = _fetchone(conn, _ph("SELECT nombre_empresa FROM empresas_seguridad WHERE id_empresa=?"), (id_empresa,))
+        if not row:
+            return None
+        nueva = generar_clave_6(row["nombre_empresa"])
+        _execute(conn, _ph("UPDATE empresas_seguridad SET clave_acceso=? WHERE id_empresa=?"), (nueva, id_empresa))
+        return _fetchone(conn, _ph("SELECT * FROM empresas_seguridad WHERE id_empresa=?"), (id_empresa,))
+
+
+def eliminar_empresa(id_empresa: str):
+    with get_conn() as conn:
+        _execute(conn, _ph("DELETE FROM asignaciones_agentes_empresa WHERE id_empresa=?"), (id_empresa,))
+        _execute(conn, _ph("DELETE FROM agentes_empresa WHERE id_empresa=?"), (id_empresa,))
+        _execute(conn, _ph("DELETE FROM alertas_empresa WHERE id_empresa=?"), (id_empresa,))
+        _execute(conn, _ph("DELETE FROM pilotos WHERE id_empresa=?"), (id_empresa,))
+        _execute(conn, _ph("DELETE FROM empresas_seguridad WHERE id_empresa=?"), (id_empresa,))
+
+
+# ── PILOTOS ──────────────────────────────────────────────────
+
+def registrar_piloto(data: dict) -> dict:
+    pid = str(uuid.uuid4())
+    now = datetime.now().isoformat()
+    # Código: primeras 2 letras empresa + 3 letras nombre + 2 dígitos random
+    emp = obtener_empresa(data["id_empresa"])
+    prefijo = ''.join(c for c in (emp["nombre_empresa"] if emp else "XX").upper() if c.isalpha())[:2]
+    nombre_part = ''.join(c for c in data["nombre"].upper() if c.isalpha())[:3]
+    import random
+    codigo = f"{prefijo}{nombre_part}{random.randint(10,99)}"
+
+    with get_conn() as conn:
+        # Check existing
+        existing = _fetchone(conn, _ph(
+            "SELECT * FROM pilotos WHERE id_empresa=? AND num_identificacion=?"
+        ), (data["id_empresa"], data["num_identificacion"]))
+
+        if existing:
+            _execute(conn, _ph("""
+                UPDATE pilotos SET nombre=?,telefono=?,num_licencia=?,empresa_labora=?,
+                placas_vehiculo=?,tipo_vehiculo=?,color_vehiculo=?,
+                foto_vehiculo=COALESCE(?,foto_vehiculo),direccion=?,sexo=?,edad=?,correo=?,
+                fam_nombre_1=?,fam_tel_1=?,fam_nombre_2=?,fam_tel_2=?,
+                fam_nombre_3=?,fam_tel_3=?,fam_nombre_4=?,fam_tel_4=?,
+                fam_nombre_5=?,fam_tel_5=?
+                WHERE id_piloto=?
+            """), (
+                data["nombre"], data["telefono"],
+                data.get("num_licencia",""), data.get("empresa_labora",""),
+                data.get("placas_vehiculo",""), data.get("tipo_vehiculo",""),
+                data.get("color_vehiculo",""),
+                data.get("foto_vehiculo") or None,
+                data.get("direccion",""), data.get("sexo",""),
+                data.get("edad",0), data.get("correo",""),
+                data.get("fam_nombre_1",""), data.get("fam_tel_1",""),
+                data.get("fam_nombre_2",""), data.get("fam_tel_2",""),
+                data.get("fam_nombre_3",""), data.get("fam_tel_3",""),
+                data.get("fam_nombre_4",""), data.get("fam_tel_4",""),
+                data.get("fam_nombre_5",""), data.get("fam_tel_5",""),
+                existing["id_piloto"],
+            ))
+            pid = existing["id_piloto"]
+        else:
+            cols = ("id_piloto,id_empresa,nombre,telefono,num_identificacion,num_licencia,"
+                    "empresa_labora,placas_vehiculo,tipo_vehiculo,color_vehiculo,foto_vehiculo,"
+                    "direccion,sexo,edad,correo,codigo_piloto,fecha_registro,"
+                    "fam_nombre_1,fam_tel_1,fam_nombre_2,fam_tel_2,"
+                    "fam_nombre_3,fam_tel_3,fam_nombre_4,fam_tel_4,"
+                    "fam_nombre_5,fam_tel_5")
+            vals = ",".join(["?"] * 27)
+            _execute(conn, _ph(f"INSERT INTO pilotos ({cols}) VALUES ({vals})"), (
+                pid, data["id_empresa"], data["nombre"], data["telefono"],
+                data["num_identificacion"], data.get("num_licencia",""),
+                data.get("empresa_labora",""), data.get("placas_vehiculo",""),
+                data.get("tipo_vehiculo",""), data.get("color_vehiculo",""),
+                data.get("foto_vehiculo",""), data.get("direccion",""),
+                data.get("sexo",""), data.get("edad",0), data.get("correo",""),
+                codigo, now,
+                data.get("fam_nombre_1",""), data.get("fam_tel_1",""),
+                data.get("fam_nombre_2",""), data.get("fam_tel_2",""),
+                data.get("fam_nombre_3",""), data.get("fam_tel_3",""),
+                data.get("fam_nombre_4",""), data.get("fam_tel_4",""),
+                data.get("fam_nombre_5",""), data.get("fam_tel_5",""),
+            ))
+
+        row = _fetchone(conn, _ph("SELECT * FROM pilotos WHERE id_piloto=?"), (pid,))
+    return row
+
+
+def listar_pilotos(id_empresa: str) -> list:
+    with get_conn() as conn:
+        return _fetchall(conn, _ph("SELECT * FROM pilotos WHERE id_empresa=? ORDER BY nombre"), (id_empresa,))
+
+
+def obtener_piloto(id_piloto: str) -> dict:
+    with get_conn() as conn:
+        return _fetchone(conn, _ph("SELECT * FROM pilotos WHERE id_piloto=?"), (id_piloto,))
+
+
+def actualizar_piloto(id_piloto: str, data: dict) -> dict:
+    with get_conn() as conn:
+        sets = []
+        vals = []
+        for k in ("nombre","telefono","num_licencia","empresa_labora","placas_vehiculo",
+                   "tipo_vehiculo","color_vehiculo","foto_vehiculo","direccion","sexo","edad",
+                   "correo","voz_alerta",
+                   "fam_nombre_1","fam_tel_1","fam_nombre_2","fam_tel_2",
+                   "fam_nombre_3","fam_tel_3","fam_nombre_4","fam_tel_4",
+                   "fam_nombre_5","fam_tel_5"):
+            if k in data:
+                sets.append(f"{k}={PH}")
+                vals.append(data[k])
+        if sets:
+            vals.append(id_piloto)
+            _execute(conn, _ph(f"UPDATE pilotos SET {','.join(sets)} WHERE id_piloto=?"), vals)
+        return _fetchone(conn, _ph("SELECT * FROM pilotos WHERE id_piloto=?"), (id_piloto,))
+
+
+def obtener_contactos_piloto(id_piloto: str) -> list:
+    with get_conn() as conn:
+        row = _fetchone(conn, _ph("SELECT * FROM pilotos WHERE id_piloto=?"), (id_piloto,))
+        if not row:
+            return []
+    resultado = []
+    for i in range(1, 6):
+        nombre = row.get(f"fam_nombre_{i}", "") or ""
+        tel = row.get(f"fam_tel_{i}", "") or ""
+        if tel.strip():
+            resultado.append({"nombre": nombre, "telefono": tel, "posicion": i})
+    return resultado
+
+
+def login_piloto(id_empresa: str, identificador: str) -> dict:
+    with get_conn() as conn:
+        return _fetchone(conn, _ph(
+            "SELECT * FROM pilotos WHERE id_empresa=? AND (num_identificacion=? OR codigo_piloto=?)"
+        ), (id_empresa, identificador, identificador.upper()))
+
+
+# ── ALERTAS EMPRESA ──────────────────────────────────────────
+
+def crear_alerta_empresa(data: dict) -> dict:
+    with get_conn() as conn:
+        emp = _fetchone(conn, _ph("SELECT nombre_empresa FROM empresas_seguridad WHERE id_empresa=?"), (data["id_empresa"],))
+        prefijo = ''.join(c for c in (emp["nombre_empresa"] if emp else "XXX").upper() if c.isalpha())[:3]
+        if len(prefijo) < 3:
+            prefijo = prefijo.ljust(3, 'X')
+        cnt = _fetchone(conn, _ph("SELECT COUNT(*) as cnt FROM alertas_empresa WHERE id_empresa=?"), (data["id_empresa"],))
+        siguiente = (cnt["cnt"] if cnt else 0) + 1
+        numero_caso = f"{prefijo}-A{siguiente:03d}"
+
+    a = {
+        "id_alerta": str(uuid.uuid4()),
+        "id_empresa": data["id_empresa"],
+        "id_piloto": data.get("id_piloto"),
+        "numero_caso": numero_caso,
+        "nombre_piloto": data.get("nombre_piloto", "Desconocido"),
+        "telefono_piloto": data.get("telefono_piloto", ""),
+        "num_identificacion": data.get("num_identificacion", ""),
+        "placas_vehiculo": data.get("placas_vehiculo", ""),
+        "tipo_vehiculo": data.get("tipo_vehiculo", ""),
+        "color_vehiculo": data.get("color_vehiculo", ""),
+        "direccion_piloto": data.get("direccion_piloto", ""),
+        "gps_latitud": data.get("gps_latitud"),
+        "gps_longitud": data.get("gps_longitud"),
+        "direccion_aproximada": data.get("direccion_aproximada", ""),
+        "estatus": "ACTIVA",
+        "notas_operador": None,
+        "fecha_creacion": datetime.now().isoformat(),
+        "fecha_atencion": None,
+    }
+    with get_conn() as conn:
+        _execute(conn, _ph("""
+            INSERT INTO alertas_empresa
+            (id_alerta,id_empresa,id_piloto,numero_caso,nombre_piloto,telefono_piloto,
+             num_identificacion,placas_vehiculo,tipo_vehiculo,color_vehiculo,
+             direccion_piloto,gps_latitud,gps_longitud,direccion_aproximada,
+             estatus,notas_operador,fecha_creacion,fecha_atencion)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        """), tuple(a.values()))
+    return a
+
+
+def listar_alertas_empresa(id_empresa: str) -> list:
+    with get_conn() as conn:
+        return _fetchall(conn, _ph(
+            "SELECT * FROM alertas_empresa WHERE id_empresa=? ORDER BY fecha_creacion DESC"
+        ), (id_empresa,))
+
+
+def actualizar_estatus_alerta_empresa(id_alerta: str, estatus: str, notas: str = None) -> dict:
+    fecha_atencion = datetime.now().isoformat() if estatus in ("ATENDIDA","FALSA_ALARMA","CANCELADA") else None
+    with get_conn() as conn:
+        _execute(conn, _ph("""
+            UPDATE alertas_empresa SET estatus=?, notas_operador=COALESCE(?,notas_operador),
+            fecha_atencion=COALESCE(?,fecha_atencion) WHERE id_alerta=?
+        """), (estatus, notas, fecha_atencion, id_alerta))
+        return _fetchone(conn, _ph("SELECT * FROM alertas_empresa WHERE id_alerta=?"), (id_alerta,))
+
+
+# ── AGENTES EMPRESA ──────────────────────────────────────────
+
+def registrar_agente_empresa(data: dict) -> dict:
+    emp = obtener_empresa(data["id_empresa"])
+    nombre_emp = emp["nombre_empresa"] if emp else "XX"
+    codigo = generar_codigo_agente(nombre_emp, data["nombre"])
+    ahora = datetime.utcnow().isoformat()
+
+    with get_conn() as conn:
+        existing = _fetchone(conn, _ph(
+            "SELECT * FROM agentes_empresa WHERE id_empresa=? AND num_identificacion=?"
+        ), (data["id_empresa"], data["num_identificacion"]))
+
+        if existing:
+            _execute(conn, _ph("""
+                UPDATE agentes_empresa SET nombre=?, telefono=?, edad=?, sexo=?, pais=?,
+                puesto=?, jefe_inmediato=?, codigo_agente=?
+                WHERE id_empresa=? AND num_identificacion=?
+            """), (
+                data["nombre"], data["telefono"], data.get("edad",0),
+                data.get("sexo",""), data.get("pais",""),
+                data.get("puesto",""), data.get("jefe_inmediato",""), existing["codigo_agente"],
+                data["id_empresa"], data["num_identificacion"]
+            ))
+        else:
+            _execute(conn, _ph("""
+                INSERT INTO agentes_empresa (num_identificacion,id_empresa,nombre,telefono,
+                    edad,sexo,pais,puesto,jefe_inmediato,codigo_agente,fecha_registro)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?)
+            """), (
+                data["num_identificacion"], data["id_empresa"],
+                data["nombre"], data["telefono"],
+                data.get("edad",0), data.get("sexo",""),
+                data.get("pais",""), data.get("puesto",""),
+                data.get("jefe_inmediato",""), codigo, ahora
+            ))
+
+        row = _fetchone(conn, _ph(
+            "SELECT * FROM agentes_empresa WHERE id_empresa=? AND num_identificacion=?"
+        ), (data["id_empresa"], data["num_identificacion"]))
+    return row
+
+
+def listar_agentes_empresa(id_empresa: str) -> list:
+    with get_conn() as conn:
+        return _fetchall(conn, _ph("SELECT * FROM agentes_empresa WHERE id_empresa=? ORDER BY nombre"), (id_empresa,))
+
+
+def login_agente_empresa_global(identificador: str):
+    """Busca un agente de empresa por código o documento."""
+    with get_conn() as conn:
+        agente = _fetchone(conn, _ph(
+            "SELECT * FROM agentes_empresa WHERE num_identificacion=? OR codigo_agente=?"
+        ), (identificador, identificador.upper()))
+        if not agente:
+            return None
+
+        asignaciones = _fetchall(conn, _ph(
+            "SELECT * FROM asignaciones_agentes_empresa WHERE id_empresa=? AND num_identificacion=? ORDER BY fecha_asignacion DESC"
+        ), (agente["id_empresa"], agente["num_identificacion"]))
+
+        casos = []
+        for a in asignaciones:
+            alerta = _fetchone(conn, _ph("SELECT * FROM alertas_empresa WHERE id_alerta=?"), (a["id_alerta"],))
+            if alerta:
+                casos.append({**dict(alerta), "slot": a["slot"], "fecha_asignacion": a["fecha_asignacion"]})
+    return {"agente": dict(agente), "casos": casos}
+
+
+def asignar_agente_alerta_empresa(id_alerta: str, id_empresa: str, num_identificacion: str, slot: int) -> dict:
+    ahora = datetime.utcnow().isoformat()
+    with get_conn() as conn:
+        existing = _fetchone(conn, _ph(
+            "SELECT * FROM asignaciones_agentes_empresa WHERE id_alerta=? AND slot=?"
+        ), (id_alerta, slot))
+        if existing:
+            _execute(conn, _ph(
+                "UPDATE asignaciones_agentes_empresa SET num_identificacion=?, fecha_asignacion=? WHERE id_alerta=? AND slot=?"
+            ), (num_identificacion, ahora, id_alerta, slot))
+        else:
+            _execute(conn, _ph("""
+                INSERT INTO asignaciones_agentes_empresa (id_alerta,id_empresa,num_identificacion,slot,fecha_asignacion)
+                VALUES (?,?,?,?,?)
+            """), (id_alerta, id_empresa, num_identificacion, slot, ahora))
+    return {"id_alerta": id_alerta, "slot": slot, "num_identificacion": num_identificacion}
+
+
+def obtener_asignaciones_alerta_empresa(id_alerta: str) -> list:
+    with get_conn() as conn:
+        asignaciones = _fetchall(conn, _ph(
+            "SELECT * FROM asignaciones_agentes_empresa WHERE id_alerta=? ORDER BY slot"
+        ), (id_alerta,))
+        resultado = []
+        for a in asignaciones:
+            agente = _fetchone(conn, _ph(
+                "SELECT * FROM agentes_empresa WHERE id_empresa=? AND num_identificacion=?"
+            ), (a["id_empresa"], a["num_identificacion"]))
+            resultado.append({
+                "slot": a["slot"],
+                "num_identificacion": a["num_identificacion"],
+                "fecha_asignacion": a["fecha_asignacion"],
+                "nombre": agente["nombre"] if agente else "Desconocido",
+                "telefono": agente["telefono"] if agente else "",
+                "puesto": agente["puesto"] if agente else "",
+                "codigo_agente": agente["codigo_agente"] if agente else "",
+            })
+    return resultado

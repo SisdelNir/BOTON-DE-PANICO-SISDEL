@@ -84,7 +84,137 @@
         </div>
     </div>
 
+    <!-- ═══════ SECCIÓN EMPRESAS DE SEGURIDAD ═══════ -->
+    <div style="margin-top:2.5rem; border-top:2px solid rgba(255,165,0,.3); padding-top:2rem;">
+        <div class="prog-hero" style="background:linear-gradient(135deg,rgba(255,140,0,.15),rgba(255,59,59,.08));">
+            <div>
+                <h1 style="color:#ff8c00;">🛡️ Empresas de Seguridad</h1>
+                <p>Gestione empresas de transporte y seguridad con pilotos y botón de alerta</p>
+            </div>
+            <div class="hero-actions">
+                <button class="btn-new-inst" style="background:linear-gradient(135deg,#ff8c00,#ff6600);" onclick="abrirModalEmpresa()">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+                    Nueva Empresa
+                </button>
+                <button class="btn-list-inst" id="btn-toggle-emp-list" onclick="toggleListadoEmpresas()">
+                    📋 Ver Empresas
+                </button>
+            </div>
+        </div>
+
+        <div class="prog-stats">
+            <div class="prog-stat-pill" style="border-color:rgba(255,140,0,.4);">
+                <span class="prog-stat-n" id="stat-emp-total" style="color:#ff8c00;">0</span>
+                <span class="prog-stat-l">Total</span>
+            </div>
+            <div class="prog-stat-pill active">
+                <span class="prog-stat-n" id="stat-emp-activas">0</span>
+                <span class="prog-stat-l">Activas</span>
+            </div>
+            <div class="prog-stat-pill inactive">
+                <span class="prog-stat-n" id="stat-emp-inactivas">0</span>
+                <span class="prog-stat-l">Inactivas</span>
+            </div>
+        </div>
+
+        <div id="emp-listado-container" style="display:none; margin-top:1.5rem; border-top:1px solid #2a2d45; padding-top:2rem;">
+            <div class="section-hdr" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+                <h2>Empresas registradas</h2>
+            </div>
+            <div style="position:relative; margin-bottom:1.25rem;">
+                <svg style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:#6b7294;" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                <input type="text" id="buscador-emp" placeholder="Buscar empresa..."
+                       oninput="filtrarGridEmpresas(this.value)"
+                       style="width:100%;padding:.7rem .9rem .7rem 2.6rem;background:#111325;border:1px solid #2a2d45;border-radius:10px;color:#e2e8f8;font-size:.85rem;outline:none;box-sizing:border-box;transition:border .2s;"
+                       onfocus="this.style.borderColor='#ff8c00'" onblur="this.style.borderColor='#2a2d45'">
+            </div>
+            <div class="inst-grid" id="emp-grid">
+                <div class="inst-empty"><div class="empty-state"><p>Cargando datos...</p></div></div>
+            </div>
+        </div>
+    </div>
+
 </div><!-- /prog-layout -->
+
+<!-- MODAL NUEVA EMPRESA -->
+<div class="modal-overlay" id="modal-nueva-emp" style="display:none;" onclick="cerrarModalEmpresa(event)">
+    <div class="modal-box" onclick="event.stopPropagation()">
+        <div class="modal-hdr" style="background:linear-gradient(135deg,rgba(255,140,0,.2),rgba(255,100,0,.1));">
+            <h3>🛡️ Nueva Empresa de Seguridad</h3>
+            <button class="modal-close" onclick="cerrarModalEmpresa()">✕</button>
+        </div>
+        <div class="modal-body">
+            <div class="modal-grid">
+                <div class="modal-full form-field">
+                    <label class="form-field label">Nombre de la Empresa</label>
+                    <input class="form-input" type="text" id="fe-nombre" placeholder="Ej: Seguridad ABC, Transporte XYZ...">
+                </div>
+                <div class="form-field">
+                    <label>Nombre del Administrador</label>
+                    <input class="form-input" type="text" id="fe-admin" placeholder="Nombre completo">
+                </div>
+                <div class="form-field">
+                    <label>Teléfono</label>
+                    <input class="form-input" type="tel" id="fe-tel" placeholder="5551234567">
+                </div>
+                <div class="form-field">
+                    <label>Correo Electrónico</label>
+                    <input class="form-input" type="email" id="fe-email" placeholder="admin@empresa.com">
+                </div>
+                <div class="form-field">
+                    <label>Dirección</label>
+                    <input class="form-input" type="text" id="fe-dir" placeholder="Dirección de la empresa">
+                </div>
+            </div>
+            <p style="font-size:.78rem;color:#6b7294;margin-top:.5rem;">
+                ✨ La <strong>clave de acceso</strong> de 6 caracteres se genera automáticamente.
+            </p>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-primary" onclick="crearEmpresa()" style="flex:1;background:linear-gradient(135deg,#ff8c00,#ff6600)">Crear Empresa</button>
+            <button class="btn btn-neutral" onclick="cerrarModalEmpresa()">Cancelar</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL CLAVE EMPRESA -->
+<div class="modal-overlay" id="modal-clave-emp" style="display:none;" onclick="cerrarClaveEmpresa(event)">
+    <div class="modal-box" onclick="event.stopPropagation()" style="max-width:400px;">
+        <div class="modal-hdr"><h3>✅ Empresa Creada</h3><button class="modal-close" onclick="cerrarClaveEmpresa()">✕</button></div>
+        <div class="modal-body" style="text-align:center;">
+            <p style="margin-bottom:1rem;font-size:.88rem;">Clave de acceso del administrador:</p>
+            <div style="background:#111325;border:1px solid #2a2d45;border-radius:12px;padding:1.25rem;">
+                <p style="font-size:.7rem;color:#6b7294;text-transform:uppercase;letter-spacing:.5px;margin-bottom:.5rem;">Clave de acceso</p>
+                <div id="emp-nueva-clave" style="font-family:'JetBrains Mono',monospace;font-size:2.5rem;font-weight:900;letter-spacing:14px;color:#ff8c00;"></div>
+            </div>
+            <p id="emp-nueva-nombre" style="margin-top:.9rem;font-size:.85rem;color:#6b7294;"></p>
+            <button class="btn btn-primary" onclick="copyValue(document.getElementById('emp-nueva-clave').textContent)" style="width:100%;margin-top:1rem;background:linear-gradient(135deg,#ff8c00,#ff6600)">📋 Copiar Clave</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL EDITAR EMPRESA -->
+<div class="modal-overlay" id="modal-editar-emp" style="display:none;" onclick="cerrarEditarEmpresa(event)">
+    <div class="modal-box" onclick="event.stopPropagation()">
+        <div class="modal-hdr" style="background:linear-gradient(135deg,rgba(255,140,0,.2),rgba(255,100,0,.1));">
+            <h3>✏️ Editar Empresa</h3><button class="modal-close" onclick="cerrarEditarEmpresa()">✕</button>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="ee-id">
+            <div class="modal-grid">
+                <div class="modal-full form-field"><label>Nombre de la Empresa</label><input class="form-input" type="text" id="ee-nombre"></div>
+                <div class="form-field"><label>Administrador</label><input class="form-input" type="text" id="ee-admin"></div>
+                <div class="form-field"><label>Teléfono</label><input class="form-input" type="tel" id="ee-tel"></div>
+                <div class="form-field"><label>Correo</label><input class="form-input" type="email" id="ee-email"></div>
+                <div class="form-field"><label>Dirección</label><input class="form-input" type="text" id="ee-dir"></div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-primary" onclick="guardarEdicionEmpresa()" style="flex:1;background:linear-gradient(135deg,#ff8c00,#ff6600)">Guardar Cambios</button>
+            <button class="btn btn-neutral" onclick="cerrarEditarEmpresa()">Cancelar</button>
+        </div>
+    </div>
+</div>
 
 <!-- MODAL NUEVA INSTITUCIÓN -->
 <div class="modal-overlay" id="modal-nueva" style="display:none;" onclick="cerrarModal(event)">
@@ -458,8 +588,161 @@ document.addEventListener('DOMContentLoaded', () => {
     if (sessionStorage.getItem('sisdel_tipo') !== 'programador') {
         window.location.href = 'index.html'; return;
     }
-    // No cargar hasta que se pulse el botón
 });
+
+// ══════════════════════════════════════════════════════════════
+// ██  EMPRESAS DE SEGURIDAD  ██
+// ══════════════════════════════════════════════════════════════
+
+let empListadoVisible = false;
+let empPolling = null;
+let todasEmpresas = [];
+
+function toggleListadoEmpresas() {
+    const c = document.getElementById('emp-listado-container');
+    const btn = document.getElementById('btn-toggle-emp-list');
+    empListadoVisible = !empListadoVisible;
+    if (empListadoVisible) {
+        c.style.display = 'block'; btn.innerHTML = '📂 Ocultar Empresas';
+        cargarEmpresas();
+        if (!empPolling) empPolling = setInterval(cargarEmpresas, 10000);
+    } else {
+        c.style.display = 'none'; btn.innerHTML = '📋 Ver Empresas';
+        if (empPolling) { clearInterval(empPolling); empPolling = null; }
+    }
+}
+
+async function cargarEmpresas() {
+    if (!empListadoVisible) return;
+    try {
+        const res = await fetch(`${API}/api/programador/empresas`);
+        todasEmpresas = await res.json();
+        renderEmpresas(todasEmpresas);
+        document.getElementById('stat-emp-total').textContent = todasEmpresas.length;
+        document.getElementById('stat-emp-activas').textContent = todasEmpresas.filter(e=>e.activo).length;
+        document.getElementById('stat-emp-inactivas').textContent = todasEmpresas.filter(e=>!e.activo).length;
+    } catch {}
+}
+
+function renderEmpresas(list) {
+    const grid = document.getElementById('emp-grid');
+    if (!list.length) { grid.innerHTML = '<div class="inst-empty"><div class="empty-state"><span style="font-size:2.5rem">🛡️</span><p>No hay empresas registradas</p></div></div>'; return; }
+    const baseUrl = window.location.origin + window.location.pathname.replace('programador.html','');
+    grid.innerHTML = list.map(e => `
+    <div class="inst-card ${e.activo?'':'inactiva'}" style="border-color:rgba(255,140,0,.25);">
+        <div class="inst-card-header">
+            <div><div class="inst-nombre" style="color:#ff8c00;">🛡️ ${e.nombre_empresa}</div><div class="inst-tipo">👤 ${e.nombre_admin}</div></div>
+            <span class="${e.activo?'badge badge-activa-inst':'badge badge-inactiva-inst'}">${e.activo?'Activa':'Inactiva'}</span>
+        </div>
+        <div class="inst-info">
+            <div class="inst-info-item"><div class="inst-info-label">Teléfono</div>${e.telefono||'—'}</div>
+            <div class="inst-info-item"><div class="inst-info-label">Correo</div>${e.correo||'—'}</div>
+            <div class="inst-info-item" style="grid-column:1/-1"><div class="inst-info-label">Dirección</div>${e.direccion||'—'}</div>
+        </div>
+        <div class="inst-clave-row" style="background:#0b0d17; border-left:2px solid #ff8c00;">
+            <div style="flex:1"><span class="inst-clave-label" style="color:#ff8c00;">🔐 CÓDIGO DE ACCESO</span><div class="inst-clave-val" style="font-size:1.4rem;letter-spacing:4px;color:#ff8c00;">${e.clave_acceso}</div></div>
+            <button class="btn-copy-clave" onclick="copyValue('${e.clave_acceso}')">Copiar</button>
+        </div>
+        <div class="link-vecino-box" style="margin-top:.75rem;background:rgba(255,140,0,.05);">
+            <p>🔗 Link para Pilotos:</p>
+            <span class="link-val" style="font-size:.7rem;display:block;overflow:hidden;text-overflow:ellipsis;">${baseUrl}piloto.html?emp=${e.id_empresa}</span>
+            <button class="btn-copy-clave" style="margin-top:.4rem;width:100%" onclick="copyValue('${baseUrl}piloto.html?emp=${e.id_empresa}')">Copiar Link Piloto</button>
+        </div>
+        <div class="inst-actions">
+            <button class="inst-btn ${e.activo?'inst-btn-toggle-on':'inst-btn-toggle-off'}" onclick="toggleEmpresa('${e.id_empresa}')">${e.activo?'🔴 Desactivar':'🟢 Activar'}</button>
+            <button class="inst-btn inst-btn-regen" onclick="regenClaveEmpresa('${e.id_empresa}')">🔄 Nueva clave</button>
+            <button class="inst-btn" style="background:rgba(255,140,0,.15);color:#ff8c00;border:1px solid rgba(255,140,0,.3);" onclick="abrirEditarEmpresa('${e.id_empresa}')">✏️ Editar</button>
+            <button class="inst-btn" style="background:rgba(255,59,59,.12);color:#ff3b3b;border:1px solid rgba(255,59,59,.3);" onclick="eliminarEmpresa('${e.id_empresa}')">🗑 Eliminar</button>
+        </div>
+    </div>`).join('');
+}
+
+function filtrarGridEmpresas(q) {
+    q = q.trim().toLowerCase();
+    const f = q ? todasEmpresas.filter(e => e.nombre_empresa.toLowerCase().includes(q) || e.nombre_admin.toLowerCase().includes(q) || e.clave_acceso.toLowerCase().includes(q)) : todasEmpresas;
+    renderEmpresas(f);
+}
+
+function abrirModalEmpresa() {
+    ['fe-nombre','fe-admin','fe-tel','fe-email','fe-dir'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('modal-nueva-emp').style.display = 'flex';
+}
+function cerrarModalEmpresa(e) { if (e && e.target !== document.getElementById('modal-nueva-emp')) return; document.getElementById('modal-nueva-emp').style.display = 'none'; }
+
+async function crearEmpresa() {
+    const nombre = document.getElementById('fe-nombre').value.trim();
+    const admin = document.getElementById('fe-admin').value.trim();
+    if (!nombre || !admin) { alert('Nombre y administrador son obligatorios'); return; }
+    try {
+        const res = await fetch(`${API}/api/programador/empresas`, {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({
+                nombre_empresa: nombre, nombre_admin: admin,
+                telefono: document.getElementById('fe-tel').value.trim(),
+                correo: document.getElementById('fe-email').value.trim(),
+                direccion: document.getElementById('fe-dir').value.trim()
+            })
+        });
+        const emp = await res.json();
+        cerrarModalEmpresa();
+        document.getElementById('emp-nueva-clave').textContent = emp.clave_acceso;
+        document.getElementById('emp-nueva-nombre').textContent = emp.nombre_empresa;
+        document.getElementById('modal-clave-emp').style.display = 'flex';
+        if (!empListadoVisible) toggleListadoEmpresas(); else cargarEmpresas();
+    } catch { alert('Error al crear empresa.'); }
+}
+
+function cerrarClaveEmpresa(e) { if (e && e.target !== document.getElementById('modal-clave-emp')) return; document.getElementById('modal-clave-emp').style.display = 'none'; }
+
+async function toggleEmpresa(id) { try { await fetch(`${API}/api/programador/empresas/${id}/toggle`, {method:'PATCH'}); cargarEmpresas(); } catch { alert('Error.'); } }
+
+async function regenClaveEmpresa(id) {
+    if (!confirm('¿Regenerar la clave de acceso?')) return;
+    try {
+        const res = await fetch(`${API}/api/programador/empresas/${id}/regenerar-clave`, {method:'PATCH'});
+        const emp = await res.json();
+        document.getElementById('emp-nueva-clave').textContent = emp.clave_acceso;
+        document.getElementById('emp-nueva-nombre').textContent = `Nueva clave: ${emp.nombre_empresa}`;
+        document.getElementById('modal-clave-emp').style.display = 'flex';
+        cargarEmpresas();
+    } catch { alert('Error.'); }
+}
+
+function abrirEditarEmpresa(id) {
+    const e = todasEmpresas.find(x => x.id_empresa === id);
+    if (!e) return;
+    document.getElementById('ee-id').value = e.id_empresa;
+    document.getElementById('ee-nombre').value = e.nombre_empresa;
+    document.getElementById('ee-admin').value = e.nombre_admin;
+    document.getElementById('ee-tel').value = e.telefono;
+    document.getElementById('ee-email').value = e.correo;
+    document.getElementById('ee-dir').value = e.direccion;
+    document.getElementById('modal-editar-emp').style.display = 'flex';
+}
+function cerrarEditarEmpresa(e) { if (e && e.target !== document.getElementById('modal-editar-emp')) return; document.getElementById('modal-editar-emp').style.display = 'none'; }
+
+async function guardarEdicionEmpresa() {
+    const id = document.getElementById('ee-id').value;
+    try {
+        await fetch(`${API}/api/programador/empresas/${id}`, {
+            method: 'PUT', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({
+                nombre_empresa: document.getElementById('ee-nombre').value.trim(),
+                nombre_admin: document.getElementById('ee-admin').value.trim(),
+                telefono: document.getElementById('ee-tel').value.trim(),
+                correo: document.getElementById('ee-email').value.trim(),
+                direccion: document.getElementById('ee-dir').value.trim()
+            })
+        });
+        cerrarEditarEmpresa(); cargarEmpresas();
+    } catch { alert('Error al guardar.'); }
+}
+
+async function eliminarEmpresa(id) {
+    if (!confirm('⚠️ ¿Eliminar esta empresa y todos sus datos?')) return;
+    try { await fetch(`${API}/api/programador/empresas/${id}`, {method:'DELETE'}); cargarEmpresas(); }
+    catch { alert('Error al eliminar.'); }
+}
 </script>
 </body>
 </html>

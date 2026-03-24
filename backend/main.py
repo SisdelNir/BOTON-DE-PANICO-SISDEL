@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import os
 
-from routers import programador, vecinos, emergencias, agentes
+from routers import programador, vecinos, emergencias, agentes, pilotos, alertas_empresa
 
 app = FastAPI(
     title="🚨 Botón de Pánico SISDEL",
@@ -23,6 +23,8 @@ app.include_router(programador.router)
 app.include_router(vecinos.router)
 app.include_router(emergencias.router)
 app.include_router(agentes.router)
+app.include_router(pilotos.router)
+app.include_router(alertas_empresa.router)
 
 # Servir dashboard estático
 dashboard_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "dashboard")

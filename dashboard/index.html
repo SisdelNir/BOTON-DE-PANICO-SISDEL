@@ -103,10 +103,18 @@ async function doLogin() {
                 sessionStorage.setItem('sisdel_agente_id', data.num_identificacion);
                 window.location.href = 'agente.html';
             } else if (data.tipo === 'vecino') {
-                // Clave de vecino → ir al formulario de registro/actualización
                 sessionStorage.setItem('sisdel_clave_vecino', clave);
                 const numId = data.num_identificacion ? `&numid=${encodeURIComponent(data.num_identificacion)}` : '';
                 window.location.href = `vecino.html?inst=${data.id_institucion}&vecino=1${numId}`;
+            } else if (data.tipo === 'empresa') {
+                sessionStorage.setItem('sisdel_tipo', 'empresa');
+                sessionStorage.setItem('sisdel_empresa', JSON.stringify({id_empresa: data.id_institucion}));
+                window.location.href = 'empresa_panel.html';
+            } else if (data.tipo === 'agente_empresa') {
+                sessionStorage.setItem('sisdel_tipo', 'agente_empresa');
+                sessionStorage.setItem('sisdel_agente_emp_id', data.num_identificacion);
+                sessionStorage.setItem('sisdel_agente_emp_empresa', data.id_institucion);
+                window.location.href = 'agente_empresa.html';
             } else {
                 sessionStorage.setItem('sisdel_tipo', 'institucion');
                 sessionStorage.setItem('sisdel_inst', JSON.stringify(data.institucion));
@@ -129,10 +137,10 @@ function showErr(msg) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Auto-redirigir si ya hay sesión
     const tipo = sessionStorage.getItem('sisdel_tipo');
     if (tipo === 'programador') { window.location.href = 'programador.html'; return; }
     if (tipo === 'institucion')  { window.location.href = 'panel.html'; return; }
+    if (tipo === 'empresa')      { window.location.href = 'empresa_panel.html'; return; }
 
     document.getElementById('inp-clave').addEventListener('keydown', e => {
         if (e.key === 'Enter') doLogin();
