@@ -1373,6 +1373,12 @@ def listar_pilotos(id_empresa: str) -> list:
         return _fetchall(conn, _ph("SELECT * FROM pilotos WHERE id_empresa=? ORDER BY nombre"), (id_empresa,))
 
 
+def eliminar_piloto(id_piloto: str) -> bool:
+    with get_conn() as conn:
+        _execute(conn, _ph("DELETE FROM pilotos WHERE id_piloto=?"), (id_piloto,))
+    return True
+
+
 def obtener_piloto(id_piloto: str) -> dict:
     with get_conn() as conn:
         return _fetchone(conn, _ph("SELECT * FROM pilotos WHERE id_piloto=?"), (id_piloto,))

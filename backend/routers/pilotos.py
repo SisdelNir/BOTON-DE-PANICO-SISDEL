@@ -3,7 +3,7 @@ from fastapi import APIRouter, HTTPException, Body
 from models import PilotoCreate
 from database import (
     registrar_piloto, listar_pilotos, obtener_piloto,
-    actualizar_piloto, obtener_contactos_piloto
+    actualizar_piloto, obtener_contactos_piloto, eliminar_piloto
 )
 
 router = APIRouter(prefix="/api/pilotos", tags=["Pilotos"])
@@ -18,6 +18,16 @@ async def crear_o_actualizar(data: PilotoCreate):
 @router.get("/{id_empresa}")
 async def listar(id_empresa: str):
     return listar_pilotos(id_empresa)
+
+
+@router.get("/buscar/{id_empresa}/{num_id}")
+async def buscar_por_dpi(id_empresa: str, num_id: str):
+    """Buscar piloto por número de identificación (DPI) dentro de una empresa"""
+    pilotos = listar_pilotos(id_empresa)
+    p = next((x for x in pilotos if x.get("num_identificacion") == num_id), None)
+    if not p:
+        raise HTTPException(404, "Piloto no encontrado")
+    return p
 
 
 @router.get("/detalle/{id_piloto}")
@@ -39,3 +49,10 @@ async def actualizar(id_piloto: str, data: dict = Body(...)):
 @router.get("/{id_piloto}/contactos")
 async def contactos(id_piloto: str):
     return obtener_contactos_piloto(id_piloto)
+
+
+@router.delete("/{id_piloto}")
+async def eliminar(id_piloto: str):
+    eliminar_piloto(id_piloto)
+    return {"ok": True}
+

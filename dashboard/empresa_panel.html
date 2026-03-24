@@ -156,7 +156,8 @@
                     <!-- DPI LLAVE PRIMARIA -->
                     <div style="grid-column:1/-1;">
                         <label class="lbl-sm">🪨 Documento de Identificación <span style="color:#ff3b3b;font-size:.65rem;font-weight:900;">(LLAVE PRIMARIA)</span></label>
-                        <input type="text" id="pl-dpi" required class="form-input inp-sm" placeholder="DPI / INE / Cédula — Ingrese primero este dato" style="border-color:#ff8c00;font-size:1.1rem;font-weight:700;">
+                        <input type="text" id="pl-dpi" required class="form-input inp-sm" placeholder="DPI / INE / Cédula — Ingrese primero este dato" style="border-color:#ff8c00;font-size:1.1rem;font-weight:700;" autocomplete="off" onblur="buscarPilotoPorDPI()">
+                        <span id="pl-hint-dpi" style="display:none;font-size:.78rem;margin-top:.3rem;padding:.3rem .6rem;border-radius:6px;font-weight:600;"></span>
                     </div>
                     <!-- PAÍS -->
                     <div style="grid-column:1/-1;">
@@ -248,8 +249,11 @@
                     <span style="font-size:.72rem;color:#6b7294;text-transform:uppercase;">Código de Acceso del Piloto</span>
                     <div id="pl-codigo-val" style="font-size:1.5rem;font-weight:900;color:#ff8c00;font-family:monospace;letter-spacing:3px;margin-top:.3rem;"></div>
                 </div>
-                <div style="display:flex;gap:.5rem;margin-top:1.2rem;">
-                    <button type="submit" style="flex:1;background:linear-gradient(135deg,#ff8c00,#ff6600);color:#fff;font-weight:700;font-size:.85rem;padding:.6rem;border:none;border-radius:8px;cursor:pointer;">💾 Guardar Piloto</button>
+                <div id="pl-form-botones" style="display:flex;gap:.5rem;margin-top:1.2rem;flex-wrap:wrap;">
+                    <button type="submit" id="pl-btn-guardar" style="flex:2;background:linear-gradient(135deg,#ff8c00,#ff6600);color:#fff;font-weight:700;font-size:.85rem;padding:.6rem;border:none;border-radius:8px;cursor:pointer;">💾 Guardar Piloto</button>
+                    <button type="button" id="pl-btn-modificar" onclick="modificarPiloto()" style="flex:1;background:linear-gradient(135deg,#4da6ff,#4da6ff80);color:#fff;font-weight:700;font-size:.85rem;padding:.6rem;border:none;border-radius:8px;cursor:pointer;display:none;">✏️ Modificar</button>
+                    <button type="button" id="pl-btn-eliminar" onclick="eliminarPiloto()" style="flex:1;background:rgba(255,59,59,.15);border:1px solid rgba(255,59,59,.5);color:#ff3b3b;font-weight:700;font-size:.85rem;padding:.6rem;border-radius:8px;cursor:pointer;display:none;">🗑️ Eliminar</button>
+                    <button type="button" onclick="limpiarFormPiloto()" style="flex:1;background:rgba(107,114,148,.12);border:1px solid rgba(107,114,148,.3);color:#6b7294;font-weight:700;font-size:.85rem;padding:.6rem;border-radius:8px;cursor:pointer;">🔄 Nuevo</button>
                     <button type="button" onclick="verListaPilotos()" style="flex:1;background:rgba(124,92,252,.12);color:#7c5cfc;font-weight:700;font-size:.85rem;padding:.6rem;border:1px solid rgba(124,92,252,.3);border-radius:8px;cursor:pointer;">👥 Ver Pilotos</button>
                 </div>
             </form>
@@ -522,6 +526,8 @@ async function cargarPilotos() {
     } catch {}
 }
 
+let _pilotoEditId = null;
+
 function actualizarLadaPiloto() {
     const codigo = document.getElementById('pl-pais')?.value || '502';
     const badge = document.getElementById('pl-lada-badge');
@@ -530,6 +536,130 @@ function actualizarLadaPiloto() {
 }
 
 function abrirRegistroPiloto() { document.getElementById('modal-piloto').style.display='flex'; actualizarLadaPiloto(); }
+
+async function buscarPilotoPorDPI() {
+    const numId = document.getElementById('pl-dpi').value.trim();
+    const hintEl = document.getElementById('pl-hint-dpi');
+    if (!numId || numId.length < 2) { hintEl.style.display='none'; return; }
+    try {
+        const res = await fetch(`${API}/api/pilotos/buscar/${EMP.id_empresa}/${encodeURIComponent(numId)}`);
+        if (res.ok) {
+            const p = await res.json();
+            _pilotoEditId = p.id_piloto;
+            const lada = document.getElementById('pl-pais')?.value || '502';
+            document.getElementById('pl-nombre').value = p.nombre || '';
+            const tel = (p.telefono || '').replace(new RegExp('^' + lada), '');
+            document.getElementById('pl-tel').value = tel;
+            document.getElementById('pl-correo').value = p.correo || '';
+            document.getElementById('pl-sexo').value = p.sexo || '';
+            document.getElementById('pl-edad').value = p.edad || '';
+            document.getElementById('pl-licencia').value = p.num_licencia || '';
+            document.getElementById('pl-empresa-labora').value = p.empresa_labora || '';
+            document.getElementById('pl-placas').value = p.placas_vehiculo || '';
+            document.getElementById('pl-tipo').value = p.tipo_vehiculo || '';
+            document.getElementById('pl-color').value = p.color_vehiculo || '';
+            document.getElementById('pl-dir').value = p.direccion || '';
+            for (let i = 1; i <= 5; i++) {
+                document.getElementById(`pl-c${i}n`).value = p[`fam_nombre_${i}`] || '';
+                const ct = (p[`fam_tel_${i}`] || '').replace(new RegExp('^' + lada), '');
+                document.getElementById(`pl-c${i}t`).value = ct;
+            }
+            if (p.foto_vehiculo) {
+                document.getElementById('pl-foto-img').src = p.foto_vehiculo;
+                document.getElementById('pl-foto-preview').style.display = 'block';
+            }
+            document.getElementById('pl-codigo-box').style.display = 'block';
+            document.getElementById('pl-codigo-val').textContent = p.codigo_piloto || '';
+            hintEl.textContent = '✅ Piloto encontrado — datos auto-rellenados';
+            hintEl.style.cssText = 'display:inline-block;font-size:.78rem;margin-top:.3rem;padding:.3rem .6rem;border-radius:6px;font-weight:600;background:rgba(0,214,143,.12);color:#00d68f;border:1px solid rgba(0,214,143,.3);';
+            // Show modify/delete, hide save
+            document.getElementById('pl-btn-guardar').style.display = 'none';
+            document.getElementById('pl-btn-modificar').style.display = 'inline-flex';
+            document.getElementById('pl-btn-eliminar').style.display = 'inline-flex';
+        } else {
+            _pilotoEditId = null;
+            hintEl.textContent = '🆕 Nuevo piloto — complete todos los campos';
+            hintEl.style.cssText = 'display:inline-block;font-size:.78rem;margin-top:.3rem;padding:.3rem .6rem;border-radius:6px;font-weight:600;background:rgba(77,166,255,.12);color:#4da6ff;border:1px solid rgba(77,166,255,.3);';
+            // Show save, hide modify/delete
+            document.getElementById('pl-btn-guardar').style.display = 'inline-flex';
+            document.getElementById('pl-btn-modificar').style.display = 'none';
+            document.getElementById('pl-btn-eliminar').style.display = 'none';
+        }
+    } catch { hintEl.style.display='none'; }
+}
+
+function limpiarFormPiloto() {
+    _pilotoEditId = null;
+    document.getElementById('form-piloto').reset();
+    document.getElementById('pl-hint-dpi').style.display = 'none';
+    document.getElementById('pl-codigo-box').style.display = 'none';
+    document.getElementById('pl-foto-preview').style.display = 'none';
+    document.getElementById('pl-btn-guardar').style.display = 'inline-flex';
+    document.getElementById('pl-btn-modificar').style.display = 'none';
+    document.getElementById('pl-btn-eliminar').style.display = 'none';
+    actualizarLadaPiloto();
+}
+
+async function modificarPiloto() {
+    if (!_pilotoEditId) { alert('Busque un piloto primero por DPI.'); return; }
+    const lada = document.getElementById('pl-pais')?.value || '502';
+    const telRaw = (document.getElementById('pl-tel').value || '').replace(/\D/g,'');
+    const data = {
+        nombre: document.getElementById('pl-nombre').value.trim(),
+        telefono: telRaw ? lada + telRaw : '',
+        correo: document.getElementById('pl-correo').value.trim(),
+        sexo: document.getElementById('pl-sexo').value,
+        edad: parseInt(document.getElementById('pl-edad').value) || 0,
+        num_licencia: document.getElementById('pl-licencia').value.trim(),
+        empresa_labora: document.getElementById('pl-empresa-labora').value.trim(),
+        placas_vehiculo: document.getElementById('pl-placas').value.trim(),
+        tipo_vehiculo: document.getElementById('pl-tipo').value,
+        color_vehiculo: document.getElementById('pl-color').value.trim(),
+        direccion: document.getElementById('pl-dir').value.trim(),
+    };
+    for (let i = 1; i <= 5; i++) {
+        data[`fam_nombre_${i}`] = document.getElementById(`pl-c${i}n`).value.trim();
+        const ct = (document.getElementById(`pl-c${i}t`).value || '').replace(/\D/g,'');
+        data[`fam_tel_${i}`] = ct ? lada + ct : '';
+    }
+    // Handle photo
+    const fotoFile = document.getElementById('pl-foto').files[0];
+    if (fotoFile) {
+        data.foto_vehiculo = await new Promise(resolve => {
+            const reader = new FileReader();
+            reader.onload = e => {
+                const img = new Image();
+                img.onload = () => {
+                    const c = document.createElement('canvas');
+                    const r = Math.min(800/img.width,800/img.height,1);
+                    c.width=img.width*r; c.height=img.height*r;
+                    c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+                    resolve(c.toDataURL('image/jpeg',0.6));
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(fotoFile);
+        });
+    }
+    try {
+        await fetch(`${API}/api/pilotos/${_pilotoEditId}`, {
+            method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data)
+        });
+        cargarPilotos();
+        alert('✅ Piloto modificado correctamente.');
+    } catch { alert('Error al modificar.'); }
+}
+
+async function eliminarPiloto() {
+    if (!_pilotoEditId) return;
+    if (!confirm('¿Eliminar este piloto permanentemente?')) return;
+    try {
+        await fetch(`${API}/api/pilotos/${_pilotoEditId}`, { method:'DELETE' });
+        limpiarFormPiloto();
+        cargarPilotos();
+        alert('✅ Piloto eliminado.');
+    } catch { alert('Error al eliminar.'); }
+}
 function cerrarModalPiloto(e) { if(e&&e.target!==document.getElementById('modal-piloto')) return; document.getElementById('modal-piloto').style.display='none'; }
 
 function previsualizarFoto(event) {
