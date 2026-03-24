@@ -477,7 +477,9 @@ async function cargarAlertas() {
 
 function renderAlertas() {
     const tbody = document.getElementById('alertas-tbody');
-    let list = todasLasAlertas;
+    // Filtrar casos cerrados para que no aparezcan en el panel principal
+    const activas = todasLasAlertas.filter(a => a.estatus === 'ACTIVA' || a.estatus === 'EN_CAMINO');
+    let list = activas;
     if (filtro !== 'todas') list = list.filter(a => a.estatus === filtro);
     if (!list.length) { tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state"><span style="font-size:2rem">🛡️</span><p>Sin alertas</p></div></td></tr>'; return; }
     tbody.innerHTML = list.map(a => {
@@ -1139,7 +1141,11 @@ function cerrarAvisar(e) { if(e&&e.target!==document.getElementById('modal-avisa
 
 // ── HISTORIAL ──────────────────
 let _historialData = [];
-function abrirHistorial() { document.getElementById('modal-historial').style.display='flex'; renderHistorial(todasLasAlertas); }
+function abrirHistorial() { 
+    document.getElementById('modal-historial').style.display='flex'; 
+    const cerradas = todasLasAlertas.filter(a => a.estatus === 'ATENDIDA' || a.estatus === 'FALSA_ALARMA' || a.estatus === 'CANCELADA');
+    renderHistorial(cerradas); 
+}
 function cerrarHistorial(e) { if(e&&e.target!==document.getElementById('modal-historial')) return; document.getElementById('modal-historial').style.display='none'; }
 function renderHistorial(list) {
     _historialData = list;
@@ -1161,7 +1167,8 @@ function renderHistorial(list) {
 }
 function filtrarHistorial(q) {
     q = q.trim().toLowerCase();
-    const f = q ? todasLasAlertas.filter(a => a.nombre_piloto.toLowerCase().includes(q) || (a.placas_vehiculo||'').toLowerCase().includes(q) || (a.num_identificacion||'').includes(q)) : todasLasAlertas;
+    const cerradas = todasLasAlertas.filter(a => a.estatus === 'ATENDIDA' || a.estatus === 'FALSA_ALARMA' || a.estatus === 'CANCELADA');
+    const f = q ? cerradas.filter(a => (a.nombre_piloto||'').toLowerCase().includes(q) || (a.placas_vehiculo||'').toLowerCase().includes(q) || (a.num_identificacion||'').includes(q)) : cerradas;
     renderHistorial(f);
 }
 </script>
