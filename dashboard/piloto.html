@@ -237,16 +237,21 @@ document.addEventListener('DOMContentLoaded', () => {
 async function loginPiloto() {
     const clave = document.getElementById('inp-clave').value.trim();
     if (!clave) { showErr('Ingresa tu código o DPI'); return; }
+    if (!ID_EMPRESA) { showErr('Error: Falta el parámetro de empresa en el enlace (?emp=...)'); return; }
     try {
-        // Try searching in pilotos list
         const res = await fetch(`${API}/api/pilotos/${ID_EMPRESA}`);
+        if (!res.ok) { showErr(`Error del servidor: ${res.status}`); return; }
         const pilotos = await res.json();
-        const p = pilotos.find(x => x.num_identificacion === clave || (x.codigo_piloto||'').toUpperCase() === clave.toUpperCase());
-        if (!p) { showErr('Código o DPI no encontrado'); return; }
+        if (!Array.isArray(pilotos)) { showErr('Error: respuesta inesperada del servidor'); return; }
+        const p = pilotos.find(x =>
+            (x.num_identificacion||'').toUpperCase() === clave.toUpperCase() ||
+            (x.codigo_piloto||'').toUpperCase() === clave.toUpperCase()
+        );
+        if (!p) { showErr(`Código o DPI "${clave}" no encontrado. Pilotos registrados: ${pilotos.length}`); return; }
         PILOTO = p;
         sessionStorage.setItem('sisdel_piloto', JSON.stringify(p));
         mostrarPanico();
-    } catch { showErr('Error de conexión'); }
+    } catch(e) { showErr('Error de conexión: ' + (e.message||'sin respuesta')); }
 }
 
 function showErr(m) { const e=document.getElementById('error-clave'); e.textContent=m; e.style.display='block'; }
