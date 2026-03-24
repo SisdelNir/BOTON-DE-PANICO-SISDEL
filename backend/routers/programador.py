@@ -5,6 +5,7 @@ from models import (InstitucionCreate, InstitucionUpdate, InstitucionResponse,
                     EmpresaCreate, EmpresaUpdate, EmpresaResponse)
 from database import (db, CLAVE_PROGRAMADOR, login_agente_global,
                       login_empresa, login_piloto, login_agente_empresa_global,
+                      login_piloto_global,
                       crear_empresa, listar_empresas, toggle_empresa,
                       editar_empresa, regenerar_clave_empresa, eliminar_empresa,
                       listar_pilotos)
@@ -83,6 +84,16 @@ async def login(data: LoginInstRequest):
             tipo="agente_empresa",
             id_institucion=ag["id_empresa"],
             num_identificacion=ag["num_identificacion"]
+        )
+
+    # ¿Es código de piloto o DPI de piloto?
+    piloto = login_piloto_global(clave)
+    if piloto:
+        return LoginInstResponse(
+            success=True, message="Acceso piloto",
+            tipo="piloto",
+            id_institucion=piloto["id_empresa"],
+            num_identificacion=piloto["num_identificacion"]
         )
 
     return LoginInstResponse(success=False, message="Clave inválida")

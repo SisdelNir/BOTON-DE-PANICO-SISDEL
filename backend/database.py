@@ -1259,6 +1259,19 @@ def login_empresa(clave: str) -> dict:
         ), (clave.upper(), True if USE_PG else 1))
 
 
+def login_piloto_global(clave: str) -> dict:
+    """Search all pilotos across all empresas by codigo_piloto or num_identificacion"""
+    with get_conn() as conn:
+        row = _fetchone(conn, _ph(
+            "SELECT * FROM pilotos WHERE UPPER(codigo_piloto)=UPPER(?)"
+        ), (clave,))
+        if not row:
+            row = _fetchone(conn, _ph(
+                "SELECT * FROM pilotos WHERE UPPER(num_identificacion)=UPPER(?)"
+            ), (clave,))
+        return row
+
+
 def toggle_empresa(id_empresa: str) -> dict:
     with get_conn() as conn:
         row = _fetchone(conn, _ph("SELECT activo FROM empresas_seguridad WHERE id_empresa=?"), (id_empresa,))
