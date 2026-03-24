@@ -483,7 +483,8 @@ function renderAlertas() {
     tbody.innerHTML = list.map(a => {
         const badgeClass = a.estatus==='ACTIVA'?'badge-activa':a.estatus==='EN_CAMINO'?'badge-camino':a.estatus==='ATENDIDA'?'badge-atendida':'badge-falsa';
         const gpsBtn = a.gps_latitud ? `<button class="btn-gps" onclick="verMapaRapido(${a.gps_latitud},${a.gps_longitud})">📍</button>` : '—';
-        const hora = a.fecha_creacion ? new Date(a.fecha_creacion).toLocaleTimeString('es-GT', {hour:'2-digit',minute:'2-digit',timeZone:'America/Guatemala'}) : '';
+        const fechaUTC = a.fecha_creacion ? (a.fecha_creacion.endsWith('Z') ? a.fecha_creacion : a.fecha_creacion+'Z') : null;
+        const hora = fechaUTC ? new Date(fechaUTC).toLocaleTimeString('es-GT', {hour:'2-digit',minute:'2-digit'}) : '';
         return `<tr onclick="verDetalle('${a.id_alerta}')" style="cursor:pointer;">
             <td><strong>${a.numero_caso||''}</strong></td>
             <td><span class="badge ${badgeClass}">${a.estatus}</span></td>
@@ -983,7 +984,7 @@ function renderHistorial(list) {
             <td>${a.nombre_piloto}</td>
             <td><strong style="color:#ff8c00;">${a.placas_vehiculo||'—'}</strong></td>
             <td>${a.tipo_vehiculo||'—'} ${a.color_vehiculo||''}</td>
-            <td>${a.fecha_creacion ? new Date(a.fecha_creacion).toLocaleString('es-GT', {timeZone:'America/Guatemala',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'}) : ''}</td>
+            <td>${a.fecha_creacion ? new Date(a.fecha_creacion.endsWith('Z')?a.fecha_creacion:a.fecha_creacion+'Z').toLocaleString('es-GT', {year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'}) : ''}</td>
             <td><button class="btn-det" onclick="event.stopPropagation();verDetalle('${a.id_alerta}')">Ver</button></td>
         </tr>`;
     }).join('');

@@ -274,6 +274,11 @@ let _alertaCount=0, _countdownInterval=null, mediaRecorder=null, audioChunks=[];
 let _shakeEnabled=true, _shakeActive=false;
 let _vozCtx=null, _vozAnalyser=null, _vozStream=null, _vozActiva=false, _lastVozAlert=0;
 
+// ── IndexedDB para audio grabado (evita límite de 5MB de localStorage) ──
+function openAudioDB(){return new Promise((resolve,reject)=>{const req=indexedDB.open('sisdel_audio_db',1);req.onupgradeneeded=e=>{e.target.result.createObjectStore('audios');};req.onsuccess=e=>resolve(e.target.result);req.onerror=e=>reject(e);});}
+async function guardarAudioDB(base64){try{const db=await openAudioDB();const tx=db.transaction('audios','readwrite');tx.objectStore('audios').put(base64,'audioGrabado');await new Promise((r,j)=>{tx.oncomplete=r;tx.onerror=j;});}catch(e){console.warn('IndexedDB save error:',e);}}
+async function cargarAudioDB(){try{const db=await openAudioDB();const tx=db.transaction('audios','readonly');return await new Promise((r,j)=>{const req=tx.objectStore('audios').get('audioGrabado');req.onsuccess=()=>r(req.result||null);req.onerror=()=>r(null);});}catch(e){return null;}}
+
 function showToast(msg,type='success',dur=3500){const i={success:'✅',error:'❌',info:'💡',warning:'⚠️'};const c=document.getElementById('toast-container');const t=document.createElement('div');t.className=`sisdel-toast toast-${type}`;t.innerHTML=`<span style="font-size:1.3rem;flex-shrink:0">${i[type]||'ℹ️'}</span><span style="flex:1">${msg}</span><span style="cursor:pointer;opacity:.7;font-size:1rem" onclick="this.parentElement.classList.add('toast-out');setTimeout(()=>this.parentElement.remove(),300)">✕</span>`;c.appendChild(t);setTimeout(()=>{t.classList.add('toast-out');setTimeout(()=>t.remove(),300);},dur);}
 
 document.addEventListener('DOMContentLoaded', async()=>{
@@ -328,6 +333,8 @@ function irAPanico(){
     document.getElementById('panico-vehiculo').textContent=vi.join(' — ');
     cargarLocalConfig();
     document.getElementById('shake-notice').style.display=_shakeEnabled?'block':'none';
+    // Siempre intentar iniciar shake al llegar a pantalla de pánico
+    if(_shakeEnabled) iniciarShake();
 }
 
 // Called from user tap gesture — this is KEY for mobile permission requests
@@ -400,32 +407,34 @@ function _errorBarraGPS(msg){document.getElementById('gps-status').textContent='
 function activarGPS(){requestLocationPermission();showToast('Solicitando GPS...','info');}
 function ensureLocation(){return new Promise((res,rej)=>{if(gpsLat!==null){res();return;}navigator.geolocation.getCurrentPosition(p=>{gpsLat=p.coords.latitude;gpsLon=p.coords.longitude;res();},rej,{enableHighAccuracy:true,timeout:10000});});}
 
-// SHAKE — 4 agitaciones fuertes en 3 segundos
+// SHAKE — 3 agitaciones fuertes en 3 segundos
+let _shakeTimes=[], _shakeLastX=null, _shakeLastY=null, _shakeLastZ=null, _shakeLastT=0, _shakeLastAlert=0;
 function iniciarShake(){
     if(_shakeActive)return;_shakeActive=true;
-    let shakeTimes=[],lastX=null,lastY=null,lastZ=null,lastT=0,lastAlert=0;
-    window.addEventListener('devicemotion',(e)=>{
-        if(!_shakeEnabled||!PILOTO)return;
-        const a=e.accelerationIncludingGravity;if(!a||a.x===null)return;
-        const now=Date.now();if((now-lastT)<150)return;
-        if(lastX!==null){
-            const force=Math.abs(a.x-lastX)+Math.abs(a.y-lastY)+Math.abs(a.z-lastZ);
-            if(force>20){
-                shakeTimes=shakeTimes.filter(t=>(now-t)<3000);
-                shakeTimes.push(now);
-                const n=document.getElementById('shake-notice');
-                if(n)n.textContent=`📳 Agitaciones: ${shakeTimes.length}/4`;
-                if(shakeTimes.length>=4&&(now-lastAlert)>5000){
-                    lastAlert=now;shakeTimes=[];
-                    if(n)n.textContent='📳 ¡ALERTA ACTIVADA!';
-                    showToast('🚨 ¡Alerta por agitación!','warning');
-                    enviarAlerta();
-                    setTimeout(()=>{if(n)n.textContent='📳 Agita 4 veces para alerta rápida';},3000);
-                }
+    window.addEventListener('devicemotion', _onDeviceMotion);
+    console.log('Shake detection started');
+}
+function _onDeviceMotion(e){
+    if(!_shakeEnabled||!PILOTO)return;
+    const a=e.accelerationIncludingGravity||e.acceleration;if(!a||a.x===null)return;
+    const now=Date.now();if((now-_shakeLastT)<100)return;
+    if(_shakeLastX!==null){
+        const force=Math.abs(a.x-_shakeLastX)+Math.abs(a.y-_shakeLastY)+Math.abs(a.z-_shakeLastZ);
+        if(force>15){
+            _shakeTimes=_shakeTimes.filter(t=>(now-t)<3000);
+            _shakeTimes.push(now);
+            const n=document.getElementById('shake-notice');
+            if(n)n.textContent=`📳 Agitaciones: ${_shakeTimes.length}/3`;
+            if(_shakeTimes.length>=3&&(now-_shakeLastAlert)>5000){
+                _shakeLastAlert=now;_shakeTimes=[];
+                if(n)n.textContent='📳 ¡ALERTA ACTIVADA!';
+                showToast('🚨 ¡Alerta por agitación!','warning');
+                enviarAlerta();
+                setTimeout(()=>{if(n)n.textContent='📳 Agita 3 veces para alerta rápida';},3000);
             }
         }
-        lastX=a.x;lastY=a.y;lastZ=a.z;lastT=now;
-    });
+    }
+    _shakeLastX=a.x;_shakeLastY=a.y;_shakeLastZ=a.z;_shakeLastT=now;
 }
 
 // VOZ — detección de grito
@@ -472,7 +481,8 @@ async function enviarAlerta(){
     _alertaCount++;
     const cfg=JSON.parse(localStorage.getItem('sisdel_piloto_config')||'{}');
     if(cfg.vibracion!==false&&navigator.vibrate)navigator.vibrate([200,100,200,100,500]);
-    try{if(cfg.audioGrabado){const a=new Audio(cfg.audioGrabado);a.volume=1;let r=0;a.onended=()=>{r++;if(r<3)a.play().catch(()=>{});};a.play().catch(()=>{});}}catch{}
+    // Reproducir audio desde IndexedDB
+    try{const audioData=await cargarAudioDB();if(audioData){const a=new Audio(audioData);a.volume=1;let r=0;a.onended=()=>{r++;if(r<3)a.play().catch(()=>{});};a.play().catch(()=>{});}}catch{}
     document.getElementById('env-alerta-num').textContent=`Alerta #${_alertaCount} de 10`;
     document.getElementById('env-coords').textContent=gpsLat?`📍 ${gpsLat.toFixed(6)}, ${gpsLon.toFixed(6)}`:'📍 Sin coordenadas';
     document.getElementById('overlay-enviado').style.display='flex';
@@ -500,13 +510,15 @@ function cargarLocalConfig(){
     _shakeEnabled=c.agitar!==false;
     document.getElementById('cfg-voz').checked=c.voz!==false;
     if(c.voz!==false)document.getElementById('cfg-voz-extra').style.display='block';
-    // Restaurar estado visual del audio grabado
-    if(c.audioGrabado){
-        const asc=document.getElementById('audio-status-card');
-        if(asc) asc.style.display='block';
-        const vs=document.getElementById('cfg-voz-estado');
-        if(vs) vs.textContent='✅ Audio guardado';
-    }
+    // Restaurar estado visual del audio grabado (desde IndexedDB)
+    cargarAudioDB().then(audio=>{
+        if(audio){
+            const asc=document.getElementById('audio-status-card');
+            if(asc) asc.style.display='block';
+            const vs=document.getElementById('cfg-voz-estado');
+            if(vs) vs.textContent='✅ Audio guardado';
+        }
+    });
     const n=document.getElementById('shake-notice');if(n)n.style.display=_shakeEnabled?'block':'none';
 }
 function verificarEstadoGPS(){
@@ -521,14 +533,14 @@ function verificarEstadoGPS(){
 function toggleShakeDetection(){_shakeEnabled=document.getElementById('cfg-agitar').checked;document.getElementById('shake-notice').style.display=_shakeEnabled?'block':'none';guardarLocalConfig();if(_shakeEnabled)iniciarShake();}
 async function toggleVoz(){const chk=document.getElementById('cfg-voz');if(chk.checked){try{const s=await navigator.mediaDevices.getUserMedia({audio:true});s.getTracks().forEach(t=>t.stop());showToast('🎙️ Micrófono activado ✅','success');document.getElementById('cfg-voz-extra').style.display='block';guardarLocalConfig();iniciarDeteccionVoz();}catch(e){chk.checked=false;document.getElementById('cfg-voz-extra').style.display='none';showToast('❌ Permiso de micrófono requerido para usar Alerta por Voz','error');}}else{document.getElementById('cfg-voz-extra').style.display='none';guardarLocalConfig();detenerDeteccionVoz();}}
 async function solicitarPermisoMic(){try{const s=await navigator.mediaDevices.getUserMedia({audio:true});s.getTracks().forEach(t=>t.stop());showToast('Micrófono activado ✅','success');}catch{showToast('Error de micrófono','error');}}
-function escucharGrabacion(){const c=JSON.parse(localStorage.getItem('sisdel_piloto_config')||'{}');if(c.audioGrabado){const a=new Audio(c.audioGrabado);a.play().catch(()=>{});}}
+async function escucharGrabacion(){const audio=await cargarAudioDB();if(audio){const a=new Audio(audio);a.play().catch(()=>{});}}
 async function toggleGrabacion(){
     const btn=document.getElementById('btn-grabar'),ind=document.getElementById('grabacion-indicador');
     if(mediaRecorder&&mediaRecorder.state==='recording'){mediaRecorder.stop();btn.textContent='🎤 GRABAR FRASE';ind.style.display='none';return;}
     try{const stream=await navigator.mediaDevices.getUserMedia({audio:true});audioChunks=[];
         mediaRecorder=new MediaRecorder(stream);
         mediaRecorder.ondataavailable=e=>audioChunks.push(e.data);
-        mediaRecorder.onstop=()=>{const blob=new Blob(audioChunks,{type:'audio/webm'});const reader=new FileReader();reader.onload=(ev)=>{const c=JSON.parse(localStorage.getItem('sisdel_piloto_config')||'{}');c.audioGrabado=ev.target.result;localStorage.setItem('sisdel_piloto_config',JSON.stringify(c));document.getElementById('audio-status-card').style.display='block';document.getElementById('cfg-voz-estado').textContent='✅ Audio guardado';};reader.readAsDataURL(blob);stream.getTracks().forEach(t=>t.stop());};
+        mediaRecorder.onstop=()=>{const blob=new Blob(audioChunks,{type:'audio/webm'});const reader=new FileReader();reader.onload=async(ev)=>{await guardarAudioDB(ev.target.result);document.getElementById('audio-status-card').style.display='block';document.getElementById('cfg-voz-estado').textContent='✅ Audio guardado';showToast('🎤 Audio guardado correctamente','success');};reader.readAsDataURL(blob);stream.getTracks().forEach(t=>t.stop());};
         mediaRecorder.start();btn.textContent='⏹️ DETENER';ind.style.display='block';
         const ctx=new(window.AudioContext||window.webkitAudioContext)();const src=ctx.createMediaStreamSource(stream);const an=ctx.createAnalyser();an.fftSize=256;src.connect(an);const buf=new Uint8Array(an.frequencyBinCount);
         const upd=()=>{if(mediaRecorder?.state!=='recording'){ctx.close();return;}an.getByteFrequencyData(buf);const avg=buf.reduce((a,b)=>a+b,0)/buf.length;document.getElementById('volumen-nivel').style.width=Math.min(avg*1.5,100)+'%';requestAnimationFrame(upd);};upd();
