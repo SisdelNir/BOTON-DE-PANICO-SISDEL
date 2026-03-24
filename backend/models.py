@@ -12,6 +12,7 @@ class InstitucionCreate(BaseModel):
     telefono:           str = Field(default="", max_length=20)
     correo:             str = Field(default="", max_length=150)
     direccion:          str = Field(default="", max_length=250)
+    pais:               str = Field(default="502", max_length=10)
 
 class InstitucionResponse(BaseModel):
     id_institucion:    str
@@ -20,6 +21,7 @@ class InstitucionResponse(BaseModel):
     telefono:          str
     correo:            str
     direccion:         str
+    pais:              str
     clave_acceso:      str
     activo:            bool
     fecha_registro:    str
@@ -31,6 +33,7 @@ class InstitucionUpdate(BaseModel):
     telefono:           Optional[str] = Field(default=None, max_length=20)
     correo:             Optional[str] = Field(default=None, max_length=150)
     direccion:          Optional[str] = Field(default=None, max_length=250)
+    pais:               Optional[str] = Field(default=None, max_length=10)
 
 class LoginInstRequest(BaseModel):
     clave: str = Field(..., min_length=1, max_length=20)
@@ -203,6 +206,7 @@ class EmpresaCreate(BaseModel):
     telefono:       str = Field(default="", max_length=20)
     correo:         str = Field(default="", max_length=150)
     direccion:      str = Field(default="", max_length=250)
+    pais:           str = Field(default="502", max_length=10)
 
 class EmpresaResponse(BaseModel):
     id_empresa:     str
@@ -211,6 +215,7 @@ class EmpresaResponse(BaseModel):
     telefono:       str
     correo:         str
     direccion:      str
+    pais:           str
     clave_acceso:   str
     activo:         bool
     fecha_registro: str
@@ -222,6 +227,7 @@ class EmpresaUpdate(BaseModel):
     telefono:       Optional[str] = None
     correo:         Optional[str] = None
     direccion:      Optional[str] = None
+    pais:           Optional[str] = None
 
 
 # ── PILOTOS ──────────────────────────────────────────────────

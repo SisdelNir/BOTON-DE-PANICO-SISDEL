@@ -165,6 +165,21 @@
                     <label>Dirección</label>
                     <input class="form-input" type="text" id="fe-dir" placeholder="Dirección de la empresa">
                 </div>
+                <div class="form-field">
+                    <label>País / Región</label>
+                    <select class="form-input" id="fe-pais">
+                        <option value="502">🇬🇹 Guatemala (+502)</option>
+                        <option value="52">🇲🇽 México (+52)</option>
+                        <option value="503">🇸🇻 El Salvador (+503)</option>
+                        <option value="504">🇭🇳 Honduras (+504)</option>
+                        <option value="505">🇳🇮 Nicaragua (+505)</option>
+                        <option value="506">🇨🇷 Costa Rica (+506)</option>
+                        <option value="507">🇵🇦 Panamá (+507)</option>
+                        <option value="1">🇺🇸 Estados Unidos (+1)</option>
+                        <option value="34">🇪🇸 España (+34)</option>
+                        <option value="57">🇨🇴 Colombia (+57)</option>
+                    </select>
+                </div>
             </div>
             <p style="font-size:.78rem;color:#6b7294;margin-top:.5rem;">
                 ✨ La <strong>clave de acceso</strong> de 6 caracteres se genera automáticamente.
@@ -207,6 +222,20 @@
                 <div class="form-field"><label>Teléfono</label><input class="form-input" type="tel" id="ee-tel"></div>
                 <div class="form-field"><label>Correo</label><input class="form-input" type="email" id="ee-email"></div>
                 <div class="form-field"><label>Dirección</label><input class="form-input" type="text" id="ee-dir"></div>
+                <div class="form-field"><label>País / Región</label>
+                    <select class="form-input" id="ee-pais">
+                        <option value="502">🇬🇹 Guatemala (+502)</option>
+                        <option value="52">🇲🇽 México (+52)</option>
+                        <option value="503">🇸🇻 El Salvador (+503)</option>
+                        <option value="504">🇭🇳 Honduras (+504)</option>
+                        <option value="505">🇳🇮 Nicaragua (+505)</option>
+                        <option value="506">🇨🇷 Costa Rica (+506)</option>
+                        <option value="507">🇵🇦 Panamá (+507)</option>
+                        <option value="1">🇺🇸 Estados Unidos (+1)</option>
+                        <option value="34">🇪🇸 España (+34)</option>
+                        <option value="57">🇨🇴 Colombia (+57)</option>
+                    </select>
+                </div>
             </div>
         </div>
         <div class="modal-footer">
@@ -244,6 +273,21 @@
                 <div class="form-field">
                     <label>Dirección</label>
                     <input class="form-input" type="text" id="f-dir" placeholder="Calle, Número, Ciudad">
+                </div>
+                <div class="form-field">
+                    <label>País / Región</label>
+                    <select class="form-input" id="f-pais">
+                        <option value="502">🇬🇹 Guatemala (+502)</option>
+                        <option value="52">🇲🇽 México (+52)</option>
+                        <option value="503">🇸🇻 El Salvador (+503)</option>
+                        <option value="504">🇭🇳 Honduras (+504)</option>
+                        <option value="505">🇳🇮 Nicaragua (+505)</option>
+                        <option value="506">🇨🇷 Costa Rica (+506)</option>
+                        <option value="507">🇵🇦 Panamá (+507)</option>
+                        <option value="1">🇺🇸 Estados Unidos (+1)</option>
+                        <option value="34">🇪🇸 España (+34)</option>
+                        <option value="57">🇨🇴 Colombia (+57)</option>
+                    </select>
                 </div>
             </div>
             <p style="font-size:.78rem;color:#6b7294;margin-top:.5rem;">
@@ -308,6 +352,21 @@
                 <div class="form-field">
                     <label>Dirección</label>
                     <input class="form-input" type="text" id="e-dir">
+                </div>
+                <div class="form-field">
+                    <label>País / Región</label>
+                    <select class="form-input" id="e-pais">
+                        <option value="502">🇬🇹 Guatemala (+502)</option>
+                        <option value="52">🇲🇽 México (+52)</option>
+                        <option value="503">🇸🇻 El Salvador (+503)</option>
+                        <option value="504">🇭🇳 Honduras (+504)</option>
+                        <option value="505">🇳🇮 Nicaragua (+505)</option>
+                        <option value="506">🇨🇷 Costa Rica (+506)</option>
+                        <option value="507">🇵🇦 Panamá (+507)</option>
+                        <option value="1">🇺🇸 Estados Unidos (+1)</option>
+                        <option value="34">🇪🇸 España (+34)</option>
+                        <option value="57">🇨🇴 Colombia (+57)</option>
+                    </select>
                 </div>
             </div>
             <p style="font-size:.75rem;color:#6b7294;margin-top:.6rem;">ℹ️ El código de acceso no cambia al editar. Use "Nueva clave" para regenerarlo.</p>
@@ -414,6 +473,7 @@ function renderCards(insts) {
         </div>
 
         <div class="inst-info">
+            <div class="inst-info-item"><div class="inst-info-label">País</div>${inst.pais ? '+'+inst.pais : '—'}</div>
             <div class="inst-info-item"><div class="inst-info-label">Teléfono</div>${inst.telefono || '—'}</div>
             <div class="inst-info-item"><div class="inst-info-label">Correo</div>${inst.correo || '—'}</div>
             <div class="inst-info-item" style="grid-column:1/-1"><div class="inst-info-label">Dirección</div>${inst.direccion || '—'}</div>
@@ -478,6 +538,7 @@ function abrirEditar(id) {
     document.getElementById('e-tel').value    = inst.telefono;
     document.getElementById('e-email').value  = inst.correo;
     document.getElementById('e-dir').value    = inst.direccion;
+    if (inst.pais) document.getElementById('e-pais').value = inst.pais;
     document.getElementById('modal-editar').style.display = 'flex';
 }
 function cerrarModalEditar(e) {
@@ -492,6 +553,7 @@ async function guardarEdicion() {
         telefono:           document.getElementById('e-tel').value.trim(),
         correo:             document.getElementById('e-email').value.trim(),
         direccion:          document.getElementById('e-dir').value.trim(),
+        pais:               document.getElementById('e-pais').value,
     };
     if (!payload.nombre_institucion || !payload.nombre_admin) {
         alert('Nombre de institución y administrador son obligatorios'); return;
@@ -540,7 +602,8 @@ async function crearInstitucion() {
                 nombre_admin: admin,
                 telefono: document.getElementById('f-tel').value.trim(),
                 correo:   document.getElementById('f-email').value.trim(),
-                direccion:document.getElementById('f-dir').value.trim()
+                direccion:document.getElementById('f-dir').value.trim(),
+                pais:     document.getElementById('f-pais').value
             })
         });
         const inst = await res.json();
@@ -635,6 +698,7 @@ function renderEmpresas(list) {
             <span class="${e.activo?'badge badge-activa-inst':'badge badge-inactiva-inst'}">${e.activo?'Activa':'Inactiva'}</span>
         </div>
         <div class="inst-info">
+            <div class="inst-info-item"><div class="inst-info-label">País</div>${e.pais ? '+'+e.pais : '—'}</div>
             <div class="inst-info-item"><div class="inst-info-label">Teléfono</div>${e.telefono||'—'}</div>
             <div class="inst-info-item"><div class="inst-info-label">Correo</div>${e.correo||'—'}</div>
             <div class="inst-info-item" style="grid-column:1/-1"><div class="inst-info-label">Dirección</div>${e.direccion||'—'}</div>
@@ -680,7 +744,8 @@ async function crearEmpresa() {
                 nombre_empresa: nombre, nombre_admin: admin,
                 telefono: document.getElementById('fe-tel').value.trim(),
                 correo: document.getElementById('fe-email').value.trim(),
-                direccion: document.getElementById('fe-dir').value.trim()
+                direccion: document.getElementById('fe-dir').value.trim(),
+                pais: document.getElementById('fe-pais').value
             })
         });
         const emp = await res.json();
@@ -717,6 +782,7 @@ function abrirEditarEmpresa(id) {
     document.getElementById('ee-tel').value = e.telefono;
     document.getElementById('ee-email').value = e.correo;
     document.getElementById('ee-dir').value = e.direccion;
+    if (e.pais) document.getElementById('ee-pais').value = e.pais;
     document.getElementById('modal-editar-emp').style.display = 'flex';
 }
 function cerrarEditarEmpresa(e) { if (e && e.target !== document.getElementById('modal-editar-emp')) return; document.getElementById('modal-editar-emp').style.display = 'none'; }
@@ -731,7 +797,8 @@ async function guardarEdicionEmpresa() {
                 nombre_admin: document.getElementById('ee-admin').value.trim(),
                 telefono: document.getElementById('ee-tel').value.trim(),
                 correo: document.getElementById('ee-email').value.trim(),
-                direccion: document.getElementById('ee-dir').value.trim()
+                direccion: document.getElementById('ee-dir').value.trim(),
+                pais: document.getElementById('ee-pais').value
             })
         });
         cerrarEditarEmpresa(); cargarEmpresas();

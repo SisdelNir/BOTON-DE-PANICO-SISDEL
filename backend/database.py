@@ -135,6 +135,7 @@ def init_db():
                 telefono          TEXT DEFAULT '',
                 correo            TEXT DEFAULT '',
                 direccion         TEXT DEFAULT '',
+                pais              TEXT DEFAULT '502',
                 clave_acceso      TEXT NOT NULL,
                 activo            BOOLEAN DEFAULT TRUE,
                 fecha_registro    TEXT NOT NULL
@@ -647,6 +648,16 @@ def _migrar_tablas_empresas():
                     PRIMARY KEY (id_alerta, slot)
                 );
             """)
+            
+            # ALTER TABLE si ya existen
+            try:
+                _execute(conn, "ALTER TABLE instituciones ADD COLUMN pais TEXT DEFAULT '502'")
+            except Exception:
+                pass
+            try:
+                _execute(conn, "ALTER TABLE empresas_seguridad ADD COLUMN pais TEXT DEFAULT '502'")
+            except Exception:
+                pass
 
 
 def _seed_demo(conn):
@@ -655,9 +666,9 @@ def _seed_demo(conn):
     now     = datetime.now().isoformat()
     _execute(conn, _ph("""
         INSERT INTO instituciones
-        (id_institucion, nombre_institucion, nombre_admin, telefono, correo, direccion, clave_acceso, activo, fecha_registro)
-        VALUES (?,?,?,?,?,?,?,?,?)
-    """), (inst_id, "Colonia Demo", "Admin Demo", "5550000000", "demo@sisdel.mx", "Calle Principal #1", clave, True if USE_PG else 1, now))
+        (id_institucion, nombre_institucion, nombre_admin, telefono, correo, direccion, pais, clave_acceso, activo, fecha_registro)
+        VALUES (?,?,?,?,?,?,?,?,?,?)
+    """), (inst_id, "Colonia Demo", "Admin Demo", "5550000000", "demo@sisdel.mx", "Calle Principal #1", "502", clave, True if USE_PG else 1, now))
 
 
 def _seed_from_env():
@@ -703,6 +714,7 @@ class Database:
             "telefono":           data.get("telefono", ""),
             "correo":             data.get("correo", ""),
             "direccion":          data.get("direccion", ""),
+            "pais":               data.get("pais", "502"),
             "clave_acceso":       generar_clave_6(data["nombre_institucion"]),
             "activo":             True,
             "fecha_registro":     datetime.now().isoformat(),
@@ -710,10 +722,10 @@ class Database:
         with get_conn() as conn:
             _execute(conn, _ph("""
                 INSERT INTO instituciones
-                (id_institucion, nombre_institucion, nombre_admin, telefono, correo, direccion, clave_acceso, activo, fecha_registro)
-                VALUES (?,?,?,?,?,?,?,?,?)
+                (id_institucion, nombre_institucion, nombre_admin, telefono, correo, direccion, pais, clave_acceso, activo, fecha_registro)
+                VALUES (?,?,?,?,?,?,?,?,?,?)
             """), (inst["id_institucion"], inst["nombre_institucion"], inst["nombre_admin"],
-                   inst["telefono"], inst["correo"], inst["direccion"], inst["clave_acceso"],
+                   inst["telefono"], inst["correo"], inst["direccion"], inst["pais"], inst["clave_acceso"],
                    True if USE_PG else 1, inst["fecha_registro"]))
         return inst
 
@@ -1227,6 +1239,7 @@ def crear_empresa(data: dict) -> dict:
         "telefono": data.get("telefono", ""),
         "correo": data.get("correo", ""),
         "direccion": data.get("direccion", ""),
+        "pais": data.get("pais", "502"),
         "clave_acceso": clave,
         "activo": True if USE_PG else 1,
         "fecha_registro": now,
@@ -1234,10 +1247,10 @@ def crear_empresa(data: dict) -> dict:
     with get_conn() as conn:
         _execute(conn, _ph("""
             INSERT INTO empresas_seguridad
-            (id_empresa,nombre_empresa,nombre_admin,telefono,correo,direccion,clave_acceso,activo,fecha_registro)
-            VALUES (?,?,?,?,?,?,?,?,?)
+            (id_empresa,nombre_empresa,nombre_admin,telefono,correo,direccion,pais,clave_acceso,activo,fecha_registro)
+            VALUES (?,?,?,?,?,?,?,?,?,?)
         """), (emp["id_empresa"], emp["nombre_empresa"], emp["nombre_admin"],
-               emp["telefono"], emp["correo"], emp["direccion"],
+               emp["telefono"], emp["correo"], emp["direccion"], emp["pais"],
                emp["clave_acceso"], emp["activo"], emp["fecha_registro"]))
     return emp
 
