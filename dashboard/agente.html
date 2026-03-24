@@ -134,12 +134,13 @@ body { min-height:100vh; display:flex; flex-direction:column; align-items:center
 </div>
 
 <!-- Overlay de alerta -->
-<div class="alerta-overlay" id="alerta-overlay" onclick="dismissAlerta()">
+<div class="alerta-overlay" id="alerta-overlay">
     <div style="font-size:4rem;">🚨</div>
     <h2>¡NUEVA EMERGENCIA!</h2>
     <p id="alerta-caso-info">Caso asignado</p>
     <p style="font-size:.8rem; opacity:.8;">Toca para ver detalles</p>
-    <button class="dismiss-btn" onclick="dismissAlerta()">VER CASO →</button>
+    <button class="dismiss-btn" id="btn-ver-caso" onclick="dismissAlertaYVerCaso()">VER CASO →</button>
+    <button style="margin-top:.8rem; padding:.5rem 1.5rem; background:transparent; color:#fff; font-weight:700; font-size:.85rem; border:2px solid rgba(255,255,255,.5); border-radius:8px; cursor:pointer;" onclick="dismissAlerta()">Cerrar</button>
 </div>
 
 <script>
@@ -273,10 +274,14 @@ function detenerSirena() {
 }
 
 // ── ALERTA NUEVO CASO ──
+let _ultimoCasoNuevoId = null;
+let _alertaAutoCloseTimer = null;
+
 function alertaNuevoCaso(nuevos) {
     const c = nuevos[0];
+    _ultimoCasoNuevoId = c.id_emergencia;
 
-    // 1. Mostrar OVERLAY primero para asegurar que el usuario lo vea
+    // 1. Mostrar OVERLAY
     const overlay = document.getElementById('alerta-overlay');
     const info = document.getElementById('alerta-caso-info');
     if (overlay && info) {
@@ -284,10 +289,10 @@ function alertaNuevoCaso(nuevos) {
         overlay.style.display = 'flex';
     }
 
-    // 2. SIRENA (Web Audio API - funciona en móvil si ya interactuó)
+    // 2. SIRENA
     tocarSirena();
 
-    // 3. VIBRACIÓN agresiva (largo patrón)
+    // 3. VIBRACIÓN agresiva
     if (navigator.vibrate) {
         navigator.vibrate([500, 200, 500, 200, 500, 200, 800, 300, 800, 300, 1000]);
     }
@@ -306,12 +311,31 @@ function alertaNuevoCaso(nuevos) {
     setTimeout(() => {
         document.querySelectorAll('.caso-card.nueva').forEach(el => el.classList.remove('nueva'));
     }, 15000);
+
+    // 6. AUTO-CERRAR overlay después de 15s (fix Android stuck)
+    if (_alertaAutoCloseTimer) clearTimeout(_alertaAutoCloseTimer);
+    _alertaAutoCloseTimer = setTimeout(() => dismissAlerta(), 15000);
 }
 
 function dismissAlerta() {
     detenerSirena();
-    if (navigator.vibrate) navigator.vibrate(0); // detener vibración
+    if (navigator.vibrate) navigator.vibrate(0);
     document.getElementById('alerta-overlay').style.display = 'none';
+    if (_alertaAutoCloseTimer) { clearTimeout(_alertaAutoCloseTimer); _alertaAutoCloseTimer = null; }
+}
+
+function dismissAlertaYVerCaso() {
+    dismissAlerta();
+    // Scroll al caso nuevo
+    if (_ultimoCasoNuevoId) {
+        const casoEl = document.getElementById('caso-' + _ultimoCasoNuevoId);
+        if (casoEl) {
+            casoEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            casoEl.style.transition = 'box-shadow .3s';
+            casoEl.style.boxShadow = '0 0 20px rgba(255,59,59,.6)';
+            setTimeout(() => { casoEl.style.boxShadow = ''; }, 3000);
+        }
+    }
 }
 
 // ── RENDER CASOS ──
@@ -348,8 +372,24 @@ function renderCasos(casos) {
         const esNuevo = isNuevo(c.id_emergencia);
         const mostrarBotones = c.estatus === 'ACTIVA' || c.estatus === 'EN_CAMINO';
 
+        // Cronómetro: tiempo transcurrido desde creación
+        let crono = '';
+        const creado = new Date(c.fecha_creacion + 'Z');
+        if (c.estatus === 'ATENDIDA' || c.estatus === 'FALSA_ALARMA') {
+            // Caso cerrado: mostrar tiempo final (creación → atención)
+            if (c.fecha_atencion) {
+                const atendido = new Date(c.fecha_atencion + 'Z');
+                const diff = Math.floor((atendido - creado) / 1000);
+                const m = Math.floor(diff / 60); const s = diff % 60;
+                crono = `<div style="font-size:.7rem; color:#00d68f; font-weight:700; margin-top:.3rem;">⏱️ Atendido en ${m}m ${s.toString().padStart(2,'0')}s</div>`;
+            }
+        } else {
+            // Caso activo: cronómetro vivo
+            crono = `<div style="font-size:.75rem; color:#ff3b3b; font-weight:900; margin-top:.3rem; font-family:monospace;" id="crono-${c.id_emergencia}" data-inicio="${creado.getTime()}">⏱️ --:--</div>`;
+        }
+
         return `
-        <div class="caso-card ${cardCls} ${esNuevo ? 'nueva' : ''}">
+        <div class="caso-card ${cardCls} ${esNuevo ? 'nueva' : ''}" id="caso-${c.id_emergencia}">
             <div class="caso-header">
                 <span class="caso-numero">📋 ${c.numero_caso || '—'}</span>
                 <span class="badge ${badgeCls}">${c.estatus.replace('_',' ')}</span>
@@ -359,6 +399,7 @@ function renderCasos(casos) {
             <div class="caso-field"><div class="caso-label">Dirección</div><div class="caso-val">📍 ${c.direccion_vecino || c.direccion_aproximada || '—'}</div></div>
             ${c.gps_latitud ? `<div class="caso-field"><div class="caso-label">GPS</div><div class="caso-val" style="font-family:monospace; font-size:.72rem;">${c.gps_latitud.toFixed(6)}, ${c.gps_longitud.toFixed(6)}</div></div>` : ''}
             <div style="font-size:.6rem; color:#6b7294; margin-top:.2rem;">📅 ${fecha}</div>
+            ${crono}
 
             ${mostrarBotones ? `
             <div class="caso-actions">
@@ -368,6 +409,9 @@ function renderCasos(casos) {
             </div>` : ''}
         </div>`;
     }).join('');
+
+    // Iniciar actualización de cronómetros activos
+    actualizarCronometros();
 }
 
 // ── CAMBIAR ESTATUS DESDE AGENTE ──
@@ -400,8 +444,27 @@ function logout() {
     document.getElementById('casos-view').style.display = 'none';
     document.getElementById('agent-id').value = '';
 }
+// ── CRONÓMETROS ACTIVOS ──
+let _cronoInterval = null;
 
-// ── AUTO REFRESH cada 15 segundos ──
+function actualizarCronometros() {
+    if (_cronoInterval) clearInterval(_cronoInterval);
+    _cronoInterval = setInterval(() => {
+        document.querySelectorAll('[id^="crono-"]').forEach(el => {
+            const inicio = parseInt(el.dataset.inicio);
+            if (!inicio) return;
+            const diff = Math.floor((Date.now() - inicio) / 1000);
+            const h = Math.floor(diff / 3600);
+            const m = Math.floor((diff % 3600) / 60);
+            const s = diff % 60;
+            el.textContent = h > 0
+                ? `⏱️ ${h}h ${m.toString().padStart(2,'0')}m ${s.toString().padStart(2,'0')}s`
+                : `⏱️ ${m}m ${s.toString().padStart(2,'0')}s`;
+        });
+    }, 1000);
+}
+
+// ── AUTO REFRESH cada 10 segundos ──
 setInterval(() => { if (_agentData) cargarMisCasos(); }, 10000);
 
 // Login con Enter
