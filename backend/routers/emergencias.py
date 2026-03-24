@@ -2,7 +2,7 @@
 from fastapi import APIRouter, HTTPException
 from models import EmergenciaCreate, EmergenciaResponse, EstatusUpdate, StatsResponse
 from database import db
-from services.notificaciones import enviar_alerta_sms
+from services.notificaciones import enviar_alerta_contacto, construir_mensaje_vecino
 
 router = APIRouter(prefix="/api/emergencias", tags=["Emergencias"])
 
@@ -17,20 +17,25 @@ async def crear(data: EmergenciaCreate):
     print(f"🚨 Recibida alerta de pánico. id_vecino: {data.id_vecino}")
     nueva_emergencia = db.crear_emergencia(data.model_dump())
     
-    # 3. Disparar notificaciones a familiares si hay un vecino identificado
+    # 3. Disparar notificaciones WhatsApp a familiares
     if data.id_vecino:
         contactos = db.obtener_contactos_emergencia(data.id_vecino)
         print(f"🔍 Buscando familiares para {data.id_vecino}. Encontrados: {len(contactos)}")
         
         nombre = data.nombre_vecino or "Vecino Desconocido"
         ubicacion = data.direccion_aproximada or data.direccion_vecino or "Ubicación desconocida"
+        lat = data.gps_latitud if hasattr(data, 'gps_latitud') else None
+        lon = data.gps_longitud if hasattr(data, 'gps_longitud') else None
+
+        mensaje = construir_mensaje_vecino(nombre, ubicacion, lat, lon)
         
         for c in contactos:
             tel = c.get("telefono")
             if tel:
-                enviar_alerta_sms(tel, nombre, ubicacion)
+                resultado = enviar_alerta_contacto(tel, mensaje)
+                print(f"   → {c.get('nombre_contacto', '?')}: {resultado['canal']} ({'✅' if resultado['exito'] else '❌'})")
     else:
-        print("⚠️ No se pudo enviar SMS: id_vecino es nulo.")
+        print("⚠️ No se pudo enviar notificaciones: id_vecino es nulo.")
     
     return nueva_emergencia
 
