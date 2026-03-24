@@ -320,7 +320,7 @@ async function verDet(id) {
     </div>`;
 
     // Iniciar reloj de respuesta
-    iniciarTimerRespuesta(a.fecha_creacion);
+    iniciarTimerRespuesta(a);
 
     // Cargar asignaciones existentes desde BD
     cargarAsignacionesExistentes(a.id_emergencia);
@@ -329,9 +329,32 @@ async function verDet(id) {
     if (mapaL && a.gps_latitud) { mapaL.setView([a.gps_latitud,a.gps_longitud],16); if(marcadores[id]) marcadores[id].openPopup(); }
 }
 
-function iniciarTimerRespuesta(fechaCreacion) {
+function iniciarTimerRespuesta(alerta) {
     if (_detTimerInterval) clearInterval(_detTimerInterval);
-    const inicio = new Date(fechaCreacion + 'Z').getTime();
+    const inicio = new Date(alerta.fecha_creacion + 'Z').getTime();
+
+    // Check if it's already solved
+    if (alerta.estatus === 'ATENDIDA' || alerta.estatus === 'FALSA_ALARMA' || alerta.estatus === 'CANCELADA') {
+        const att = alerta.fecha_atencion || alerta.fecha_actualizacion;
+        let diff = 0;
+        if (att) {
+            const atendido = new Date(att + (!att.endsWith('Z') ? 'Z' : '')).getTime();
+            diff = atendido - inicio;
+        } else {
+            diff = Date.now() - inicio; 
+        }
+        
+        const el = document.getElementById('det-timer');
+        if (!el) return;
+        const h = Math.floor(diff / 3600000);
+        const m = Math.floor((diff % 3600000) / 60000);
+        const s = Math.floor((diff % 60000) / 1000);
+        el.textContent = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+        el.style.color = '#00d68f';
+        el.parentElement.style.background = 'rgba(0,214,143,.06)';
+        el.parentElement.style.borderColor = 'rgba(0,214,143,.25)';
+        return;
+    }
 
     const tick = () => {
         const el = document.getElementById('det-timer');

@@ -506,11 +506,14 @@ function setFiltro(f, btn) {
 }
 
 // ── DETALLE ──────────────────
+let _modalCronoInterval = null;
+
 async function verDetalle(id) {
     alertaActual = todasLasAlertas.find(a => a.id_alerta === id);
     if (!alertaActual) return;
     const a = alertaActual;
-    const loc = a.gps_latitud ? `<a href="https://www.google.com/maps?q=${a.gps_latitud},${a.gps_longitud}" target="_blank" style="color:#4da6ff;">📍 Ver Mapa</a>` : 'Sin GPS';
+    const loc = a.gps_latitud ? `<a href="https://waze.com/ul?ll=${a.gps_latitud},${a.gps_longitud}&navigate=yes" target="_blank" style="color:#ff8c00;">📍 Ver Mapa (Waze)</a>` : 'Sin GPS';
+    
     // Cargar asignaciones
     let agentesHtml = '';
     try {
@@ -526,12 +529,29 @@ async function verDetalle(id) {
             </div>`;
         }
     } catch {}
+
+    // Lógica del Cronómetro en Modal
+    const creado = new Date((a.fecha_alerta || a.fecha_creacion) + ((a.fecha_alerta || a.fecha_creacion).endsWith('Z') ? '' : 'Z'));
+    let cronoHTML = '';
+    if (a.estatus === 'ATENDIDA' || a.estatus === 'FALSA_ALARMA' || a.estatus === 'CANCELADA') {
+        const att = a.fecha_atencion || a.fecha_actualizacion;
+        if (att) {
+            const atendido = new Date(att + (att.endsWith('Z') ? '' : 'Z'));
+            const diff = Math.floor((atendido - creado) / 1000);
+            const m = Math.floor(diff / 60); const s = diff % 60;
+            cronoHTML = `<div style="font-size:.85rem; color:#00d68f; font-weight:700; margin-top:.5rem; text-align:right;">⏱️ Atendido en ${m}m ${s.toString().padStart(2,'0')}s</div>`;
+        }
+    } else {
+        cronoHTML = `<div style="font-size:1.1rem; color:#ff8c00; font-weight:900; margin-top:.5rem; font-family:monospace; text-align:right;" id="modal-crono" data-inicio="${creado.getTime()}">⏱️ --:--</div>`;
+    }
+
     document.getElementById('det-body').innerHTML = `
         <div style="margin-bottom:1rem;">
             <div style="display:flex;justify-content:space-between;align-items:center;">
                 <span class="badge ${a.estatus==='ACTIVA'?'badge-activa':a.estatus==='EN_CAMINO'?'badge-camino':'badge-atendida'}" style="font-size:.9rem;padding:.3rem .8rem;">${a.estatus}</span>
                 <span style="color:#6b7294;font-size:.8rem;">${a.numero_caso||''}</span>
             </div>
+            ${cronoHTML}
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem .8rem;font-size:.85rem;">
             <div><span style="color:#6b7294;font-size:.72rem;text-transform:uppercase;display:block;">Piloto</span>${a.nombre_piloto}</div>
@@ -553,9 +573,28 @@ async function verDetalle(id) {
         </div>
     `;
     document.getElementById('modal-det').style.display = 'flex';
+
+    if (_modalCronoInterval) clearInterval(_modalCronoInterval);
+    _modalCronoInterval = setInterval(() => {
+        const el = document.getElementById('modal-crono');
+        if (!el) return;
+        const inicio = parseInt(el.dataset.inicio);
+        if (!inicio) return;
+        const diff = Math.floor((Date.now() - inicio) / 1000);
+        const h = Math.floor(diff / 3600);
+        const m = Math.floor((diff % 3600) / 60);
+        const s = diff % 60;
+        el.textContent = h > 0 
+            ? `⏱️ ${h}h ${m.toString().padStart(2,'0')}m ${s.toString().padStart(2,'0')}s`
+            : `⏱️ ${m.toString().padStart(2,'0')}m ${s.toString().padStart(2,'0')}s`;
+    }, 1000);
 }
 
-function closeDet(e) { if(e&&e.target!==document.getElementById('modal-det')) return; document.getElementById('modal-det').style.display='none'; }
+function closeDet(e) { 
+    if(e && e.target !== document.getElementById('modal-det')) return; 
+    document.getElementById('modal-det').style.display = 'none'; 
+    if (_modalCronoInterval) clearInterval(_modalCronoInterval);
+}
 
 async function cambiarEstatus(estatus) {
     if (!alertaActual) return;
