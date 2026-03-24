@@ -388,6 +388,22 @@ function renderCasos(casos) {
             crono = `<div style="font-size:.75rem; color:#ff3b3b; font-weight:900; margin-top:.3rem; font-family:monospace;" id="crono-${c.id_emergencia}" data-inicio="${creado.getTime()}">⏱️ --:--</div>`;
         }
 
+        let gpsBlock = '';
+        if (c.gps_latitud && c.gps_longitud) {
+            gpsBlock = `
+                <div class="caso-field" style="margin-top:.5rem; background:rgba(0,214,143,.08); padding:.5rem; border-radius:8px; border:1px solid rgba(0,214,143,.3);">
+                    <div class="caso-label">UBICACIÓN GPS (TOCA PARA ABRIR WAZE)</div>
+                    <div class="caso-val" style="font-family:monospace; font-size:.82rem; font-weight:900; margin-top:.3rem;">
+                        <a href="https://waze.com/ul?ll=${c.gps_latitud},${c.gps_longitud}&navigate=yes" target="_blank" style="color:#00d68f; text-decoration:none; display:flex; align-items:center; gap:.4rem;">
+                           <span style="font-size:1.3rem;">🚗</span> 
+                           ${c.gps_latitud.toFixed(6)}, ${c.gps_longitud.toFixed(6)}
+                        </a>
+                    </div>
+                </div>`;
+        } else {
+            gpsBlock = `<div class="caso-field"><div class="caso-label">Dirección / Ref</div><div class="caso-val">📍 ${c.direccion_vecino || c.direccion_aproximada || '—'}</div></div>`;
+        }
+
         return `
         <div class="caso-card ${cardCls} ${esNuevo ? 'nueva' : ''}" id="caso-${c.id_emergencia}">
             <div class="caso-header">
@@ -396,8 +412,9 @@ function renderCasos(casos) {
             </div>
             <div class="caso-field"><div class="caso-label">Vecino</div><div class="caso-val">👤 ${c.nombre_vecino}</div></div>
             <div class="caso-field"><div class="caso-label">Teléfono</div><div class="caso-val">📱 <a href="tel:${c.telefono_vecino}" style="color:#4da6ff; text-decoration:none;">${c.telefono_vecino}</a></div></div>
-            <div class="caso-field"><div class="caso-label">Dirección</div><div class="caso-val">📍 ${c.direccion_vecino || c.direccion_aproximada || '—'}</div></div>
-            ${c.gps_latitud ? `<div class="caso-field"><div class="caso-label">GPS</div><div class="caso-val" style="font-family:monospace; font-size:.72rem;">${c.gps_latitud.toFixed(6)}, ${c.gps_longitud.toFixed(6)}</div></div>` : ''}
+            
+            ${gpsBlock}
+
             <div style="font-size:.6rem; color:#6b7294; margin-top:.2rem;">📅 ${fecha}</div>
             ${crono}
 
