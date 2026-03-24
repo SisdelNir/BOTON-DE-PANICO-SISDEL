@@ -1303,12 +1303,13 @@ def eliminar_empresa(id_empresa: str):
 def registrar_piloto(data: dict) -> dict:
     pid = str(uuid.uuid4())
     now = datetime.now().isoformat()
-    # Código: primeras 2 letras empresa + 3 letras nombre + 2 dígitos random
+    # Código 6 chars: 2 dígitos + primera letra empresa + última letra empresa + 2 dígitos
     emp = obtener_empresa(data["id_empresa"])
-    prefijo = ''.join(c for c in (emp["nombre_empresa"] if emp else "XX").upper() if c.isalpha())[:2]
-    nombre_part = ''.join(c for c in data["nombre"].upper() if c.isalpha())[:3]
+    letras_emp = ''.join(c for c in (emp["nombre_empresa"] if emp else "XX").upper() if c.isalpha())
+    primera = letras_emp[0] if letras_emp else 'X'
+    ultima = letras_emp[-1] if letras_emp else 'X'
     import random
-    codigo = f"{prefijo}{nombre_part}{random.randint(10,99)}"
+    codigo = f"{random.randint(10,99)}{primera}{ultima}{random.randint(10,99)}"
 
     with get_conn() as conn:
         # Check existing
