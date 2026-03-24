@@ -467,7 +467,7 @@ function _handleMotion(e) {
             if (panicVisible && typeof enviarAlerta === 'function') {
                 if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
                 console.log('🚨 Shake detected! Enviando alerta...');
-                enviarAlerta();
+                enviarAlerta('shake');
             }
         }
     }
@@ -503,15 +503,16 @@ function toggleShakeDetection() {
 function iniciarPanico(e){e.preventDefault();document.getElementById('btn-panico').classList.add('pressing');document.getElementById('hold-bar-wrap').style.display='block';document.getElementById('hint-panico').textContent='¡Mantén presionado!';holdProgress=0;const s=Date.now();holdInterval=setInterval(()=>{holdProgress=Math.min(((Date.now()-s)/HOLD_MS)*100,100);document.getElementById('hold-bar').style.width=holdProgress+'%';if(holdProgress>=100){clearInterval(holdInterval);holdInterval=null;enviarAlerta();}},50);}
 function cancelarPanico(e){e.preventDefault();document.getElementById('btn-panico').classList.remove('pressing');if(holdInterval){clearInterval(holdInterval);holdInterval=null;}if(holdProgress<100){document.getElementById('hold-bar-wrap').style.display='none';document.getElementById('hold-bar').style.width='0%';document.getElementById('hint-panico').textContent='Mantén presionado 3 segundos para enviar alerta';}}
 
-async function enviarAlerta(){
+async function enviarAlerta(fuente){
     if(!PILOTO)return;
     if(_alertaCount>=10){showToast('10 alertas enviadas','warning');return;}
     try{await ensureLocation();}catch{}
     _alertaCount++;
     const cfg=JSON.parse(localStorage.getItem('sisdel_piloto_config')||'{}');
     if(cfg.vibracion!==false&&navigator.vibrate)navigator.vibrate([200,100,200,100,500]);
-    
-    if(cfg.audioGrabado){
+
+    // NO reproducir audio grabado si la alerta fue disparada por voz
+    if(fuente!=='voz' && cfg.audioGrabado){
         try{const a=new Audio(cfg.audioGrabado);a.volume=1;let r=0;a.onended=()=>{r++;if(r<3)a.play().catch(()=>{});};a.play().catch(()=>{});}catch{}
     }
     document.getElementById('env-alerta-num').textContent=`Alerta #${_alertaCount} de 10`;
@@ -614,7 +615,7 @@ function monitorearVolumen() {
             detenerEscuchaVoz();
             if (typeof enviarAlerta === 'function') {
                 console.log('🎙️ ¡Grito detectado! Enviando alerta...');
-                enviarAlerta();
+                enviarAlerta('voz');
             }
             setTimeout(() => {
                 const c = JSON.parse(localStorage.getItem('sisdel_piloto_config') || '{}');

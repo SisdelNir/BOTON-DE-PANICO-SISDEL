@@ -654,7 +654,7 @@ function cancelarPanico(e) {
 let _alertaCount = 0;          // cuántas alertas se han enviado
 let _countdownInterval = null; // temporizador auto-cierre
 
-async function enviarAlerta() {
+async function enviarAlerta(fuente) {
     if (!vecinoData) return;
     if (_alertaCount >= 10) {
         alert('Has enviado 10 alertas. El panel ya fue notificado. Mantén la calma.');
@@ -691,20 +691,22 @@ async function enviarAlerta() {
 
     if (navigator.vibrate) navigator.vibrate([200,100,200,100,500]);
 
-    // 🔊 Reproducir audio de alerta pregrabado (si existe)
-    try {
-        const cfg = JSON.parse(localStorage.getItem('sisdel_config') || '{}');
-        if (cfg.audioGrabado) {
-            const audioAlerta = new Audio(cfg.audioGrabado);
-            audioAlerta.volume = 1.0;
-            let repeticiones = 0;
-            audioAlerta.onended = () => {
-                repeticiones++;
-                if (repeticiones < 3) audioAlerta.play().catch(() => {});
-            };
-            audioAlerta.play().catch(err => console.warn('No se pudo reproducir audio:', err));
-        }
-    } catch (e) { console.warn('Error audio alerta:', e); }
+    // 🔊 Reproducir audio de alerta pregrabado (NO reproducir si la alerta vino de voz)
+    if (fuente !== 'voz') {
+        try {
+            const cfg = JSON.parse(localStorage.getItem('sisdel_config') || '{}');
+            if (cfg.audioGrabado) {
+                const audioAlerta = new Audio(cfg.audioGrabado);
+                audioAlerta.volume = 1.0;
+                let repeticiones = 0;
+                audioAlerta.onended = () => {
+                    repeticiones++;
+                    if (repeticiones < 3) audioAlerta.play().catch(() => {});
+                };
+                audioAlerta.play().catch(err => console.warn('No se pudo reproducir audio:', err));
+            }
+        } catch (e) { console.warn('Error audio alerta:', e); }
+    }
 
     // Mostrar overlay con contador
     document.getElementById('env-alerta-num').textContent = `Alerta #${_alertaCount} de 10`;
@@ -1197,7 +1199,7 @@ function dispararAlertaPorVoz() {
     }
 
     // Enviar la alerta
-    enviarAlerta();
+    enviarAlerta('voz');
 
     // Reiniciar voz después de 10 segundos
     setTimeout(() => {
