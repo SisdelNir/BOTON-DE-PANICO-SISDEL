@@ -118,6 +118,7 @@ async function doLogin() {
             } else if (data.tipo === 'piloto') {
                 sessionStorage.setItem('sisdel_tipo', 'piloto');
                 sessionStorage.setItem('sisdel_piloto_empresa', data.id_institucion);
+                sessionStorage.setItem('sisdel_piloto_dpi', data.num_identificacion);
                 window.location.href = `piloto.html?emp=${data.id_institucion}`;
             } else {
                 sessionStorage.setItem('sisdel_tipo', 'institucion');

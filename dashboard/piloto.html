@@ -216,7 +216,7 @@ function showToast(msg, type='success', duration=3500) {
 }
 
 // ── INIT ──────────────────
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     const params = new URLSearchParams(window.location.search);
     ID_EMPRESA = params.get('emp');
     if (!ID_EMPRESA) {
@@ -229,6 +229,27 @@ document.addEventListener('DOMContentLoaded', () => {
     if (saved) {
         PILOTO = JSON.parse(saved);
         mostrarPanico();
+    } else {
+        // Auto-login if coming from index.html with DPI stored
+        const dpi = sessionStorage.getItem('sisdel_piloto_dpi');
+        if (dpi) {
+            sessionStorage.removeItem('sisdel_piloto_dpi');
+            try {
+                const res = await fetch(`${API}/api/pilotos/${ID_EMPRESA}`);
+                if (res.ok) {
+                    const pilotos = await res.json();
+                    const p = pilotos.find(x =>
+                        (x.num_identificacion||'').toUpperCase() === dpi.toUpperCase() ||
+                        (x.codigo_piloto||'').toUpperCase() === dpi.toUpperCase()
+                    );
+                    if (p) {
+                        PILOTO = p;
+                        sessionStorage.setItem('sisdel_piloto', JSON.stringify(p));
+                        mostrarPanico();
+                    }
+                }
+            } catch {}
+        }
     }
     iniciarShake();
     document.getElementById('inp-clave').addEventListener('keydown', e => { if(e.key==='Enter') loginPiloto(); });
