@@ -513,6 +513,7 @@ function cargarLocalConfig(){
     // Restaurar estado visual del audio grabado (desde IndexedDB)
     cargarAudioDB().then(audio=>{
         if(audio){
+            window._cachedAudioGrabado = audio;
             const asc=document.getElementById('audio-status-card');
             if(asc) asc.style.display='block';
             const vs=document.getElementById('cfg-voz-estado');
@@ -534,17 +535,14 @@ function toggleShakeDetection(){_shakeEnabled=document.getElementById('cfg-agita
 async function toggleVoz(){const chk=document.getElementById('cfg-voz');if(chk.checked){try{const s=await navigator.mediaDevices.getUserMedia({audio:true});s.getTracks().forEach(t=>t.stop());showToast('🎙️ Micrófono activado ✅','success');document.getElementById('cfg-voz-extra').style.display='block';guardarLocalConfig();iniciarDeteccionVoz();}catch(e){chk.checked=false;document.getElementById('cfg-voz-extra').style.display='none';showToast('❌ Permiso de micrófono requerido para usar Alerta por Voz','error');}}else{document.getElementById('cfg-voz-extra').style.display='none';guardarLocalConfig();detenerDeteccionVoz();}}
 async function solicitarPermisoMic(){try{const s=await navigator.mediaDevices.getUserMedia({audio:true});s.getTracks().forEach(t=>t.stop());showToast('Micrófono activado ✅','success');}catch{showToast('Error de micrófono','error');}}
 function escucharGrabacion(){
-    const a = new Audio();
-    cargarAudioDB().then(audio => {
-        if(audio){
-            a.src = audio;
-            a.play()
-             .then(() => showToast('▶️ Reproduciendo audio...','info'))
-             .catch(e => { console.warn('Play error:', e); showToast('❌ El navegador bloqueó la reproducción.','error'); });
-        } else {
-            showToast('❌ No se encontró audio guardado','error');
-        }
-    }).catch(() => showToast('❌ Error al cargar audio','error'));
+    if(window._cachedAudioGrabado){
+        const a = new Audio(window._cachedAudioGrabado);
+        a.play()
+         .then(() => showToast('▶️ Reproduciendo audio...','info'))
+         .catch(e => { console.warn('Play error:', e); showToast('❌ El navegador bloqueó la reproducción.','error'); });
+    } else {
+        showToast('❌ No se encontró audio guardado','error');
+    }
 }
 async function toggleGrabacion(){
     const btn=document.getElementById('btn-grabar'),ind=document.getElementById('grabacion-indicador');
@@ -552,7 +550,7 @@ async function toggleGrabacion(){
     try{const stream=await navigator.mediaDevices.getUserMedia({audio:true});audioChunks=[];
         mediaRecorder=new MediaRecorder(stream);
         mediaRecorder.ondataavailable=e=>audioChunks.push(e.data);
-        mediaRecorder.onstop=()=>{const blob=new Blob(audioChunks,{type:'audio/webm'});const reader=new FileReader();reader.onload=async(ev)=>{await guardarAudioDB(ev.target.result);document.getElementById('audio-status-card').style.display='block';document.getElementById('cfg-voz-estado').textContent='✅ Audio guardado';showToast('🎤 Audio guardado correctamente','success');};reader.readAsDataURL(blob);stream.getTracks().forEach(t=>t.stop());};
+        mediaRecorder.onstop=()=>{const blob=new Blob(audioChunks,{type:'audio/webm'});const reader=new FileReader();reader.onload=async(ev)=>{window._cachedAudioGrabado=ev.target.result;await guardarAudioDB(ev.target.result);document.getElementById('audio-status-card').style.display='block';document.getElementById('cfg-voz-estado').textContent='✅ Audio guardado';showToast('🎤 Audio guardado correctamente','success');};reader.readAsDataURL(blob);stream.getTracks().forEach(t=>t.stop());};
         mediaRecorder.start();btn.textContent='⏹️ DETENER';ind.style.display='block';
         const ctx=new(window.AudioContext||window.webkitAudioContext)();const src=ctx.createMediaStreamSource(stream);const an=ctx.createAnalyser();an.fftSize=256;src.connect(an);const buf=new Uint8Array(an.frequencyBinCount);
         const upd=()=>{if(mediaRecorder?.state!=='recording'){ctx.close();return;}an.getByteFrequencyData(buf);const avg=buf.reduce((a,b)=>a+b,0)/buf.length;document.getElementById('volumen-nivel').style.width=Math.min(avg*1.5,100)+'%';requestAnimationFrame(upd);};upd();
