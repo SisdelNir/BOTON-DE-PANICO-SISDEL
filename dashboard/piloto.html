@@ -440,7 +440,8 @@ function activarGPS() {
     );
 }
 
-function ensureLocation(){return new Promise((res,rej)=>{if(gpsLat!==null){res();return;}navigator.geolocation.getCurrentPosition(p=>{gpsLat=p.coords.latitude;gpsLon=p.coords.longitude;res();},rej,{enableHighAccuracy:true,timeout:10000});});}
+// NO pedir permiso GPS al enviar alerta — usar lo que ya hay o continuar sin GPS
+function ensureLocation(){return Promise.resolve();}
 
 // ══ AGITAR PARA ALERTAR (SHAKE DETECTION) ══
 let _shakeListening = false;
