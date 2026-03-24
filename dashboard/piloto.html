@@ -274,11 +274,6 @@ let _alertaCount=0, _countdownInterval=null, mediaRecorder=null, audioChunks=[];
 let _shakeEnabled=true, _shakeActive=false;
 let _vozCtx=null, _vozAnalyser=null, _vozStream=null, _vozActiva=false, _lastVozAlert=0;
 
-// ── IndexedDB para audio grabado (evita límite de 5MB de localStorage) ──
-function openAudioDB(){return new Promise((resolve,reject)=>{const req=indexedDB.open('sisdel_audio_db',1);req.onupgradeneeded=e=>{e.target.result.createObjectStore('audios');};req.onsuccess=e=>resolve(e.target.result);req.onerror=e=>reject(e);});}
-async function guardarAudioDB(base64){try{const db=await openAudioDB();const tx=db.transaction('audios','readwrite');tx.objectStore('audios').put(base64,'audioGrabado');await new Promise((r,j)=>{tx.oncomplete=r;tx.onerror=j;});}catch(e){console.warn('IndexedDB save error:',e);}}
-async function cargarAudioDB(){try{const db=await openAudioDB();const tx=db.transaction('audios','readonly');return await new Promise((r,j)=>{const req=tx.objectStore('audios').get('audioGrabado');req.onsuccess=()=>r(req.result||null);req.onerror=()=>r(null);});}catch(e){return null;}}
-
 function showToast(msg,type='success',dur=3500){const i={success:'✅',error:'❌',info:'💡',warning:'⚠️'};const c=document.getElementById('toast-container');const t=document.createElement('div');t.className=`sisdel-toast toast-${type}`;t.innerHTML=`<span style="font-size:1.3rem;flex-shrink:0">${i[type]||'ℹ️'}</span><span style="flex:1">${msg}</span><span style="cursor:pointer;opacity:.7;font-size:1rem" onclick="this.parentElement.classList.add('toast-out');setTimeout(()=>this.parentElement.remove(),300)">✕</span>`;c.appendChild(t);setTimeout(()=>{t.classList.add('toast-out');setTimeout(()=>t.remove(),300);},dur);}
 
 document.addEventListener('DOMContentLoaded', async()=>{
@@ -332,9 +327,8 @@ function irAPanico(){
     if(PILOTO.color_vehiculo)vi.push(PILOTO.color_vehiculo);
     document.getElementById('panico-vehiculo').textContent=vi.join(' — ');
     cargarLocalConfig();
-    document.getElementById('shake-notice').style.display=_shakeEnabled?'block':'none';
-    // Siempre intentar iniciar shake al llegar a pantalla de pánico
-    if(_shakeEnabled) iniciarShake();
+    const cfg=JSON.parse(localStorage.getItem('sisdel_piloto_config')||'{}');
+    if(cfg.voz) iniciarEscuchaVoz();
 }
 
 // Called from user tap gesture — this is KEY for mobile permission requests
@@ -367,9 +361,9 @@ async function activarTodo(){
     sessionStorage.setItem('sisdel_permisos_ok','1');
     // Start services
     requestLocationPermission();
-    iniciarShake();
+    toggleShakeDetection();
     const cfg=JSON.parse(localStorage.getItem('sisdel_piloto_config')||'{}');
-    if(cfg.voz!==false && micOk) iniciarDeteccionVoz();
+    if(cfg.voz!==false && micOk) iniciarEscuchaVoz();
     // Show results briefly
     let msg='✅ Protección activada:\n';
     msg+=gpsOk?'📍 GPS ✅\n':'📍 GPS ❌ (activa GPS en ajustes)\n';
@@ -404,70 +398,90 @@ function _actualizarBarraGPS(lat,lon,acc){
     if(c){c.textContent='✅';c.style.background='rgba(0,214,143,.12)';c.style.color='#00d68f';c.style.borderColor='rgba(0,214,143,.2)';}
 }
 function _errorBarraGPS(msg){document.getElementById('gps-status').textContent='⚠️ '+msg;document.getElementById('gps-dot').style.background='#ffa500';const c=document.getElementById('cfg-gps-estado');if(c){c.textContent='❌';c.style.background='rgba(255,59,59,.12)';c.style.color='#ff3b3b';c.style.borderColor='rgba(255,59,59,.2)';}}
-function activarGPS(){requestLocationPermission();showToast('Solicitando GPS...','info');}
+
+function verificarEstadoGPS() {
+    const el = document.getElementById('cfg-gps-estado');
+    if (!el) return;
+    if (!navigator.geolocation) {
+        el.textContent = '❌ No soportado';
+        el.style.color = '#ff3b3b';
+        return;
+    }
+    navigator.geolocation.getCurrentPosition(
+        () => { el.textContent = '✅ Activo'; el.style.color = '#00d68f'; el.style.background = 'rgba(0,214,143,.15)'; el.style.borderColor = 'rgba(0,214,143,.3)'; },
+        () => { el.textContent = '⚠️ Bloqueado'; el.style.color = '#ff3b3b'; el.style.background = 'rgba(255,59,59,.15)'; el.style.borderColor = 'rgba(255,59,59,.3)'; },
+        { timeout: 5000 }
+    );
+}
+
+function activarGPS() {
+    navigator.geolocation.getCurrentPosition(
+        (pos) => {
+            requestLocationPermission();
+            verificarEstadoGPS();
+            alert(`✅ GPS activado\nLatitud: ${pos.coords.latitude.toFixed(6)}\nLongitud: ${pos.coords.longitude.toFixed(6)}`);
+        },
+        () => { alert('❌ No se pudo activar GPS.\n\niPhone: Ajustes → Privacidad → Servicios de Ubicación → Safari → Permitir\n\nAndroid: Ajustes → Sitios → Ubicación → Permitir'); }
+    );
+}
+
 function ensureLocation(){return new Promise((res,rej)=>{if(gpsLat!==null){res();return;}navigator.geolocation.getCurrentPosition(p=>{gpsLat=p.coords.latitude;gpsLon=p.coords.longitude;res();},rej,{enableHighAccuracy:true,timeout:10000});});}
 
-// SHAKE — 3 agitaciones fuertes en 3 segundos
-let _shakeTimes=[], _shakeLastX=null, _shakeLastY=null, _shakeLastZ=null, _shakeLastT=0, _shakeLastAlert=0;
-function iniciarShake(){
-    if(_shakeActive)return;_shakeActive=true;
-    window.addEventListener('devicemotion', _onDeviceMotion);
-    console.log('Shake detection started');
-}
-function _onDeviceMotion(e){
-    if(!_shakeEnabled||!PILOTO)return;
-    const a=e.accelerationIncludingGravity||e.acceleration;if(!a||a.x===null)return;
-    const now=Date.now();if((now-_shakeLastT)<100)return;
-    if(_shakeLastX!==null){
-        const force=Math.abs(a.x-_shakeLastX)+Math.abs(a.y-_shakeLastY)+Math.abs(a.z-_shakeLastZ);
-        if(force>15){
-            _shakeTimes=_shakeTimes.filter(t=>(now-t)<3000);
-            _shakeTimes.push(now);
-            const n=document.getElementById('shake-notice');
-            if(n)n.textContent=`📳 Agitaciones: ${_shakeTimes.length}/3`;
-            if(_shakeTimes.length>=3&&(now-_shakeLastAlert)>5000){
-                _shakeLastAlert=now;_shakeTimes=[];
-                if(n)n.textContent='📳 ¡ALERTA ACTIVADA!';
-                showToast('🚨 ¡Alerta por agitación!','warning');
+// ══ AGITAR PARA ALERTAR (SHAKE DETECTION) ══
+let _shakeListening = false;
+let _shakeTimestamps = [];
+const SHAKE_THRESHOLD = 25;       
+const SHAKE_COUNT     = 3;        
+const SHAKE_WINDOW    = 2000;     
+const SHAKE_COOLDOWN  = 10000;    
+let _lastShakeAlert   = 0;
+
+function _handleMotion(e) {
+    const acc = e.accelerationIncludingGravity || e.acceleration;
+    if (!acc) return;
+    const fuerza = Math.sqrt(acc.x * acc.x + acc.y * acc.y + acc.z * acc.z);
+    if (fuerza > SHAKE_THRESHOLD) {
+        const now = Date.now();
+        _shakeTimestamps.push(now);
+        _shakeTimestamps = _shakeTimestamps.filter(t => now - t < SHAKE_WINDOW);
+        if (_shakeTimestamps.length >= SHAKE_COUNT) {
+            _shakeTimestamps = [];
+            if (now - _lastShakeAlert < SHAKE_COOLDOWN) return;
+            _lastShakeAlert = now;
+            const panicVisible = document.getElementById('paso-panico')?.style.display !== 'none';
+            if (panicVisible && typeof enviarAlerta === 'function') {
+                if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+                console.log('🚨 Shake detected! Enviando alerta...');
                 enviarAlerta();
-                setTimeout(()=>{if(n)n.textContent='📳 Agita 3 veces para alerta rápida';},3000);
             }
         }
     }
-    _shakeLastX=a.x;_shakeLastY=a.y;_shakeLastZ=a.z;_shakeLastT=now;
 }
 
-// VOZ — detección de grito
-async function iniciarDeteccionVoz(){
-    if(_vozActiva)return;
-    try{
-        _vozStream=await navigator.mediaDevices.getUserMedia({audio:true});
-        _vozCtx=new(window.AudioContext||window.webkitAudioContext)();
-        const src=_vozCtx.createMediaStreamSource(_vozStream);
-        _vozAnalyser=_vozCtx.createAnalyser();_vozAnalyser.fftSize=512;
-        src.connect(_vozAnalyser);_vozActiva=true;
-        document.getElementById('voz-indicador').style.display='block';
-        monitorearVoz();
-    }catch(e){console.warn('Voz:',e);}
-}
-function detenerDeteccionVoz(){
-    _vozActiva=false;
-    if(_vozStream){_vozStream.getTracks().forEach(t=>t.stop());_vozStream=null;}
-    if(_vozCtx){_vozCtx.close().catch(()=>{});_vozCtx=null;}
-    document.getElementById('voz-indicador').style.display='none';
-}
-function monitorearVoz(){
-    if(!_vozActiva||!_vozAnalyser)return;
-    const d=new Uint8Array(_vozAnalyser.frequencyBinCount);
-    _vozAnalyser.getByteFrequencyData(d);
-    const avg=d.reduce((a,b)=>a+b,0)/d.length;
-    const now=Date.now();
-    if(avg>80&&PILOTO&&(now-_lastVozAlert)>5000){
-        _lastVozAlert=now;
-        showToast('🎙️ ¡Grito detectado! Enviando alerta...','warning');
-        enviarAlerta();
+function toggleShakeDetection() {
+    const cfg = JSON.parse(localStorage.getItem('sisdel_piloto_config') || '{}');
+    if (cfg.agitar && !_shakeListening) {
+        if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+            DeviceMotionEvent.requestPermission()
+                .then(state => {
+                    if (state === 'granted') {
+                        window.addEventListener('devicemotion', _handleMotion);
+                        _shakeListening = true;
+                    } else {
+                        alert('⚠️ Permiso de movimiento denegado. Actívalo en Ajustes → Safari → Movimiento y orientación.');
+                    }
+                })
+                .catch(() => {
+                    alert('⚠️ No se pudo solicitar permiso de movimiento.');
+                });
+        } else if ('DeviceMotionEvent' in window) {
+            window.addEventListener('devicemotion', _handleMotion);
+            _shakeListening = true;
+        }
+    } else if (!cfg.agitar && _shakeListening) {
+        window.removeEventListener('devicemotion', _handleMotion);
+        _shakeListening = false;
     }
-    requestAnimationFrame(monitorearVoz);
 }
 
 // HOLD-TO-SEND
@@ -481,8 +495,10 @@ async function enviarAlerta(){
     _alertaCount++;
     const cfg=JSON.parse(localStorage.getItem('sisdel_piloto_config')||'{}');
     if(cfg.vibracion!==false&&navigator.vibrate)navigator.vibrate([200,100,200,100,500]);
-    // Reproducir audio desde IndexedDB
-    try{const audioData=await cargarAudioDB();if(audioData){const a=new Audio(audioData);a.volume=1;let r=0;a.onended=()=>{r++;if(r<3)a.play().catch(()=>{});};a.play().catch(()=>{});}}catch{}
+    
+    if(cfg.audioGrabado){
+        try{const a=new Audio(cfg.audioGrabado);a.volume=1;let r=0;a.onended=()=>{r++;if(r<3)a.play().catch(()=>{});};a.play().catch(()=>{});}catch{}
+    }
     document.getElementById('env-alerta-num').textContent=`Alerta #${_alertaCount} de 10`;
     document.getElementById('env-coords').textContent=gpsLat?`📍 ${gpsLat.toFixed(6)}, ${gpsLon.toFixed(6)}`:'📍 Sin coordenadas';
     document.getElementById('overlay-enviado').style.display='flex';
@@ -507,20 +523,15 @@ function cargarLocalConfig(){
     const c=JSON.parse(localStorage.getItem('sisdel_piloto_config')||'{}');
     document.getElementById('cfg-vibracion').checked=c.vibracion!==false;
     document.getElementById('cfg-agitar').checked=c.agitar!==false;
-    _shakeEnabled=c.agitar!==false;
     document.getElementById('cfg-voz').checked=c.voz!==false;
     if(c.voz!==false)document.getElementById('cfg-voz-extra').style.display='block';
-    // Restaurar estado visual del audio grabado (desde IndexedDB)
-    cargarAudioDB().then(audio=>{
-        if(audio){
-            window._cachedAudioGrabado = audio;
-            const asc=document.getElementById('audio-status-card');
-            if(asc) asc.style.display='block';
-            const vs=document.getElementById('cfg-voz-estado');
-            if(vs) vs.textContent='✅ Audio guardado';
-        }
-    });
-    const n=document.getElementById('shake-notice');if(n)n.style.display=_shakeEnabled?'block':'none';
+    
+    if(c.audioGrabado){
+        const asc=document.getElementById('audio-status-card');
+        if(asc) asc.style.display='block';
+        const vs=document.getElementById('cfg-voz-estado');
+        if(vs) vs.textContent='✅ Audio guardado';
+    }
 }
 function verificarEstadoGPS(){
     const c=document.getElementById('cfg-gps-estado');
@@ -531,30 +542,215 @@ function verificarEstadoGPS(){
         c.textContent='❌';c.style.background='rgba(255,59,59,.12)';c.style.color='#ff3b3b';c.style.borderColor='rgba(255,59,59,.2)';
     }
 }
-function toggleShakeDetection(){_shakeEnabled=document.getElementById('cfg-agitar').checked;document.getElementById('shake-notice').style.display=_shakeEnabled?'block':'none';guardarLocalConfig();if(_shakeEnabled)iniciarShake();}
-async function toggleVoz(){const chk=document.getElementById('cfg-voz');if(chk.checked){try{const s=await navigator.mediaDevices.getUserMedia({audio:true});s.getTracks().forEach(t=>t.stop());showToast('🎙️ Micrófono activado ✅','success');document.getElementById('cfg-voz-extra').style.display='block';guardarLocalConfig();iniciarDeteccionVoz();}catch(e){chk.checked=false;document.getElementById('cfg-voz-extra').style.display='none';showToast('❌ Permiso de micrófono requerido para usar Alerta por Voz','error');}}else{document.getElementById('cfg-voz-extra').style.display='none';guardarLocalConfig();detenerDeteccionVoz();}}
-async function solicitarPermisoMic(){try{const s=await navigator.mediaDevices.getUserMedia({audio:true});s.getTracks().forEach(t=>t.stop());showToast('Micrófono activado ✅','success');}catch{showToast('Error de micrófono','error');}}
-function escucharGrabacion(){
-    if(window._cachedAudioGrabado){
-        const a = new Audio(window._cachedAudioGrabado);
-        a.play()
-         .then(() => showToast('▶️ Reproduciendo audio...','info'))
-         .catch(e => { console.warn('Play error:', e); showToast('❌ El navegador bloqueó la reproducción.','error'); });
+// ══ ESCUCHA DE VOZ (detección por volumen) ══
+let _escuchaStream = null;
+let _escuchaAnalyser = null;
+let _escuchaActiva = false;
+let _escuchaAnimFrame = null;
+let _gritoConsecutivo = 0;
+const UMBRAL_VOLUMEN = 55;
+const GRITOS_NECESARIOS = 15;
+
+function toggleVoz() {
+    const activo = document.getElementById('cfg-voz').checked;
+    document.getElementById('cfg-voz-extra').style.display = activo ? 'block' : 'none';
+    guardarLocalConfig();
+    if (!activo) detenerEscuchaVoz();
+}
+
+async function iniciarEscuchaVoz() {
+    if (_escuchaActiva) return;
+    const cfg = JSON.parse(localStorage.getItem('sisdel_piloto_config') || '{}');
+    if (!cfg.voz) return;
+
+    try {
+        _escuchaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const source = audioCtx.createMediaStreamSource(_escuchaStream);
+        _escuchaAnalyser = audioCtx.createAnalyser();
+        _escuchaAnalyser.fftSize = 256;
+        source.connect(_escuchaAnalyser);
+
+        _escuchaActiva = true;
+        _gritoConsecutivo = 0;
+        monitorearVolumen();
+
+        const ind = document.getElementById('voz-indicador');
+        if (ind) ind.style.display = 'block';
+    } catch (err) {}
+}
+
+function monitorearVolumen() {
+    if (!_escuchaActiva || !_escuchaAnalyser) return;
+    const data = new Uint8Array(_escuchaAnalyser.frequencyBinCount);
+    _escuchaAnalyser.getByteFrequencyData(data);
+    const avg = data.reduce((a, b) => a + b, 0) / data.length;
+
+    if (avg > UMBRAL_VOLUMEN) {
+        _gritoConsecutivo++;
+        if (_gritoConsecutivo >= GRITOS_NECESARIOS) {
+            _gritoConsecutivo = 0;
+            detenerEscuchaVoz();
+            if (typeof enviarAlerta === 'function') {
+                console.log('🎙️ ¡Grito detectado! Enviando alerta...');
+                enviarAlerta();
+            }
+            setTimeout(() => {
+                const c = JSON.parse(localStorage.getItem('sisdel_piloto_config') || '{}');
+                if (c.voz) iniciarEscuchaVoz();
+            }, 15000);
+            return;
+        }
     } else {
-        showToast('❌ No se encontró audio guardado','error');
+        _gritoConsecutivo = Math.max(0, _gritoConsecutivo - 1);
+    }
+    _escuchaAnimFrame = requestAnimationFrame(monitorearVolumen);
+}
+
+function detenerEscuchaVoz() {
+    _escuchaActiva = false;
+    if (_escuchaAnimFrame) cancelAnimationFrame(_escuchaAnimFrame);
+    if (_escuchaStream) {
+        _escuchaStream.getTracks().forEach(t => t.stop());
+        _escuchaStream = null;
+    }
+    const ind = document.getElementById('voz-indicador');
+    if (ind) ind.style.display = 'none';
+}
+
+// ══ GRABACIÓN DE FRASE CLAVE ══
+let _mediaRecorder = null;
+let _audioChunks = [];
+let _grabando = false;
+let _audioStream = null;
+let _analyser = null;
+let _animFrame = null;
+
+async function solicitarPermisoMic() {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream.getTracks().forEach(t => t.stop());
+        const btn = document.getElementById('btn-permiso-mic');
+        if (btn) {
+            btn.innerHTML = '✅ Micrófono Permitido';
+            btn.style.background = 'rgba(0,214,143,.15)';
+            btn.style.color = '#00d68f';
+            btn.style.borderColor = 'rgba(0,214,143,.3)';
+            btn.disabled = true;
+        }
+        alert('Permiso de micrófono concedido.\n\nIMPORTANTE: Apple iOS prohíbe grabar audio en segundo plano a las páginas web. La alerta por voz SOLO funcionará si mantienes esta app ABIERTA Y VISIBLE en tu pantalla.');
+    } catch (err) {
+        alert('❌ Permiso denegado. Debes habilitarlo en: Ajustes → Safari → Micrófono → Permitir.');
     }
 }
-async function toggleGrabacion(){
-    const btn=document.getElementById('btn-grabar'),ind=document.getElementById('grabacion-indicador');
-    if(mediaRecorder&&mediaRecorder.state==='recording'){mediaRecorder.stop();btn.textContent='🎤 GRABAR FRASE';ind.style.display='none';return;}
-    try{const stream=await navigator.mediaDevices.getUserMedia({audio:true});audioChunks=[];
-        mediaRecorder=new MediaRecorder(stream);
-        mediaRecorder.ondataavailable=e=>audioChunks.push(e.data);
-        mediaRecorder.onstop=()=>{const blob=new Blob(audioChunks,{type:'audio/webm'});const reader=new FileReader();reader.onload=async(ev)=>{window._cachedAudioGrabado=ev.target.result;await guardarAudioDB(ev.target.result);document.getElementById('audio-status-card').style.display='block';document.getElementById('cfg-voz-estado').textContent='✅ Audio guardado';showToast('🎤 Audio guardado correctamente','success');};reader.readAsDataURL(blob);stream.getTracks().forEach(t=>t.stop());};
-        mediaRecorder.start();btn.textContent='⏹️ DETENER';ind.style.display='block';
-        const ctx=new(window.AudioContext||window.webkitAudioContext)();const src=ctx.createMediaStreamSource(stream);const an=ctx.createAnalyser();an.fftSize=256;src.connect(an);const buf=new Uint8Array(an.frequencyBinCount);
-        const upd=()=>{if(mediaRecorder?.state!=='recording'){ctx.close();return;}an.getByteFrequencyData(buf);const avg=buf.reduce((a,b)=>a+b,0)/buf.length;document.getElementById('volumen-nivel').style.width=Math.min(avg*1.5,100)+'%';requestAnimationFrame(upd);};upd();
-    }catch{document.getElementById('cfg-voz-estado').textContent='❌ Error de micrófono';}
+
+async function toggleGrabacion() {
+    if (_grabando) {
+        await detenerGrabacion();
+    } else {
+        await iniciarGrabacion();
+    }
+}
+
+async function iniciarGrabacion() {
+    const estado = document.getElementById('cfg-voz-estado');
+    const btn = document.getElementById('btn-grabar');
+    estado.innerHTML = '';
+    
+    try {
+        _audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        _mediaRecorder = new MediaRecorder(_audioStream);
+        _audioChunks = [];
+
+        _mediaRecorder.ondataavailable = (e) => {
+            if (e.data.size > 0) _audioChunks.push(e.data);
+        };
+
+        _mediaRecorder.onstop = () => {
+            const mime = _mediaRecorder.mimeType || '';
+            const blob = new Blob(_audioChunks, { type: mime });
+            
+            const reader = new FileReader();
+            reader.onload = async () => {
+                const base64 = reader.result;
+                const cfg = JSON.parse(localStorage.getItem('sisdel_piloto_config') || '{}');
+                cfg.audioGrabado = base64;
+                localStorage.setItem('sisdel_piloto_config', JSON.stringify(cfg));
+                estado.innerHTML = '✅ Frase grabada — reemplaza la anterior';
+                const card = document.getElementById('audio-status-card');
+                if (card) card.style.display = 'block';
+                
+                // Pilot sync with backend 
+                if (typeof PILOTO !== 'undefined' && PILOTO && PILOTO.id_piloto) {
+                    try {
+                        const res = await fetch(`${API}/api/pilotos/${PILOTO.id_piloto}`, {
+                            method: 'PUT', 
+                            headers: {'Content-Type':'application/json'},
+                            body: JSON.stringify({ voz_alerta: base64 })
+                        });
+                        if (res.ok) {
+                            estado.innerHTML = '✅ Grabación guardada en la nube';
+                        }
+                    } catch (err) { console.error('Error sync voz:', err); }
+                }
+
+            };
+            reader.readAsDataURL(blob);
+            _audioStream.getTracks().forEach(t => t.stop());
+        };
+
+        _mediaRecorder.start();
+        _grabando = true;
+        btn.innerHTML = '⏹️ DETENER GRABACIÓN';
+        btn.style.background = 'rgba(255,59,59,.4)';
+        btn.style.borderColor = '#ff3b3b';
+        document.getElementById('grabacion-indicador').style.display = 'block';
+
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const source = audioCtx.createMediaStreamSource(_audioStream);
+        _analyser = audioCtx.createAnalyser();
+        _analyser.fftSize = 256;
+        source.connect(_analyser);
+        animarVolumen();
+
+    } catch (err) {
+        estado.innerHTML = '<span style="color:#ff3b3b;">❌ No se pudo acceder al micrófono. Permite el acceso en los ajustes del navegador.</span>';
+        console.error('Error micrófono:', err);
+    }
+}
+
+function detenerGrabacion() {
+    if (_mediaRecorder && _mediaRecorder.state !== 'inactive') {
+        _mediaRecorder.stop();
+    }
+    _grabando = false;
+    const btn = document.getElementById('btn-grabar');
+    btn.innerHTML = '🎤 GRABAR FRASE';
+    btn.style.background = 'linear-gradient(135deg,rgba(255,59,59,.12),rgba(200,0,0,.08))';
+    btn.style.borderColor = 'rgba(255,59,59,.25)';
+    document.getElementById('grabacion-indicador').style.display = 'none';
+    if (_animFrame) cancelAnimationFrame(_animFrame);
+}
+
+function animarVolumen() {
+    if (!_analyser || !_grabando) return;
+    const data = new Uint8Array(_analyser.frequencyBinCount);
+    _analyser.getByteFrequencyData(data);
+    const avg = data.reduce((a, b) => a + b, 0) / data.length;
+    const pct = Math.min(100, (avg / 128) * 100);
+    const nivel = document.getElementById('volumen-nivel');
+    if (nivel) nivel.style.width = pct + '%';
+    _animFrame = requestAnimationFrame(animarVolumen);
+}
+
+function escucharGrabacion() {
+    const cfg = JSON.parse(localStorage.getItem('sisdel_piloto_config') || '{}');
+    if (!cfg.audioGrabado) {
+        alert('No hay frase grabada. Graba primero.');
+        return;
+    }
+    const audio = new Audio(cfg.audioGrabado);
+    audio.play().catch(() => alert('Error al reproducir'));
 }
 
 // EDITAR DATOS
