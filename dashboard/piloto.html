@@ -63,6 +63,24 @@
     </div>
 </div>
 
+<!-- ══ PASO ACTIVAR (permisos) ══════════════════ -->
+<div id="paso-activar" class="paso" style="display:none;">
+    <div class="vcenter" style="text-align:center;">
+        <div style="font-size:4rem;margin-bottom:1rem;">🛡️</div>
+        <h1 style="color:#ff8c00;font-size:1.5rem;margin-bottom:.5rem;">¡Bienvenido, <span id="activar-nombre">Piloto</span>!</h1>
+        <p style="color:#ccd6f6;font-size:.95rem;margin-bottom:1.5rem;">Para protegerte necesitamos activar tus sensores</p>
+        <div style="background:rgba(255,140,0,.06);border:1px solid rgba(255,140,0,.2);border-radius:14px;padding:1rem;margin-bottom:1.5rem;text-align:left;">
+            <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.6rem;"><span style="font-size:1.2rem;">📍</span><span style="color:#fff;font-size:.85rem;">Ubicación GPS en tiempo real</span></div>
+            <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.6rem;"><span style="font-size:1.2rem;">🎙️</span><span style="color:#fff;font-size:.85rem;">Micrófono para alerta por voz</span></div>
+            <div style="display:flex;align-items:center;gap:.6rem;"><span style="font-size:1.2rem;">📳</span><span style="color:#fff;font-size:.85rem;">Sensores de movimiento (agitar)</span></div>
+        </div>
+        <button onclick="activarTodo()" style="width:100%;padding:1rem;background:linear-gradient(135deg,#ff8c00,#cc6600);border:none;color:#fff;border-radius:14px;font-size:1.1rem;font-weight:900;cursor:pointer;letter-spacing:1px;box-shadow:0 4px 20px rgba(255,140,0,.4);">
+            🔓 ACTIVAR PROTECCIÓN
+        </button>
+        <p style="color:#6b7294;font-size:.7rem;margin-top:.8rem;">Acepta todos los permisos que aparezcan</p>
+    </div>
+</div>
+
 <!-- ══ PASO PÁNICO ══════════════════ -->
 <div id="paso-panico" class="paso paso-panico" style="display:none;">
     <div class="vecino-info-bar">
@@ -106,7 +124,7 @@
             <span style="font-size:.82rem; color:#00d68f; font-weight:700;">🎙️ Escuchando... grita fuerte para enviar alerta</span>
         </div>
     </div>
-    <div class="shake-notice" id="shake-notice">📳 Agita el teléfono para enviar alerta rápida</div>
+    <div class="shake-notice" id="shake-notice">📳 Agita el teléfono 4 veces para alerta rápida</div>
 </div>
 
 <!-- ══ OVERLAY CONFIRMACIÓN ════════════════════════ -->
@@ -284,7 +302,22 @@ async function loginPiloto(){
 }
 function showErr(m){const e=document.getElementById('error-clave');e.textContent=m;e.style.display='block';}
 
-async function mostrarPanico(){
+let _permisosActivados = false;
+
+function mostrarPanico(){
+    document.querySelectorAll('.paso').forEach(p=>p.style.display='none');
+    // Check if permissions were already activated this session
+    if(!_permisosActivados && !sessionStorage.getItem('sisdel_permisos_ok')){
+        // Show activation screen first
+        document.getElementById('paso-activar').style.display='block';
+        document.getElementById('activar-nombre').textContent=PILOTO.nombre?.split(' ')[0]||'Piloto';
+        return;
+    }
+    // Go directly to panic
+    irAPanico();
+}
+
+function irAPanico(){
     document.querySelectorAll('.paso').forEach(p=>p.style.display='none');
     document.getElementById('paso-panico').style.display='block';
     document.getElementById('vecino-nombre-bar').textContent=PILOTO.nombre?.split(' ')[0]||'Piloto';
@@ -294,14 +327,50 @@ async function mostrarPanico(){
     if(PILOTO.color_vehiculo)vi.push(PILOTO.color_vehiculo);
     document.getElementById('panico-vehiculo').textContent=vi.join(' — ');
     cargarLocalConfig();
-    // AUTO-PERMISOS
-    requestLocationPermission();
-    if(typeof DeviceMotionEvent!=='undefined'&&typeof DeviceMotionEvent.requestPermission==='function'){try{await DeviceMotionEvent.requestPermission();}catch{}}
-    iniciarShake();
     document.getElementById('shake-notice').style.display=_shakeEnabled?'block':'none';
-    try{const s=await navigator.mediaDevices.getUserMedia({audio:true});s.getTracks().forEach(t=>t.stop());}catch{}
+}
+
+// Called from user tap gesture — this is KEY for mobile permission requests
+async function activarTodo(){
+    const btn=event.target.closest('button');
+    btn.textContent='⏳ Activando...';btn.disabled=true;
+    let gpsOk=false, micOk=false, motionOk=false;
+    // 1. GPS
+    try{
+        await new Promise((resolve,reject)=>{
+            navigator.geolocation.getCurrentPosition(
+                pos=>{gpsLat=pos.coords.latitude;gpsLon=pos.coords.longitude;gpsOk=true;resolve();},
+                err=>{reject(err);},
+                {enableHighAccuracy:true,timeout:15000}
+            );
+        });
+    }catch(e){console.warn('GPS:',e);}
+    // 2. Micrófono
+    try{
+        const s=await navigator.mediaDevices.getUserMedia({audio:true});
+        s.getTracks().forEach(t=>t.stop());
+        micOk=true;
+    }catch(e){console.warn('Mic:',e);}
+    // 3. DeviceMotion (iOS)
+    if(typeof DeviceMotionEvent!=='undefined'&&typeof DeviceMotionEvent.requestPermission==='function'){
+        try{const r=await DeviceMotionEvent.requestPermission();motionOk=(r==='granted');}catch{}
+    }else{motionOk=true;}
+    // Mark as activated
+    _permisosActivados=true;
+    sessionStorage.setItem('sisdel_permisos_ok','1');
+    // Start services
+    requestLocationPermission();
+    iniciarShake();
     const cfg=JSON.parse(localStorage.getItem('sisdel_piloto_config')||'{}');
-    if(cfg.voz!==false)iniciarDeteccionVoz();
+    if(cfg.voz!==false && micOk) iniciarDeteccionVoz();
+    // Show results briefly
+    let msg='✅ Protección activada:\n';
+    msg+=gpsOk?'📍 GPS ✅\n':'📍 GPS ❌ (activa GPS en ajustes)\n';
+    msg+=micOk?'🎙️ Micrófono ✅\n':'🎙️ Micrófono ❌\n';
+    msg+=motionOk?'📳 Movimiento ✅':'📳 Movimiento ❌';
+    showToast(msg.replace(/\n/g,'<br>'),'success',4000);
+    // Go to panic screen
+    irAPanico();
 }
 function logout(){sessionStorage.removeItem('sisdel_piloto');sessionStorage.removeItem('sisdel_tipo');PILOTO=null;window.location.href='index.html';}
 
@@ -481,7 +550,7 @@ async function guardarConfig(){
     for(let i=1;i<=5;i++){data[`fam_nombre_${i}`]=document.getElementById(`cfg-c${i}n`).value.trim();const ct=(document.getElementById(`cfg-c${i}t`).value||'').replace(/\D/g,'');data[`fam_tel_${i}`]=ct?l+ct:'';}
     try{const r=await fetch(`${API}/api/pilotos/${PILOTO.id_piloto}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});PILOTO=await r.json();sessionStorage.setItem('sisdel_piloto',JSON.stringify(PILOTO));showToast('Datos actualizados ✅','success');volverPanico();}catch{showToast('Error al guardar','error');}
 }
-function volverPanico(){document.getElementById('paso-config').style.display='none';mostrarPanico();}
+function volverPanico(){document.getElementById('paso-config').style.display='none';irAPanico();}
 function mostrarConfig(){llenarFormConfig();}
 </script>
 </body>
