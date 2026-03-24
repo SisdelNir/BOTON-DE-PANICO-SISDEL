@@ -26,11 +26,6 @@ app.include_router(agentes.router)
 app.include_router(pilotos.router)
 app.include_router(alertas_empresa.router)
 
-# Servir dashboard estático
-dashboard_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "dashboard")
-if os.path.exists(dashboard_path):
-    app.mount("/", StaticFiles(directory=dashboard_path, html=True), name="static")
-
 @app.get("/health", tags=["Sistema"])
 async def health():
     return {"status": "ok", "sistema": "Botón de Pánico SISDEL", "version": "2.0.0"}
@@ -51,3 +46,8 @@ async def test_whatsapp(data: dict):
     resultado = enviar_alerta_contacto(telefono, mensaje)
     return resultado
 
+
+# Servir dashboard estático (DEBE ir al final — catch-all)
+dashboard_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "dashboard")
+if os.path.exists(dashboard_path):
+    app.mount("/", StaticFiles(directory=dashboard_path, html=True), name="static")

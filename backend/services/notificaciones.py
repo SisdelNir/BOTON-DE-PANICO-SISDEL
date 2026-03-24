@@ -2,7 +2,7 @@
 Servicio de Notificaciones — WhatsApp automático para alertas de emergencia.
 
 Prioridad de canales:
-  1. Green API (WhatsApp via QR — principal)
+  1. UltraMSG (WhatsApp via QR — principal)
   2. Meta Cloud API (WhatsApp oficial — respaldo)
   3. Twilio SMS (último recurso)
 """
@@ -13,9 +13,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# ── Green API (WhatsApp via QR) ──
-GREENAPI_ID   = os.getenv("GREENAPI_ID_INSTANCE", "")
-GREENAPI_TOKEN = os.getenv("GREENAPI_API_TOKEN", "")
+# ── UltraMSG (WhatsApp via QR — principal) ──
+ULTRAMSG_INSTANCE = os.getenv("ULTRAMSG_INSTANCE_ID", "")
+ULTRAMSG_TOKEN    = os.getenv("ULTRAMSG_TOKEN", "")
 
 # ── Meta WhatsApp Cloud API ──
 WA_TOKEN    = os.getenv("WHATSAPP_TOKEN", "")
@@ -33,41 +33,42 @@ if TWILIO_SID and TWILIO_TOKEN:
 
 
 # ═══════════════════════════════════════════════════════
-#  CANAL 1: GREEN API (WhatsApp via QR — como WhatsApp Web)
+#  CANAL 1: ULTRAMSG (WhatsApp via QR — como WhatsApp Web)
 # ═══════════════════════════════════════════════════════
 
-def enviar_whatsapp_greenapi(destinatario: str, mensaje: str) -> bool:
-    """Envía mensaje de WhatsApp usando Green API REST."""
-    if not GREENAPI_ID or not GREENAPI_TOKEN:
-        print("⚠️ Green API no configurado (faltan GREENAPI_ID_INSTANCE o GREENAPI_API_TOKEN)")
+def enviar_whatsapp_ultramsg(destinatario: str, mensaje: str) -> bool:
+    """Envía mensaje de WhatsApp usando UltraMSG REST API."""
+    if not ULTRAMSG_INSTANCE or not ULTRAMSG_TOKEN:
+        print("⚠️ UltraMSG no configurado (faltan ULTRAMSG_INSTANCE_ID o ULTRAMSG_TOKEN)")
         return False
 
     # Limpiar número: solo dígitos, sin + ni espacios
     num_limpio = ''.join(c for c in str(destinatario) if c.isdigit())
     if not num_limpio or len(num_limpio) < 8:
-        print(f"⚠️ Número inválido para Green API: {destinatario}")
+        print(f"⚠️ Número inválido para UltraMSG: {destinatario}")
         return False
 
-    url = f"https://api.green-api.com/waInstance{GREENAPI_ID}/sendMessage/{GREENAPI_TOKEN}"
+    url = f"https://api.ultramsg.com/{ULTRAMSG_INSTANCE}/messages/chat"
 
     payload = {
-        "chatId": f"{num_limpio}@c.us",
-        "message": mensaje
+        "token": ULTRAMSG_TOKEN,
+        "to": f"+{num_limpio}",
+        "body": mensaje
     }
 
     try:
-        print(f"📱 [GreenAPI] Enviando WhatsApp a {num_limpio}...")
-        resp = requests.post(url, json=payload, timeout=15)
+        print(f"📱 [UltraMSG] Enviando WhatsApp a {num_limpio}...")
+        resp = requests.post(url, data=payload, timeout=15)
         data = resp.json()
 
-        if resp.status_code == 200 and data.get("idMessage"):
-            print(f"✅ [GreenAPI] WhatsApp enviado. ID: {data['idMessage']}")
+        if resp.status_code == 200 and data.get("sent") == "true":
+            print(f"✅ [UltraMSG] WhatsApp enviado. ID: {data.get('id', '?')}")
             return True
         else:
-            print(f"❌ [GreenAPI] Error: {data}")
+            print(f"❌ [UltraMSG] Error: {data}")
             return False
     except Exception as e:
-        print(f"❌ [GreenAPI] Exception: {e}")
+        print(f"❌ [UltraMSG] Exception: {e}")
         return False
 
 
@@ -194,9 +195,9 @@ def enviar_alerta_contacto(destinatario: str, mensaje: str) -> dict:
     """
     resultado = {"telefono": destinatario, "canal": None, "exito": False}
 
-    # 1. Green API (principal)
-    if enviar_whatsapp_greenapi(destinatario, mensaje):
-        resultado["canal"] = "GREEN_API"
+    # 1. UltraMSG (principal)
+    if enviar_whatsapp_ultramsg(destinatario, mensaje):
+        resultado["canal"] = "ULTRAMSG"
         resultado["exito"] = True
         return resultado
 
