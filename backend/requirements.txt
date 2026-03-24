@@ -5,3 +5,4 @@ python-multipart==0.0.20
 psycopg2==2.9.10
 twilio
 python-dotenv
+requests
