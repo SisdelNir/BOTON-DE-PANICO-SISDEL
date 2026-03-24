@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>🛡️ Agente Empresa — SISDEL</title>
+<link rel="stylesheet" href="css/panel.css">
+<style>
+* { box-sizing:border-box; }
+body { min-height:100vh; display:flex; flex-direction:column; align-items:center; padding:.5rem; margin:0; }
+.agent-wrap { max-width:500px; width:100%; }
+.agent-card { background:#111325; border:1px solid #2a2d45; border-radius:12px; padding:1rem; margin-bottom:.8rem; }
+.agent-header { text-align:center; margin-bottom:1.2rem; }
+.agent-header h1 { font-size:1.2rem; color:#ff8c00; margin:0; }
+.agent-header p { font-size:.75rem; color:#6b7294; margin:.3rem 0 0; }
+.login-input { width:100%; padding:.7rem 1rem; background:#0b0d17; border:1px solid #2a2d45; border-radius:8px; color:#fff; font-size:1.1rem; font-family:monospace; text-align:center; letter-spacing:3px; }
+.login-input:focus { border-color:#ff8c00; outline:none; }
+.login-btn { width:100%; padding:.7rem; background:linear-gradient(135deg,#ff8c00,#ff6600); color:#fff; font-weight:700; font-size:.9rem; border:none; border-radius:8px; cursor:pointer; margin-top:.6rem; }
+.agent-topbar { display:flex; justify-content:space-between; align-items:center; padding:.5rem .7rem; background:rgba(255,140,0,.06); border:1px solid rgba(255,140,0,.2); border-radius:10px; margin-bottom:.6rem; }
+.agent-name { font-weight:700; color:#ff8c00; font-size:.82rem; }
+.agent-code { font-size:.62rem; color:#6b7294; font-family:monospace; }
+.topbar-btns { display:flex; gap:.3rem; }
+.topbar-btn { background:rgba(77,166,255,.1); border:1px solid rgba(77,166,255,.25); color:#4da6ff; padding:.25rem .5rem; border-radius:6px; font-size:.65rem; font-weight:700; cursor:pointer; }
+.topbar-btn.danger { color:#ff3b3b; border-color:rgba(255,59,59,.25); background:rgba(255,59,59,.08); }
+.caso-card { background:#111325; border:1px solid #2a2d45; border-radius:10px; padding:.7rem; margin-bottom:.7rem; transition:border-color .3s; }
+.caso-card.activa { border-color:rgba(255,59,59,.4); }
+.caso-card.en_camino { border-color:rgba(255,165,0,.4); }
+.caso-card.atendida { border-color:rgba(0,214,143,.3); opacity:.7; }
+.caso-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:.4rem; }
+.caso-numero { font-family:monospace; font-weight:900; color:#ff8c00; font-size:.85rem; }
+.caso-field { margin-bottom:.3rem; }
+.caso-label { font-size:.58rem; color:#6b7294; text-transform:uppercase; letter-spacing:.5px; }
+.caso-val { font-size:.8rem; color:#fff; font-weight:600; }
+.badge { padding:.15rem .45rem; border-radius:5px; font-size:.65rem; font-weight:700; }
+.badge-act { background:rgba(255,59,59,.15); color:#ff3b3b; border:1px solid rgba(255,59,59,.3); }
+.badge-cam { background:rgba(255,165,0,.15); color:#ffa500; border:1px solid rgba(255,165,0,.3); }
+.badge-ok  { background:rgba(0,214,143,.15); color:#00d68f; border:1px solid rgba(0,214,143,.3); }
+.caso-actions { display:flex; gap:.4rem; margin-top:.5rem; }
+.caso-btn { flex:1; padding:.4rem; border-radius:7px; font-weight:700; font-size:.72rem; cursor:pointer; border:none; }
+.caso-btn.camino { background:rgba(255,165,0,.15); color:#ffa500; border:1px solid rgba(255,165,0,.3); }
+.caso-btn.atender { background:rgba(0,214,143,.15); color:#00d68f; border:1px solid rgba(0,214,143,.3); }
+.caso-btn.maps { background:rgba(77,166,255,.12); color:#4da6ff; border:1px solid rgba(77,166,255,.3); }
+.vehiculo-info { background:rgba(255,140,0,.05); border:1px solid rgba(255,140,0,.2); border-radius:8px; padding:.4rem .6rem; margin-top:.4rem; }
+@keyframes pulseNew { 0%,100% { box-shadow:0 0 0 0 rgba(255,140,0,.4); } 50% { box-shadow:0 0 15px 5px rgba(255,140,0,.3); } }
+.caso-card.nueva { animation:pulseNew 1.5s infinite; border-color:#ff8c00; }
+.stats-bar { display:flex; gap:.4rem; margin-bottom:.6rem; }
+.stat-chip { flex:1; text-align:center; padding:.3rem; border-radius:8px; background:#111325; border:1px solid #2a2d45; }
+.stat-num { font-weight:900; font-size:1rem; }
+.stat-lbl { font-size:.55rem; color:#6b7294; text-transform:uppercase; }
+.empty-state { text-align:center; padding:2rem 1rem; color:#6b7294; }
+.empty-state .icon { font-size:2.5rem; margin-bottom:.5rem; }
+.alerta-overlay { display:none; position:fixed; inset:0; z-index:9999; background:rgba(255,140,0,.85); flex-direction:column; align-items:center; justify-content:center; animation:flashOrange .5s infinite; }
+@keyframes flashOrange { 0%,100% { background:rgba(255,140,0,.85); } 50% { background:rgba(200,100,0,.95); } }
+.alerta-overlay h2 { color:#fff; font-size:1.8rem; margin:0; text-shadow:0 2px 10px rgba(0,0,0,.5); }
+.alerta-overlay p { color:#fff; font-size:1rem; margin:.5rem 0; }
+.alerta-overlay .dismiss-btn { margin-top:1.5rem; padding:.8rem 2rem; background:#fff; color:#ff8c00; font-weight:900; font-size:1.1rem; border:none; border-radius:12px; cursor:pointer; }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div class="agent-wrap" id="login-view">
+    <div class="agent-header" style="margin-top:3rem;">
+        <div style="font-size:2.5rem;">🛡️</div>
+        <h1>Agente — Empresa de Seguridad</h1>
+        <p>Ingresa tu código de acceso o documento</p>
+    </div>
+    <div class="agent-card">
+        <input type="text" id="agent-id" class="login-input" placeholder="Código o DPI" autocomplete="off" autofocus>
+        <button class="login-btn" onclick="loginAgente()">🔐 Ingresar</button>
+        <div id="login-error" style="display:none;margin-top:.5rem;text-align:center;color:#ff3b3b;font-size:.78rem;"></div>
+    </div>
+    <p style="text-align:center;font-size:.65rem;color:#6b7294;">Botón de Alerta SISDEL — Empresas</p>
+</div>
+
+<!-- PANEL DE CASOS -->
+<div class="agent-wrap" id="casos-view" style="display:none;">
+    <div class="agent-topbar">
+        <div>
+            <div class="agent-name" id="agent-nombre">🛡️ Agente</div>
+            <div class="agent-code" id="agent-codigo">Código: ---</div>
+        </div>
+        <div class="topbar-btns">
+            <button class="topbar-btn" onclick="cargarMisCasos()">🔄</button>
+            <button class="topbar-btn danger" onclick="logout()">Salir</button>
+        </div>
+    </div>
+    <div class="stats-bar">
+        <div class="stat-chip"><div class="stat-num" style="color:#ff3b3b;" id="st-activas">0</div><div class="stat-lbl">Activas</div></div>
+        <div class="stat-chip"><div class="stat-num" style="color:#ffa500;" id="st-camino">0</div><div class="stat-lbl">En Camino</div></div>
+        <div class="stat-chip"><div class="stat-num" style="color:#00d68f;" id="st-atendidas">0</div><div class="stat-lbl">Atendidas</div></div>
+    </div>
+    <div id="casos-list"></div>
+</div>
+
+<!-- ALERTA OVERLAY -->
+<div class="alerta-overlay" id="alerta-overlay">
+    <h2>🚨 NUEVA ALERTA</h2>
+    <p id="alerta-piloto-nombre"></p>
+    <p id="alerta-piloto-vehiculo" style="font-weight:700;"></p>
+    <button class="dismiss-btn" onclick="dismissAlerta()">ENTENDIDO ✓</button>
+</div>
+
+<script>
+const API = (window.location.hostname==='localhost'||window.location.protocol==='file:') ? 'http://localhost:8000' : 'https://boton-de-panico-sisdel.onrender.com';
+let AGENTE = null;
+let CASOS = [];
+let _casosVistos = new Set();
+let _audioCtx = null;
+let pollingId = null;
+
+document.addEventListener('DOMContentLoaded', () => {
+    const saved = sessionStorage.getItem('sisdel_agente_empresa');
+    if (saved) { AGENTE = JSON.parse(saved); mostrarCasos(); }
+    document.getElementById('agent-id').addEventListener('keydown', e => { if(e.key==='Enter') loginAgente(); });
+});
+
+async function loginAgente() {
+    const id = document.getElementById('agent-id').value.trim();
+    if (!id) { showErr('Ingresa tu código'); return; }
+    try {
+        const res = await fetch(`${API}/api/empresa/agentes/login`, {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({identificador: id})
+        });
+        if (!res.ok) { showErr('Código no encontrado'); return; }
+        const data = await res.json();
+        AGENTE = data;
+        sessionStorage.setItem('sisdel_agente_empresa', JSON.stringify(data));
+        mostrarCasos();
+    } catch { showErr('Error de conexión'); }
+}
+
+function showErr(m) { const e=document.getElementById('login-error'); e.textContent=m; e.style.display='block'; }
+
+function mostrarCasos() {
+    document.getElementById('login-view').style.display = 'none';
+    document.getElementById('casos-view').style.display = 'block';
+    document.getElementById('agent-nombre').textContent = `🛡️ ${AGENTE.agente.nombre}`;
+    document.getElementById('agent-codigo').textContent = `Código: ${AGENTE.agente.codigo_agente} — ${AGENTE.agente.puesto||''}`;
+    cargarMisCasos();
+    if (!pollingId) pollingId = setInterval(cargarMisCasos, 5000);
+}
+
+async function cargarMisCasos() {
+    try {
+        const res = await fetch(`${API}/api/empresa/agentes/login`, {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({identificador: AGENTE.agente.num_identificacion})
+        });
+        const data = await res.json();
+        AGENTE = data;
+        CASOS = data.casos || [];
+        renderCasos();
+        // Check for new alerts
+        CASOS.forEach(c => {
+            if (c.estatus === 'ACTIVA' && !_casosVistos.has(c.id_alerta)) {
+                _casosVistos.add(c.id_alerta);
+                alertaNueva(c);
+            }
+        });
+    } catch {}
+}
+
+function renderCasos() {
+    const activas = CASOS.filter(c => c.estatus==='ACTIVA').length;
+    const camino = CASOS.filter(c => c.estatus==='EN_CAMINO').length;
+    const atend = CASOS.filter(c => ['ATENDIDA','FALSA_ALARMA','CANCELADA'].includes(c.estatus)).length;
+    document.getElementById('st-activas').textContent = activas;
+    document.getElementById('st-camino').textContent = camino;
+    document.getElementById('st-atendidas').textContent = atend;
+
+    const list = document.getElementById('casos-list');
+    if (!CASOS.length) {
+        list.innerHTML = '<div class="empty-state"><div class="icon">🛡️</div><p>Sin casos asignados</p></div>';
+        return;
+    }
+
+    list.innerHTML = CASOS.map(c => {
+        const cls = c.estatus==='ACTIVA'?'activa':c.estatus==='EN_CAMINO'?'en_camino':'atendida';
+        const badgeCls = c.estatus==='ACTIVA'?'badge-act':c.estatus==='EN_CAMINO'?'badge-cam':'badge-ok';
+        const gpsBtn = c.gps_latitud ? `<button class="caso-btn maps" onclick="window.open('https://www.google.com/maps?q=${c.gps_latitud},${c.gps_longitud}','_blank')">📍 Maps</button>` : '';
+        const actions = (c.estatus==='ACTIVA'||c.estatus==='EN_CAMINO') ? `
+            <div class="caso-actions">
+                ${c.estatus==='ACTIVA' ? `<button class="caso-btn camino" onclick="cambiarEstatus('${c.id_alerta}','EN_CAMINO')">🚓 En Camino</button>` : ''}
+                <button class="caso-btn atender" onclick="cambiarEstatus('${c.id_alerta}','ATENDIDA')">✅ Atendida</button>
+                ${gpsBtn}
+            </div>` : '';
+        return `<div class="caso-card ${cls}">
+            <div class="caso-header">
+                <span class="caso-numero">${c.numero_caso||''}</span>
+                <span class="badge ${badgeCls}">${c.estatus}</span>
+            </div>
+            <div class="caso-field"><div class="caso-label">Piloto</div><div class="caso-val">${c.nombre_piloto||'—'}</div></div>
+            <div class="vehiculo-info">
+                <div style="display:flex;gap:.6rem;font-size:.78rem;">
+                    <div><span class="caso-label">Placas</span><div style="color:#ff8c00;font-weight:900;">${c.placas_vehiculo||'—'}</div></div>
+                    <div><span class="caso-label">Tipo</span><div>${c.tipo_vehiculo||'—'}</div></div>
+                    <div><span class="caso-label">Color</span><div>${c.color_vehiculo||'—'}</div></div>
+                </div>
+            </div>
+            <div class="caso-field"><div class="caso-label">Teléfono</div><div class="caso-val"><a href="tel:${c.telefono_piloto}" style="color:#4da6ff;">${c.telefono_piloto||'—'}</a></div></div>
+            <div class="caso-field"><div class="caso-label">Hora</div><div class="caso-val">${c.fecha_creacion ? new Date(c.fecha_creacion).toLocaleString() : '—'}</div></div>
+            ${actions}
+        </div>`;
+    }).join('');
+}
+
+function alertaNueva(c) {
+    document.getElementById('alerta-piloto-nombre').textContent = c.nombre_piloto;
+    document.getElementById('alerta-piloto-vehiculo').textContent = `${c.placas_vehiculo||''} — ${c.tipo_vehiculo||''} ${c.color_vehiculo||''}`;
+    document.getElementById('alerta-overlay').style.display = 'flex';
+    // Sonido
+    try {
+        if (!_audioCtx) _audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+        const o = _audioCtx.createOscillator(), g = _audioCtx.createGain();
+        o.type='square'; o.frequency.value=800; g.gain.value=0.4;
+        o.connect(g); g.connect(_audioCtx.destination);
+        o.start(); o.stop(_audioCtx.currentTime+1);
+    } catch {}
+    // Vibrar
+    if (navigator.vibrate) navigator.vibrate([500,200,500,200,500]);
+    // Notificación
+    if ('Notification' in window && Notification.permission==='granted') {
+        new Notification('🛡️ ALERTA Piloto', {body: `${c.nombre_piloto} — ${c.placas_vehiculo||''}`, tag: c.id_alerta});
+    }
+}
+
+function dismissAlerta() { document.getElementById('alerta-overlay').style.display='none'; }
+
+async function cambiarEstatus(id, estatus) {
+    try {
+        await fetch(`${API}/api/empresa/alertas/${id}/estatus`, {
+            method:'PATCH', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({estatus})
+        });
+        cargarMisCasos();
+    } catch { alert('Error.'); }
+}
+
+function logout() { sessionStorage.removeItem('sisdel_agente_empresa'); clearInterval(pollingId); window.location.reload(); }
+</script>
+</body>
+</html>

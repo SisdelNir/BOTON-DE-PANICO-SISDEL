@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🛡️ Panel Empresa — Botón de Alerta SISDEL</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/panel.css">
+    <style>
+        .panel-topbar { background: linear-gradient(135deg, #1a0f00 0%, #0d1117 100%) !important; border-bottom: 1px solid rgba(255,140,0,.25) !important; }
+        .stat-pill.sp-orange { background: rgba(255,140,0,.12); border-color: rgba(255,140,0,.35); color: #ff8c00; }
+        .pulse-dot { background: #ff8c00 !important; box-shadow: 0 0 0 4px rgba(255,140,0,.3) !important; }
+        .badge-activa { background: rgba(255,59,59,.15); color:#ff3b3b; border:1px solid rgba(255,59,59,.3); }
+        .badge-camino { background: rgba(255,140,0,.15); color:#ff8c00; border:1px solid rgba(255,140,0,.3); }
+        .badge-atendida { background: rgba(0,214,143,.15); color:#00d68f; border:1px solid rgba(0,214,143,.3); }
+        .badge-falsa { background: rgba(107,114,148,.15); color:#6b7294; border:1px solid rgba(107,114,148,.3); }
+        .vehiculo-card { background: rgba(255,140,0,.05); border: 1px solid rgba(255,140,0,.2); border-radius: 12px; padding: .75rem; margin-top: .5rem; }
+    </style>
+</head>
+<body>
+
+<div class="panel-layout" id="panel-layout">
+    <header class="panel-topbar">
+        <div class="panel-brand">
+            <div class="pulse-dot"></div>
+            <div>
+                <div class="panel-inst-name" id="emp-name-label" style="font-size:1.5rem;color:#ff8c00;font-weight:900;letter-spacing:.5px;text-transform:uppercase;">—</div>
+                <div style="font-size:.72rem;color:#ff8c00;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;margin-top:3px;">🛡️ Panel Empresa — Botón de Alerta</div>
+            </div>
+        </div>
+        <div class="topbar-stats">
+            <div class="stat-pill sp-red"><span class="sn" id="sp-activas">0</span><span>Activas</span></div>
+            <div class="stat-pill sp-orange"><span class="sn" id="sp-camino">0</span><span>En Camino</span></div>
+            <div class="stat-pill sp-green"><span class="sn" id="sp-atend">0</span><span>Atendidas</span></div>
+            <div class="stat-pill sp-blue"><span class="sn" id="sp-pilotos">0</span><span>Pilotos</span></div>
+        </div>
+        <div class="topbar-right">
+            <span class="clock" id="clock"></span>
+            <div style="position:relative;display:flex;align-items:center;">
+                <div style="display:flex;background:#111325;border:1px solid #2a2d45;border-radius:8px;padding:.3rem .5rem;align-items:center;gap:.3rem;min-width:200px;">
+                    <span style="font-size:.75rem;">🔍</span>
+                    <input type="text" id="panel-busqueda" placeholder="Buscar piloto o placas..."
+                           oninput="buscarPiloto(this.value)"
+                           style="flex:1;background:transparent;border:none;color:#fff;font-size:.78rem;outline:none;width:100%;">
+                </div>
+                <div id="panel-busqueda-resultados" style="display:none;position:absolute;top:100%;left:0;right:0;margin-top:4px;background:#111325;border:1px solid #2a2d45;border-radius:8px;max-height:250px;overflow-y:auto;z-index:999;box-shadow:0 8px 24px rgba(0,0,0,.5);"></div>
+            </div>
+            <button class="btn-sm-icon" style="background:rgba(0,214,143,.12);border-color:rgba(0,214,143,.35);color:#00d68f;" onclick="abrirRegistroPiloto()">🚗 Registrar Piloto</button>
+            <button class="btn-sm-icon" style="background:rgba(255,165,0,.12);border-color:rgba(255,165,0,.35);color:#ffa500;" onclick="abrirRegistroAgente()">👮 Registrar Agente</button>
+            <button class="btn-sm-icon" style="background:rgba(124,92,252,.12);border-color:rgba(124,92,252,.35);color:#7c5cfc;" onclick="abrirHistorial()">📜 Historial</button>
+        </div>
+        <button class="btn-sm-icon btn-sm-red" onclick="logout()" style="position:fixed;top:48px;right:12px;z-index:9999;font-size:.75rem;padding:.3rem .8rem;">Salir</button>
+    </header>
+
+    <div class="panel-body">
+        <div class="alerts-col">
+            <div class="section-hdr">
+                <h2>⚡ Alertas de Pilotos</h2>
+                <div class="filter-tabs">
+                    <button class="ftab active" onclick="setFiltro('todas',this)">Todas</button>
+                    <button class="ftab" onclick="setFiltro('ACTIVA',this)">Activas</button>
+                    <button class="ftab" onclick="setFiltro('EN_CAMINO',this)">En Camino</button>
+                </div>
+            </div>
+            <div class="tbl-wrap">
+                <table class="tbl">
+                    <thead>
+                        <tr>
+                            <th>Caso</th><th>Estado</th><th>Piloto</th><th>Placas</th>
+                            <th>Vehículo</th><th>GPS</th><th>Hora</th><th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="alertas-tbody">
+                        <tr><td colspan="8"><div class="empty-state"><span style="font-size:2rem">🛡️</span><p>Sin alertas — sistema monitoreando</p></div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL DETALLE ALERTA -->
+<div class="modal-overlay" id="modal-det" style="display:none;" onclick="closeDet(event)">
+    <div class="modal-box" onclick="event.stopPropagation()">
+        <div class="modal-hdr" style="background:linear-gradient(135deg,rgba(255,140,0,.15),rgba(0,0,0,0));"><h3>🛡️ Detalle de Alerta</h3><button class="modal-close" onclick="closeDet()">✕</button></div>
+        <div class="modal-body" id="det-body"></div>
+        <div class="modal-footer" style="flex-wrap:wrap;gap:.4rem;">
+            <button class="accion-btn" style="background:rgba(255,140,0,.15);color:#ff8c00;border:1px solid rgba(255,140,0,.3);flex:1 1 100%;" onclick="guardarAsignaciones()">💾 Guardar Agentes</button>
+            <button class="accion-btn a-camino" onclick="cambiarEstatus('EN_CAMINO')">🚓 En Camino</button>
+            <button class="accion-btn a-atender" onclick="cambiarEstatus('ATENDIDA')">✅ Atendida</button>
+            <button class="accion-btn a-falsa" onclick="cambiarEstatus('FALSA_ALARMA')">❌ Falsa Alarma</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL MAPA -->
+<div class="modal-overlay" id="modal-mapa" style="display:none;" onclick="cerrarMapa(event)">
+    <div class="modal-box" style="width:90%;max-width:1100px;height:85vh;display:flex;flex-direction:column;padding:0;" onclick="event.stopPropagation()">
+        <div class="modal-hdr" style="padding:1rem 1.5rem;border-bottom:1px solid #2a2d45;">
+            <h3>🗺️ Mapa de Alertas</h3>
+            <button class="modal-close" onclick="cerrarMapa()">✕</button>
+        </div>
+        <div class="modal-body" style="padding:0;flex:1;display:flex;">
+            <div id="mapa" style="flex:1;width:100%;border-radius:0 0 16px 16px;"></div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL AVISAR CONTACTOS -->
+<div class="modal-overlay" id="modal-avisar" style="display:none;" onclick="cerrarAvisar(event)">
+    <div class="modal-box" style="width:90%;max-width:400px;" onclick="event.stopPropagation()">
+        <div class="modal-hdr"><h3>💬 Avisar Contactos</h3><button class="modal-close" onclick="cerrarAvisar()">✕</button></div>
+        <div class="modal-body" id="avisar-body" style="display:flex;flex-direction:column;gap:.5rem;"></div>
+    </div>
+</div>
+
+<!-- MODAL HISTORIAL -->
+<div class="modal-overlay" id="modal-historial" style="display:none;" onclick="cerrarHistorial(event)">
+    <div class="modal-box" style="width:95%;max-width:1100px;max-height:90vh;display:flex;flex-direction:column;" onclick="event.stopPropagation()">
+        <div class="modal-hdr"><h3>📜 Historial de Alertas</h3><button class="modal-close" onclick="cerrarHistorial()">✕</button></div>
+        <div style="padding:.75rem 1.5rem;border-bottom:1px solid #1a1f3e;display:flex;gap:.5rem;align-items:center;">
+            <div style="display:flex;flex:1;background:#0b0d17;border:1px solid #2a2d45;border-radius:8px;padding:.4rem .6rem;align-items:center;gap:.4rem;">
+                <span style="font-size:.8rem;">🔍</span>
+                <input type="text" id="historial-busqueda" placeholder="Buscar por nombre, placas..."
+                       oninput="filtrarHistorial(this.value)"
+                       style="flex:1;background:transparent;border:none;color:#fff;font-size:.82rem;outline:none;">
+            </div>
+            <span id="historial-count" style="font-size:.75rem;color:#6b7294;white-space:nowrap;"></span>
+        </div>
+        <div class="modal-body" style="flex:1;overflow-y:auto;padding:0;">
+            <table class="tbl" style="font-size:.8rem;">
+                <thead><tr>
+                    <th>Caso</th><th>Estado</th><th>Piloto</th><th>Placas</th>
+                    <th>Vehículo</th><th>Fecha / Hora</th><th></th>
+                </tr></thead>
+                <tbody id="historial-tbody"><tr><td colspan="7" style="text-align:center;padding:2rem;color:#6b7294;">Cargando...</td></tr></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL REGISTRAR PILOTO -->
+<div class="modal-overlay" id="modal-piloto" style="display:none;" onclick="cerrarModalPiloto(event)">
+    <div class="modal-box" style="width:95%;max-width:700px;max-height:92vh;display:flex;flex-direction:column;" onclick="event.stopPropagation()">
+        <div class="modal-hdr" style="background:linear-gradient(135deg,rgba(255,140,0,.15),rgba(0,0,0,0));">
+            <h3>🚗 Registrar Piloto</h3>
+            <button class="modal-close" onclick="cerrarModalPiloto()">✕</button>
+        </div>
+        <div class="modal-body" style="flex:1;overflow-y:auto;">
+            <form id="form-piloto" onsubmit="guardarPiloto(event)">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:.7rem;">
+                    <div style="grid-column:1/-1;"><label class="lbl-sm">Nombre Completo *</label><input type="text" id="pl-nombre" required class="form-input inp-sm"></div>
+                    <div><label class="lbl-sm">No. Identificación (DPI) *</label><input type="text" id="pl-dpi" required class="form-input inp-sm"></div>
+                    <div><label class="lbl-sm">Teléfono *</label><input type="tel" id="pl-tel" required class="form-input inp-sm"></div>
+                    <div><label class="lbl-sm">No. Licencia</label><input type="text" id="pl-licencia" class="form-input inp-sm"></div>
+                    <div><label class="lbl-sm">Empresa para la que labora</label><input type="text" id="pl-empresa-labora" class="form-input inp-sm"></div>
+                    <div><label class="lbl-sm">Placas del Vehículo</label><input type="text" id="pl-placas" class="form-input inp-sm"></div>
+                    <div><label class="lbl-sm">Tipo de Vehículo</label>
+                        <select id="pl-tipo" class="form-input inp-sm">
+                            <option value="">Seleccionar</option>
+                            <option value="Sedan">Sedán</option>
+                            <option value="Pickup">Pickup</option>
+                            <option value="Camion">Camión</option>
+                            <option value="Motocicleta">Motocicleta</option>
+                            <option value="Panel">Panel</option>
+                            <option value="Microbus">Microbús</option>
+                            <option value="Bus">Bus</option>
+                            <option value="Otro">Otro</option>
+                        </select>
+                    </div>
+                    <div><label class="lbl-sm">Color del Vehículo</label><input type="text" id="pl-color" class="form-input inp-sm"></div>
+                    <div style="grid-column:1/-1;"><label class="lbl-sm">Foto del Vehículo</label>
+                        <input type="file" id="pl-foto" accept="image/*" class="form-input inp-sm" onchange="previsualizarFoto(event)">
+                        <div id="pl-foto-preview" style="display:none;margin-top:.5rem;text-align:center;"><img id="pl-foto-img" style="max-width:200px;max-height:150px;border-radius:8px;border:1px solid #2a2d45;"></div>
+                    </div>
+                    <div style="grid-column:1/-1;"><label class="lbl-sm">Dirección</label><input type="text" id="pl-dir" class="form-input inp-sm"></div>
+                </div>
+                <!-- Contactos emergencia -->
+                <h4 style="font-size:.78rem;color:#ff8c00;text-transform:uppercase;letter-spacing:.5px;margin:1rem 0 .5rem;">📱 Contactos de Emergencia (hasta 5)</h4>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;">
+                    <div><label class="lbl-sm">Nombre Contacto 1</label><input type="text" id="pl-c1n" class="form-input inp-sm"></div>
+                    <div><label class="lbl-sm">Teléfono 1</label><input type="tel" id="pl-c1t" class="form-input inp-sm"></div>
+                    <div><label class="lbl-sm">Nombre Contacto 2</label><input type="text" id="pl-c2n" class="form-input inp-sm"></div>
+                    <div><label class="lbl-sm">Teléfono 2</label><input type="tel" id="pl-c2t" class="form-input inp-sm"></div>
+                    <div><label class="lbl-sm">Nombre Contacto 3</label><input type="text" id="pl-c3n" class="form-input inp-sm"></div>
+                    <div><label class="lbl-sm">Teléfono 3</label><input type="tel" id="pl-c3t" class="form-input inp-sm"></div>
+                    <div><label class="lbl-sm">Nombre Contacto 4</label><input type="text" id="pl-c4n" class="form-input inp-sm"></div>
+                    <div><label class="lbl-sm">Teléfono 4</label><input type="tel" id="pl-c4t" class="form-input inp-sm"></div>
+                    <div><label class="lbl-sm">Nombre Contacto 5</label><input type="text" id="pl-c5n" class="form-input inp-sm"></div>
+                    <div><label class="lbl-sm">Teléfono 5</label><input type="tel" id="pl-c5t" class="form-input inp-sm"></div>
+                </div>
+                <div id="pl-codigo-box" style="display:none;margin-top:1rem;padding:.7rem 1rem;background:rgba(255,140,0,.08);border:1px solid rgba(255,140,0,.3);border-radius:10px;text-align:center;">
+                    <span style="font-size:.72rem;color:#6b7294;text-transform:uppercase;">Código de Acceso del Piloto</span>
+                    <div id="pl-codigo-val" style="font-size:1.5rem;font-weight:900;color:#ff8c00;font-family:monospace;letter-spacing:3px;margin-top:.3rem;"></div>
+                </div>
+                <div style="display:flex;gap:.5rem;margin-top:1.2rem;">
+                    <button type="submit" style="flex:1;background:linear-gradient(135deg,#ff8c00,#ff6600);color:#fff;font-weight:700;font-size:.85rem;padding:.6rem;border:none;border-radius:8px;cursor:pointer;">💾 Guardar Piloto</button>
+                    <button type="button" onclick="verListaPilotos()" style="flex:1;background:rgba(124,92,252,.12);color:#7c5cfc;font-weight:700;font-size:.85rem;padding:.6rem;border:1px solid rgba(124,92,252,.3);border-radius:8px;cursor:pointer;">👥 Ver Pilotos</button>
+                </div>
+            </form>
+            <div id="pl-lista" style="display:none;margin-top:1rem;">
+                <h4 style="font-size:.8rem;color:#ff8c00;text-transform:uppercase;margin:0 0 .5rem;">🚗 Pilotos Registrados</h4>
+                <div id="pl-lista-body" style="max-height:250px;overflow-y:auto;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL REGISTRAR AGENTE -->
+<div class="modal-overlay" id="modal-agente" style="display:none;" onclick="cerrarModalAgente(event)">
+    <div class="modal-box" style="width:95%;max-width:600px;max-height:92vh;display:flex;flex-direction:column;" onclick="event.stopPropagation()">
+        <div class="modal-hdr"><h3>👮 Registrar Agente</h3><button class="modal-close" onclick="cerrarModalAgente()">✕</button></div>
+        <div class="modal-body" style="flex:1;overflow-y:auto;">
+            <form id="form-agente" onsubmit="guardarAgente(event)">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:.7rem;">
+                    <div style="grid-column:1/-1;"><label class="lbl-sm">No. Documento *</label><input type="text" id="ag-doc" required class="form-input inp-sm"></div>
+                    <div style="grid-column:1/-1;"><label class="lbl-sm">Nombre Completo *</label><input type="text" id="ag-nombre" required class="form-input inp-sm"></div>
+                    <div><label class="lbl-sm">Teléfono *</label><input type="tel" id="ag-tel" required class="form-input inp-sm"></div>
+                    <div><label class="lbl-sm">Edad</label><input type="number" id="ag-edad" min="0" max="150" value="0" class="form-input inp-sm"></div>
+                    <div><label class="lbl-sm">Sexo</label><select id="ag-sexo" class="form-input inp-sm"><option value="">—</option><option value="M">M</option><option value="F">F</option></select></div>
+                    <div><label class="lbl-sm">País</label><input type="text" id="ag-pais" value="Guatemala" class="form-input inp-sm"></div>
+                    <div><label class="lbl-sm">Puesto</label><input type="text" id="ag-puesto" class="form-input inp-sm"></div>
+                    <div><label class="lbl-sm">Jefe Inmediato</label><input type="text" id="ag-jefe" class="form-input inp-sm"></div>
+                </div>
+                <div id="ag-codigo-box" style="display:none;margin-top:1rem;padding:.7rem 1rem;background:rgba(0,214,143,.08);border:1px solid rgba(0,214,143,.3);border-radius:10px;text-align:center;">
+                    <span style="font-size:.72rem;color:#6b7294;text-transform:uppercase;">Código de Acceso</span>
+                    <div id="ag-codigo-val" style="font-size:1.5rem;font-weight:900;color:#00d68f;font-family:monospace;letter-spacing:3px;margin-top:.3rem;"></div>
+                </div>
+                <div style="display:flex;gap:.5rem;margin-top:1.2rem;">
+                    <button type="submit" style="flex:1;background:linear-gradient(135deg,#ffa500,#ff8c00);color:#fff;font-weight:700;font-size:.85rem;padding:.6rem;border:none;border-radius:8px;cursor:pointer;">💾 Guardar Agente</button>
+                    <button type="button" onclick="verListaAgentes()" style="flex:1;background:rgba(124,92,252,.12);color:#7c5cfc;font-weight:700;font-size:.85rem;padding:.6rem;border:1px solid rgba(124,92,252,.3);border-radius:8px;cursor:pointer;">👥 Ver Agentes</button>
+                </div>
+            </form>
+            <div id="ag-lista" style="display:none;margin-top:1rem;">
+                <h4 style="font-size:.8rem;color:#ffa500;text-transform:uppercase;margin:0 0 .5rem;">👮 Agentes Registrados</h4>
+                <div id="ag-lista-body" style="max-height:250px;overflow-y:auto;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const API = (window.location.hostname==='localhost'||window.location.protocol==='file:') ? 'http://localhost:8000' : 'https://boton-de-panico-sisdel.onrender.com';
+let EMP = null;
+let mapaL = null;
+let marcadores = {};
+let alertaActual = null;
+let filtro = 'todas';
+let _alertasVistas = new Set();
+let _audioCtx = null;
+let todosLosPilotos = [];
+let todosLosAgentes = [];
+let todasLasAlertas = [];
+
+// ── INIT ──────────────────
+document.addEventListener('DOMContentLoaded', () => {
+    if (sessionStorage.getItem('sisdel_tipo') !== 'empresa') {
+        window.location.href = 'index.html'; return;
+    }
+    EMP = JSON.parse(sessionStorage.getItem('sisdel_empresa'));
+    cargarInfoEmpresa();
+    iniciarReloj();
+    iniciarMapa();
+    pedirPermisoNotificacion();
+    cargarAlertas();
+    cargarPilotos();
+    setInterval(cargarAlertas, 5000);
+    setInterval(() => { fetch(`${API}/health`).catch(()=>{}); }, 4*60*1000);
+});
+
+async function cargarInfoEmpresa() {
+    try {
+        const emp = await (await fetch(`${API}/api/programador/empresas`)).json();
+        const e = emp.find(x => x.id_empresa === EMP.id_empresa);
+        if (e) {
+            document.getElementById('emp-name-label').textContent = e.nombre_empresa;
+            document.title = `🛡️ ${e.nombre_empresa} — Panel Empresa`;
+        }
+    } catch {}
+}
+
+function logout() { sessionStorage.clear(); window.location.href = 'index.html'; }
+
+// ── RELOJ ──────────────────
+function iniciarReloj() {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const tick = () => { document.getElementById('clock').textContent = new Date().toLocaleTimeString([], {hour12:false, timeZone:tz}); };
+    tick(); setInterval(tick, 1000);
+}
+
+// ── MAPA ──────────────────
+function iniciarMapa() {
+    mapaL = L.map('mapa').setView([14.6349, -90.5069], 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {attribution:'© OpenStreetMap'}).addTo(mapaL);
+}
+function centrarMapa() { if(mapaL) mapaL.setView([14.6349,-90.5069],12); }
+function abrirMapa() { document.getElementById('modal-mapa').style.display='flex'; if(mapaL) setTimeout(()=>{ mapaL.invalidateSize(); centrarMapa(); },100); }
+function cerrarMapa(e) { if(e&&e.target!==document.getElementById('modal-mapa')) return; document.getElementById('modal-mapa').style.display='none'; }
+function verMapaRapido(lat, lon) { document.getElementById('modal-mapa').style.display='flex'; if(mapaL) setTimeout(()=>{ mapaL.invalidateSize(); mapaL.setView([lat,lon],16); },100); }
+
+// ── NOTIFICACIONES ──────────────────
+function pedirPermisoNotificacion() { if('Notification' in window && Notification.permission==='default') Notification.requestPermission(); }
+function notificarAlerta(a) {
+    if ('Notification' in window && Notification.permission==='granted') {
+        new Notification('🛡️ Alerta de Piloto', { body: `${a.nombre_piloto} — ${a.placas_vehiculo||'Sin placas'}`, icon:'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🛡️</text></svg>', tag:a.id_alerta });
+    }
+    // Alarma sonora
+    try {
+        if (!_audioCtx) _audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+        const o = _audioCtx.createOscillator();
+        const g = _audioCtx.createGain();
+        o.type = 'sine'; o.frequency.setValueAtTime(880, _audioCtx.currentTime);
+        g.gain.setValueAtTime(0.3, _audioCtx.currentTime);
+        o.connect(g); g.connect(_audioCtx.destination);
+        o.start(); o.stop(_audioCtx.currentTime + 0.5);
+    } catch {}
+}
+
+// ── ALERTAS ──────────────────
+async function cargarAlertas() {
+    try {
+        const res = await fetch(`${API}/api/empresa/alertas/${EMP.id_empresa}`);
+        todasLasAlertas = await res.json();
+        renderAlertas();
+        // Nuevas alertas
+        todasLasAlertas.forEach(a => {
+            if (a.estatus === 'ACTIVA' && !_alertasVistas.has(a.id_alerta)) {
+                _alertasVistas.add(a.id_alerta);
+                notificarAlerta(a);
+            }
+        });
+        // Stats
+        const activas = todasLasAlertas.filter(a => a.estatus==='ACTIVA').length;
+        const camino = todasLasAlertas.filter(a => a.estatus==='EN_CAMINO').length;
+        const atend = todasLasAlertas.filter(a => ['ATENDIDA','FALSA_ALARMA','CANCELADA'].includes(a.estatus)).length;
+        document.getElementById('sp-activas').textContent = activas;
+        document.getElementById('sp-camino').textContent = camino;
+        document.getElementById('sp-atend').textContent = atend;
+        // Update map
+        const activos = todasLasAlertas.filter(a => a.estatus==='ACTIVA'||a.estatus==='EN_CAMINO');
+        Object.keys(marcadores).forEach(k => { if(!activos.find(a=>a.id_alerta===k)) { mapaL.removeLayer(marcadores[k]); delete marcadores[k]; } });
+        activos.forEach(a => {
+            if (a.gps_latitud && a.gps_longitud) {
+                if (!marcadores[a.id_alerta]) {
+                    const icon = L.divIcon({className:'',html:`<div style="width:28px;height:28px;background:${a.estatus==='ACTIVA'?'#ff3b3b':'#ff8c00'};border-radius:50%;border:3px solid #fff;display:flex;align-items:center;justify-content:center;font-size:14px;box-shadow:0 0 12px ${a.estatus==='ACTIVA'?'rgba(255,59,59,.6)':'rgba(255,140,0,.6)'};">🚗</div>`,iconSize:[28,28],iconAnchor:[14,14]});
+                    marcadores[a.id_alerta] = L.marker([a.gps_latitud,a.gps_longitud],{icon}).addTo(mapaL).bindPopup(`<b>${a.nombre_piloto}</b><br>${a.placas_vehiculo||''} — ${a.tipo_vehiculo||''}`);
+                }
+            }
+        });
+    } catch {}
+}
+
+function renderAlertas() {
+    const tbody = document.getElementById('alertas-tbody');
+    let list = todasLasAlertas;
+    if (filtro !== 'todas') list = list.filter(a => a.estatus === filtro);
+    if (!list.length) { tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state"><span style="font-size:2rem">🛡️</span><p>Sin alertas</p></div></td></tr>'; return; }
+    tbody.innerHTML = list.map(a => {
+        const badgeClass = a.estatus==='ACTIVA'?'badge-activa':a.estatus==='EN_CAMINO'?'badge-camino':a.estatus==='ATENDIDA'?'badge-atendida':'badge-falsa';
+        const gpsBtn = a.gps_latitud ? `<button class="btn-gps" onclick="verMapaRapido(${a.gps_latitud},${a.gps_longitud})">📍</button>` : '—';
+        const hora = a.fecha_creacion ? new Date(a.fecha_creacion).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '';
+        return `<tr onclick="verDetalle('${a.id_alerta}')" style="cursor:pointer;">
+            <td><strong>${a.numero_caso||''}</strong></td>
+            <td><span class="badge ${badgeClass}">${a.estatus}</span></td>
+            <td>${a.nombre_piloto}</td>
+            <td><strong style="color:#ff8c00;">${a.placas_vehiculo||'—'}</strong></td>
+            <td>${a.tipo_vehiculo||'—'} ${a.color_vehiculo?'('+a.color_vehiculo+')':''}</td>
+            <td>${gpsBtn}</td>
+            <td>${hora}</td>
+            <td><button class="btn-det" onclick="event.stopPropagation();verDetalle('${a.id_alerta}')">Ver</button></td>
+        </tr>`;
+    }).join('');
+}
+
+function setFiltro(f, btn) {
+    filtro = f;
+    document.querySelectorAll('.ftab').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderAlertas();
+}
+
+// ── DETALLE ──────────────────
+async function verDetalle(id) {
+    alertaActual = todasLasAlertas.find(a => a.id_alerta === id);
+    if (!alertaActual) return;
+    const a = alertaActual;
+    const loc = a.gps_latitud ? `<a href="https://www.google.com/maps?q=${a.gps_latitud},${a.gps_longitud}" target="_blank" style="color:#4da6ff;">📍 Ver Mapa</a>` : 'Sin GPS';
+    // Cargar asignaciones
+    let agentesHtml = '';
+    try {
+        const asig = await (await fetch(`${API}/api/empresa/agentes/asignaciones/${a.id_alerta}`)).json();
+        for (let i = 1; i <= 4; i++) {
+            const ag = asig.find(x => x.slot === i);
+            agentesHtml += `<div style="display:flex;align-items:center;gap:.5rem;margin-top:.4rem;">
+                <span style="font-size:.72rem;color:#6b7294;min-width:55px;">Agente ${i}:</span>
+                <select id="det-ag-${i}" class="form-input inp-sm" style="flex:1;font-size:.78rem;">
+                    <option value="">— Seleccionar —</option>
+                    ${todosLosAgentes.map(g => `<option value="${g.num_identificacion}" ${ag&&ag.num_identificacion===g.num_identificacion?'selected':''}>${g.nombre} (${g.codigo_agente})</option>`).join('')}
+                </select>
+            </div>`;
+        }
+    } catch {}
+    document.getElementById('det-body').innerHTML = `
+        <div style="margin-bottom:1rem;">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+                <span class="badge ${a.estatus==='ACTIVA'?'badge-activa':a.estatus==='EN_CAMINO'?'badge-camino':'badge-atendida'}" style="font-size:.9rem;padding:.3rem .8rem;">${a.estatus}</span>
+                <span style="color:#6b7294;font-size:.8rem;">${a.numero_caso||''}</span>
+            </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem .8rem;font-size:.85rem;">
+            <div><span style="color:#6b7294;font-size:.72rem;text-transform:uppercase;display:block;">Piloto</span>${a.nombre_piloto}</div>
+            <div><span style="color:#6b7294;font-size:.72rem;text-transform:uppercase;display:block;">Teléfono</span><a href="tel:${a.telefono_piloto}" style="color:#4da6ff;">${a.telefono_piloto||'—'}</a></div>
+            <div><span style="color:#6b7294;font-size:.72rem;text-transform:uppercase;display:block;">DPI</span>${a.num_identificacion||'—'}</div>
+            <div><span style="color:#6b7294;font-size:.72rem;text-transform:uppercase;display:block;">Ubicación</span>${loc}</div>
+        </div>
+        <div class="vehiculo-card">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.5rem;font-size:.82rem;">
+                <div><span style="color:#6b7294;font-size:.7rem;text-transform:uppercase;display:block;">Placas</span><strong style="color:#ff8c00;font-size:1rem;">${a.placas_vehiculo||'—'}</strong></div>
+                <div><span style="color:#6b7294;font-size:.7rem;text-transform:uppercase;display:block;">Tipo</span>${a.tipo_vehiculo||'—'}</div>
+                <div><span style="color:#6b7294;font-size:.7rem;text-transform:uppercase;display:block;">Color</span>${a.color_vehiculo||'—'}</div>
+            </div>
+        </div>
+        <h4 style="font-size:.78rem;color:#ff8c00;text-transform:uppercase;margin:1rem 0 .3rem;">👮 Asignar Agentes</h4>
+        ${agentesHtml}
+        <div style="margin-top:.8rem;">
+            <button class="btn-sm-icon" style="background:rgba(77,166,255,.12);border-color:rgba(77,166,255,.35);color:#4da6ff;width:100%;" onclick="avisarContactosPiloto('${a.id_piloto}','${a.nombre_piloto}',${a.gps_latitud||0},${a.gps_longitud||0})">💬 Avisar Contactos del Piloto</button>
+        </div>
+    `;
+    document.getElementById('modal-det').style.display = 'flex';
+}
+
+function closeDet(e) { if(e&&e.target!==document.getElementById('modal-det')) return; document.getElementById('modal-det').style.display='none'; }
+
+async function cambiarEstatus(estatus) {
+    if (!alertaActual) return;
+    try {
+        await fetch(`${API}/api/empresa/alertas/${alertaActual.id_alerta}/estatus`, {
+            method:'PATCH', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({estatus})
+        });
+        closeDet(); cargarAlertas();
+    } catch { alert('Error al cambiar estatus.'); }
+}
+
+async function guardarAsignaciones() {
+    if (!alertaActual) return;
+    for (let i = 1; i <= 4; i++) {
+        const sel = document.getElementById(`det-ag-${i}`);
+        if (sel && sel.value) {
+            try {
+                await fetch(`${API}/api/empresa/agentes/asignar`, {
+                    method:'POST', headers:{'Content-Type':'application/json'},
+                    body: JSON.stringify({ id_alerta: alertaActual.id_alerta, id_empresa: EMP.id_empresa, num_identificacion: sel.value, slot: i })
+                });
+            } catch {}
+        }
+    }
+    alert('✅ Agentes asignados correctamente.');
+}
+
+// ── PILOTOS ──────────────────
+async function cargarPilotos() {
+    try {
+        todosLosPilotos = await (await fetch(`${API}/api/pilotos/${EMP.id_empresa}`)).json();
+        document.getElementById('sp-pilotos').textContent = todosLosPilotos.length;
+    } catch {}
+}
+
+function abrirRegistroPiloto() { document.getElementById('modal-piloto').style.display='flex'; }
+function cerrarModalPiloto(e) { if(e&&e.target!==document.getElementById('modal-piloto')) return; document.getElementById('modal-piloto').style.display='none'; }
+
+function previsualizarFoto(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        document.getElementById('pl-foto-img').src = e.target.result;
+        document.getElementById('pl-foto-preview').style.display = 'block';
+    };
+    reader.readAsDataURL(file);
+}
+
+async function guardarPiloto(event) {
+    event.preventDefault();
+    let fotoBase64 = '';
+    const fotoFile = document.getElementById('pl-foto').files[0];
+    if (fotoFile) {
+        fotoBase64 = await new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                // Compress
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const maxW = 800;
+                    const ratio = Math.min(maxW/img.width, maxW/img.height, 1);
+                    canvas.width = img.width*ratio;
+                    canvas.height = img.height*ratio;
+                    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+                    resolve(canvas.toDataURL('image/jpeg', 0.6));
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(fotoFile);
+        });
+    }
+    try {
+        const res = await fetch(`${API}/api/pilotos/`, {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({
+                id_empresa: EMP.id_empresa,
+                nombre: document.getElementById('pl-nombre').value.trim(),
+                telefono: document.getElementById('pl-tel').value.trim(),
+                num_identificacion: document.getElementById('pl-dpi').value.trim(),
+                num_licencia: document.getElementById('pl-licencia').value.trim(),
+                empresa_labora: document.getElementById('pl-empresa-labora').value.trim(),
+                placas_vehiculo: document.getElementById('pl-placas').value.trim(),
+                tipo_vehiculo: document.getElementById('pl-tipo').value,
+                color_vehiculo: document.getElementById('pl-color').value.trim(),
+                foto_vehiculo: fotoBase64,
+                direccion: document.getElementById('pl-dir').value.trim(),
+                fam_nombre_1: document.getElementById('pl-c1n').value.trim(), fam_tel_1: document.getElementById('pl-c1t').value.trim(),
+                fam_nombre_2: document.getElementById('pl-c2n').value.trim(), fam_tel_2: document.getElementById('pl-c2t').value.trim(),
+                fam_nombre_3: document.getElementById('pl-c3n').value.trim(), fam_tel_3: document.getElementById('pl-c3t').value.trim(),
+                fam_nombre_4: document.getElementById('pl-c4n').value.trim(), fam_tel_4: document.getElementById('pl-c4t').value.trim(),
+                fam_nombre_5: document.getElementById('pl-c5n').value.trim(), fam_tel_5: document.getElementById('pl-c5t').value.trim(),
+            })
+        });
+        const p = await res.json();
+        document.getElementById('pl-codigo-box').style.display = 'block';
+        document.getElementById('pl-codigo-val').textContent = p.codigo_piloto || '';
+        cargarPilotos();
+        alert('✅ Piloto guardado correctamente.');
+    } catch { alert('Error al guardar piloto.'); }
+}
+
+async function verListaPilotos() {
+    const div = document.getElementById('pl-lista');
+    div.style.display = div.style.display==='none'?'block':'none';
+    if (div.style.display==='block') {
+        await cargarPilotos();
+        const body = document.getElementById('pl-lista-body');
+        body.innerHTML = todosLosPilotos.map(p => `
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:.4rem .6rem;background:#0b0d17;border:1px solid #1a1f3e;border-radius:8px;margin-bottom:.3rem;font-size:.8rem;">
+                <div>
+                    <strong>${p.nombre}</strong>
+                    <span style="color:#ff8c00;margin-left:.5rem;">${p.placas_vehiculo||''}</span>
+                    <span style="color:#6b7294;margin-left:.3rem;">${p.tipo_vehiculo||''} ${p.color_vehiculo||''}</span>
+                </div>
+                <span style="font-family:monospace;color:#00d68f;font-size:.75rem;">${p.codigo_piloto||''}</span>
+            </div>
+        `).join('') || '<p style="color:#6b7294;font-size:.82rem;">No hay pilotos registrados.</p>';
+    }
+}
+
+function buscarPiloto(q) {
+    const container = document.getElementById('panel-busqueda-resultados');
+    q = q.trim().toLowerCase();
+    if (!q) { container.style.display='none'; return; }
+    const matches = todosLosPilotos.filter(p => p.nombre.toLowerCase().includes(q) || (p.placas_vehiculo||'').toLowerCase().includes(q) || (p.num_identificacion||'').includes(q));
+    if (!matches.length) { container.style.display='none'; return; }
+    container.innerHTML = matches.slice(0,10).map(p => `
+        <div style="padding:.5rem .8rem;border-bottom:1px solid #1a1f3e;cursor:pointer;font-size:.82rem;" onmouseover="this.style.background='#1a1f3e'" onmouseout="this.style.background='transparent'">
+            <strong>${p.nombre}</strong> <span style="color:#ff8c00;">${p.placas_vehiculo||''}</span> <span style="color:#6b7294;">${p.tipo_vehiculo||''}</span>
+        </div>
+    `).join('');
+    container.style.display = 'block';
+}
+
+// ── AGENTES ──────────────────
+function abrirRegistroAgente() { document.getElementById('modal-agente').style.display='flex'; cargarAgentes(); }
+function cerrarModalAgente(e) { if(e&&e.target!==document.getElementById('modal-agente')) return; document.getElementById('modal-agente').style.display='none'; }
+
+async function cargarAgentes() {
+    try { todosLosAgentes = await (await fetch(`${API}/api/empresa/agentes/lista/${EMP.id_empresa}`)).json(); } catch {}
+}
+
+async function guardarAgente(event) {
+    event.preventDefault();
+    try {
+        const res = await fetch(`${API}/api/empresa/agentes/`, {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({
+                id_empresa: EMP.id_empresa,
+                num_identificacion: document.getElementById('ag-doc').value.trim(),
+                nombre: document.getElementById('ag-nombre').value.trim(),
+                telefono: document.getElementById('ag-tel').value.trim(),
+                edad: parseInt(document.getElementById('ag-edad').value)||0,
+                sexo: document.getElementById('ag-sexo').value,
+                pais: document.getElementById('ag-pais').value.trim(),
+                puesto: document.getElementById('ag-puesto').value.trim(),
+                jefe_inmediato: document.getElementById('ag-jefe').value.trim(),
+            })
+        });
+        const ag = await res.json();
+        document.getElementById('ag-codigo-box').style.display = 'block';
+        document.getElementById('ag-codigo-val').textContent = ag.codigo_agente || '';
+        cargarAgentes();
+        alert('✅ Agente guardado.');
+    } catch { alert('Error.'); }
+}
+
+async function verListaAgentes() {
+    const div = document.getElementById('ag-lista');
+    div.style.display = div.style.display==='none'?'block':'none';
+    if (div.style.display==='block') {
+        await cargarAgentes();
+        const body = document.getElementById('ag-lista-body');
+        body.innerHTML = todosLosAgentes.map(a => `
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:.4rem .6rem;background:#0b0d17;border:1px solid #1a1f3e;border-radius:8px;margin-bottom:.3rem;font-size:.8rem;">
+                <div><strong>${a.nombre}</strong> <span style="color:#6b7294;margin-left:.3rem;">${a.puesto||''}</span></div>
+                <span style="font-family:monospace;color:#00d68f;font-size:.75rem;">${a.codigo_agente||''}</span>
+            </div>
+        `).join('') || '<p style="color:#6b7294;font-size:.82rem;">No hay agentes registrados.</p>';
+    }
+}
+
+// ── AVISAR CONTACTOS ──────────────────
+async function avisarContactosPiloto(id_piloto, nombre, lat, lon) {
+    if (!id_piloto) { alert('Sin ID de piloto.'); return; }
+    document.getElementById('avisar-body').innerHTML = '<p style="color:#6b7294;font-size:.85rem;text-align:center;">Buscando contactos...</p>';
+    document.getElementById('modal-avisar').style.display='flex';
+    try {
+        const contactos = await (await fetch(`${API}/api/pilotos/${id_piloto}/contactos`)).json();
+        if (!contactos.length) { document.getElementById('avisar-body').innerHTML = '<p style="color:#ff3b3b;font-size:.85rem;text-align:center;">Sin contactos registrados.</p>'; return; }
+        const locUrl = lat ? `https://www.google.com/maps?q=${lat},${lon}` : '';
+        const msg = encodeURIComponent(`🛡️ ALERTA: ${nombre} ha activado el botón de alerta.${locUrl ? ' Ubicación: '+locUrl : ''}`);
+        document.getElementById('avisar-body').innerHTML = contactos.map(c => `
+            <a href="https://wa.me/${c.telefono.replace(/\D/g,'')}?text=${msg}" target="_blank" style="display:flex;align-items:center;gap:.6rem;padding:.5rem .8rem;background:rgba(37,211,102,.08);border:1px solid rgba(37,211,102,.25);border-radius:10px;text-decoration:none;color:#fff;font-size:.85rem;transition:background .2s;" onmouseover="this.style.background='rgba(37,211,102,.18)'" onmouseout="this.style.background='rgba(37,211,102,.08)'">
+                <span style="font-size:1.3rem;">💬</span>
+                <div style="flex:1;"><strong>${c.nombre||'Contacto '+c.posicion}</strong><div style="font-size:.75rem;color:#6b7294;">${c.telefono}</div></div>
+                <span style="color:#25d366;font-weight:700;font-size:.78rem;">WhatsApp →</span>
+            </a>
+        `).join('');
+    } catch { document.getElementById('avisar-body').innerHTML = '<p style="color:#ff3b3b;font-size:.85rem;text-align:center;">Error al cargar contactos.</p>'; }
+}
+function cerrarAvisar(e) { if(e&&e.target!==document.getElementById('modal-avisar')) return; document.getElementById('modal-avisar').style.display='none'; }
+
+// ── HISTORIAL ──────────────────
+let _historialData = [];
+function abrirHistorial() { document.getElementById('modal-historial').style.display='flex'; renderHistorial(todasLasAlertas); }
+function cerrarHistorial(e) { if(e&&e.target!==document.getElementById('modal-historial')) return; document.getElementById('modal-historial').style.display='none'; }
+function renderHistorial(list) {
+    _historialData = list;
+    document.getElementById('historial-count').textContent = `${list.length} alertas`;
+    const tbody = document.getElementById('historial-tbody');
+    if (!list.length) { tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:2rem;color:#6b7294;">Sin alertas</td></tr>'; return; }
+    tbody.innerHTML = list.map(a => {
+        const badgeClass = a.estatus==='ACTIVA'?'badge-activa':a.estatus==='EN_CAMINO'?'badge-camino':a.estatus==='ATENDIDA'?'badge-atendida':'badge-falsa';
+        return `<tr onclick="verDetalle('${a.id_alerta}')" style="cursor:pointer;">
+            <td><strong>${a.numero_caso||''}</strong></td>
+            <td><span class="badge ${badgeClass}">${a.estatus}</span></td>
+            <td>${a.nombre_piloto}</td>
+            <td><strong style="color:#ff8c00;">${a.placas_vehiculo||'—'}</strong></td>
+            <td>${a.tipo_vehiculo||'—'} ${a.color_vehiculo||''}</td>
+            <td>${a.fecha_creacion ? new Date(a.fecha_creacion).toLocaleString() : ''}</td>
+            <td><button class="btn-det" onclick="event.stopPropagation();verDetalle('${a.id_alerta}')">Ver</button></td>
+        </tr>`;
+    }).join('');
+}
+function filtrarHistorial(q) {
+    q = q.trim().toLowerCase();
+    const f = q ? todasLasAlertas.filter(a => a.nombre_piloto.toLowerCase().includes(q) || (a.placas_vehiculo||'').toLowerCase().includes(q) || (a.num_identificacion||'').includes(q)) : todasLasAlertas;
+    renderHistorial(f);
+}
+</script>
+<style>
+.lbl-sm { font-size:.72rem;color:#6b7294;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:.3rem; }
+.inp-sm { width:100%;background:#0b0d17;border:1px solid #2a2d45;border-radius:8px;padding:.5rem .7rem;color:#fff;font-size:.85rem;box-sizing:border-box; }
+.btn-gps { background:rgba(77,166,255,.12);color:#4da6ff;border:1px solid rgba(77,166,255,.3);padding:.2rem .5rem;border-radius:6px;cursor:pointer;font-size:.78rem; }
+.btn-det { background:rgba(255,140,0,.12);color:#ff8c00;border:1px solid rgba(255,140,0,.3);padding:.2rem .5rem;border-radius:6px;cursor:pointer;font-size:.78rem; }
+</style>
+</body>
+</html>

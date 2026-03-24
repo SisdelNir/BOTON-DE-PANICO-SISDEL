@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>🛡️ Botón de Alerta — Piloto</title>
+    <meta name="theme-color" content="#0b0d17">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=JetBrains+Mono:wght@400;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/vecino.css">
+    <style>
+        :root { --accent: #ff8c00; --accent-glow: rgba(255,140,0,.4); }
+        .btn-panico { background: linear-gradient(135deg, #ff8c00, #ff6600) !important; box-shadow: 0 0 40px var(--accent-glow), 0 0 80px rgba(255,140,0,.15) !important; }
+        .btn-panico:active { box-shadow: 0 0 60px var(--accent-glow), 0 0 120px rgba(255,140,0,.3) !important; }
+        .v-logo h1 { color: #ff8c00 !important; }
+        .btn-clave-ok { background: linear-gradient(135deg, #ff8c00, #ff6600) !important; }
+        .vehiculo-info { background: rgba(255,140,0,.05); border: 1px solid rgba(255,140,0,.2); border-radius: 12px; padding: .75rem; margin-top: .5rem; }
+        .shake-notice { position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:rgba(255,140,0,.15);border:1px solid rgba(255,140,0,.4);border-radius:12px;padding:.5rem 1rem;color:#ff8c00;font-size:.78rem;font-weight:600;z-index:100;display:none;text-align:center; }
+    </style>
+</head>
+<body>
+
+<!-- ══ PASO 1: LOGIN ══════════════════ -->
+<div id="paso-clave" class="paso">
+    <div class="vcenter">
+        <div class="v-logo">
+            <div class="v-icon">
+                <svg width="44" height="44" viewBox="0 0 44 44" fill="none">
+                    <circle cx="22" cy="22" r="19" stroke="#ff8c00" stroke-width="2.5" fill="none" opacity=".4"/>
+                    <circle cx="22" cy="22" r="8" fill="#ff8c00">
+                        <animate attributeName="r" values="8;11;8" dur="2s" repeatCount="indefinite"/>
+                    </circle>
+                </svg>
+            </div>
+            <h1>Botón de Alerta</h1>
+            <p id="emp-nombre-label">SISDEL Seguridad</p>
+        </div>
+        <div class="v-card">
+            <h2>Ingresar como Piloto</h2>
+            <p class="v-desc">Ingresa tu código de piloto o número de identificación</p>
+            <input type="text" id="inp-clave" placeholder="Código o DPI" maxlength="20"
+                   autocomplete="off" oninput="this.value=this.value.toUpperCase()">
+            <button class="btn-clave-ok" onclick="loginPiloto()">Continuar →</button>
+            <div class="v-error" id="error-clave" style="display:none;"></div>
+        </div>
+        <a href="index.html" class="link-admin">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>
+            </svg>
+            Soy administrador
+        </a>
+    </div>
+</div>
+
+<!-- ══ PASO PÁNICO ══════════════════ -->
+<div id="paso-panico" class="paso" style="display:none;">
+    <div class="vcenter">
+        <div class="v-logo">
+            <h1 id="panico-greeting">Hola, Piloto</h1>
+            <p id="panico-vehiculo" style="color:#ff8c00;font-size:.85rem;margin-top:.3rem;"></p>
+        </div>
+        <button class="btn-panico" id="btn-alerta" onclick="activarAlerta()">
+            <span class="bp-text">🛡️</span>
+            <span class="bp-sub">ALERTA</span>
+        </button>
+        <p class="bp-hint">Presiona el botón para enviar una alerta de emergencia con tu ubicación GPS</p>
+
+        <div id="alerta-status" style="display:none;margin-top:1rem;padding:.8rem 1rem;background:rgba(255,140,0,.1);border:1px solid rgba(255,140,0,.3);border-radius:12px;text-align:center;">
+            <p id="alerta-msg" style="font-size:.9rem;font-weight:600;color:#ff8c00;"></p>
+        </div>
+
+        <div class="menu-bottom" style="margin-top:1.5rem;display:flex;gap:.5rem;flex-wrap:wrap;justify-content:center;">
+            <button class="menu-btn" onclick="mostrarConfig()">⚙️ Configuración</button>
+            <button class="menu-btn" onclick="grabarVoz()">🎤 Grabar Voz</button>
+            <button class="menu-btn" onclick="logout()">🚪 Salir</button>
+        </div>
+    </div>
+    <div class="shake-notice" id="shake-notice">📳 Agita el teléfono para enviar alerta rápida</div>
+</div>
+
+<!-- ══ PASO CONFIG ══════════════════ -->
+<div id="paso-config" class="paso" style="display:none;">
+    <div class="vcenter" style="max-width:600px;">
+        <div class="v-logo"><h2>⚙️ Mi Configuración</h2><p>Actualiza tus datos y contactos</p></div>
+        <div class="v-card" style="padding:1.5rem;">
+            <div class="v-form-grid">
+                <div class="v-field v-field-full"><label>Nombre Completo</label><input type="text" id="cfg-nombre"></div>
+                <div class="v-field"><label>Teléfono</label><input type="tel" id="cfg-tel"></div>
+                <div class="v-field"><label>No. Licencia</label><input type="text" id="cfg-licencia"></div>
+                <div class="v-field"><label>Placas Vehículo</label><input type="text" id="cfg-placas"></div>
+                <div class="v-field"><label>Tipo Vehículo</label>
+                    <select id="cfg-tipo">
+                        <option value="">—</option><option value="Sedan">Sedán</option><option value="Pickup">Pickup</option>
+                        <option value="Camion">Camión</option><option value="Motocicleta">Motocicleta</option>
+                        <option value="Panel">Panel</option><option value="Microbus">Microbús</option>
+                        <option value="Bus">Bus</option><option value="Otro">Otro</option>
+                    </select>
+                </div>
+                <div class="v-field"><label>Color Vehículo</label><input type="text" id="cfg-color"></div>
+                <div class="v-field v-field-full"><label>Foto del Vehículo</label>
+                    <input type="file" id="cfg-foto" accept="image/*" onchange="previsualizarFotoConfig(event)">
+                    <div id="cfg-foto-preview" style="display:none;margin-top:.4rem;text-align:center;"><img id="cfg-foto-img" style="max-width:200px;max-height:120px;border-radius:8px;border:1px solid #2a2d45;"></div>
+                </div>
+                <div class="v-field v-field-full"><label>Dirección</label><input type="text" id="cfg-dir"></div>
+            </div>
+            <h4 style="font-size:.78rem;color:#ff8c00;text-transform:uppercase;margin:1rem 0 .5rem;">📱 Contactos de Emergencia</h4>
+            <div class="v-form-grid">
+                <div class="v-field"><label>Contacto 1</label><input type="text" id="cfg-c1n" placeholder="Nombre"></div>
+                <div class="v-field"><label>Teléfono 1</label><input type="tel" id="cfg-c1t"></div>
+                <div class="v-field"><label>Contacto 2</label><input type="text" id="cfg-c2n" placeholder="Nombre"></div>
+                <div class="v-field"><label>Teléfono 2</label><input type="tel" id="cfg-c2t"></div>
+                <div class="v-field"><label>Contacto 3</label><input type="text" id="cfg-c3n" placeholder="Nombre"></div>
+                <div class="v-field"><label>Teléfono 3</label><input type="tel" id="cfg-c3t"></div>
+                <div class="v-field"><label>Contacto 4</label><input type="text" id="cfg-c4n" placeholder="Nombre"></div>
+                <div class="v-field"><label>Teléfono 4</label><input type="tel" id="cfg-c4t"></div>
+                <div class="v-field"><label>Contacto 5</label><input type="text" id="cfg-c5n" placeholder="Nombre"></div>
+                <div class="v-field"><label>Teléfono 5</label><input type="tel" id="cfg-c5t"></div>
+            </div>
+            <div style="display:flex;gap:.5rem;margin-top:1rem;">
+                <button class="btn-clave-ok" style="flex:1;" onclick="guardarConfig()">💾 Guardar</button>
+                <button onclick="volverPanico()" style="flex:1;background:rgba(107,114,148,.15);border:1px solid rgba(107,114,148,.3);color:#6b7294;border-radius:12px;padding:.6rem;font-weight:700;cursor:pointer;">← Volver</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══ MODAL GRABAR VOZ ══════════════════ -->
+<div id="modal-voz" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;display:none;align-items:center;justify-content:center;">
+    <div style="background:#111325;border:1px solid #2a2d45;border-radius:16px;padding:2rem;max-width:400px;width:90%;text-align:center;">
+        <h3 style="color:#ff8c00;margin-bottom:1rem;">🎤 Grabar Mensaje de Voz</h3>
+        <p style="font-size:.82rem;color:#6b7294;margin-bottom:1rem;">Se enviará automáticamente con tu alerta</p>
+        <button id="btn-rec" onclick="toggleGrabacion()" style="width:80px;height:80px;border-radius:50%;border:3px solid #ff8c00;background:rgba(255,140,0,.15);font-size:2rem;cursor:pointer;">🎤</button>
+        <p id="rec-status" style="margin-top:.5rem;font-size:.82rem;color:#6b7294;">Presiona para grabar</p>
+        <audio id="audio-preview" controls style="display:none;margin-top:.8rem;width:100%;"></audio>
+        <div style="display:flex;gap:.5rem;margin-top:1rem;">
+            <button onclick="cerrarVoz()" style="flex:1;background:rgba(107,114,148,.15);border:1px solid rgba(107,114,148,.3);color:#6b7294;border-radius:12px;padding:.5rem;font-weight:700;cursor:pointer;">Cerrar</button>
+        </div>
+    </div>
+</div>
+
+<script>
+const API = (window.location.hostname==='localhost'||window.location.protocol==='file:') ? 'http://localhost:8000' : 'https://boton-de-panico-sisdel.onrender.com';
+let PILOTO = null;
+let ID_EMPRESA = null;
+let mediaRecorder = null;
+let audioChunks = [];
+let vozBase64 = '';
+
+// ── INIT ──────────────────
+document.addEventListener('DOMContentLoaded', () => {
+    const params = new URLSearchParams(window.location.search);
+    ID_EMPRESA = params.get('emp');
+    if (!ID_EMPRESA) {
+        document.getElementById('error-clave').textContent = 'Error: No se especificó empresa en el link.';
+        document.getElementById('error-clave').style.display = 'block';
+        return;
+    }
+    // Check saved session
+    const saved = sessionStorage.getItem('sisdel_piloto');
+    if (saved) {
+        PILOTO = JSON.parse(saved);
+        mostrarPanico();
+    }
+    iniciarShake();
+    document.getElementById('inp-clave').addEventListener('keydown', e => { if(e.key==='Enter') loginPiloto(); });
+});
+
+async function loginPiloto() {
+    const clave = document.getElementById('inp-clave').value.trim();
+    if (!clave) { showErr('Ingresa tu código o DPI'); return; }
+    try {
+        // Try searching in pilotos list
+        const res = await fetch(`${API}/api/pilotos/${ID_EMPRESA}`);
+        const pilotos = await res.json();
+        const p = pilotos.find(x => x.num_identificacion === clave || (x.codigo_piloto||'').toUpperCase() === clave.toUpperCase());
+        if (!p) { showErr('Código o DPI no encontrado'); return; }
+        PILOTO = p;
+        sessionStorage.setItem('sisdel_piloto', JSON.stringify(p));
+        mostrarPanico();
+    } catch { showErr('Error de conexión'); }
+}
+
+function showErr(m) { const e=document.getElementById('error-clave'); e.textContent=m; e.style.display='block'; }
+
+function mostrarPanico() {
+    document.getElementById('paso-clave').style.display = 'none';
+    document.getElementById('paso-panico').style.display = 'block';
+    document.getElementById('paso-config').style.display = 'none';
+    document.getElementById('panico-greeting').textContent = `Hola, ${PILOTO.nombre.split(' ')[0]}`;
+    const vi = [];
+    if (PILOTO.placas_vehiculo) vi.push(`🚗 ${PILOTO.placas_vehiculo}`);
+    if (PILOTO.tipo_vehiculo) vi.push(PILOTO.tipo_vehiculo);
+    if (PILOTO.color_vehiculo) vi.push(PILOTO.color_vehiculo);
+    document.getElementById('panico-vehiculo').textContent = vi.join(' — ');
+    document.getElementById('shake-notice').style.display = 'block';
+}
+
+function logout() { sessionStorage.removeItem('sisdel_piloto'); PILOTO=null; window.location.reload(); }
+
+// ── ALERTA ──────────────────
+async function activarAlerta() {
+    const btn = document.getElementById('btn-alerta');
+    btn.disabled = true;
+    btn.querySelector('.bp-sub').textContent = 'ENVIANDO...';
+    let lat = null, lon = null;
+    try {
+        const pos = await new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject, {enableHighAccuracy:true, timeout:10000}));
+        lat = pos.coords.latitude;
+        lon = pos.coords.longitude;
+    } catch {}
+    try {
+        const res = await fetch(`${API}/api/empresa/alertas`, {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({
+                id_empresa: ID_EMPRESA,
+                id_piloto: PILOTO.id_piloto,
+                nombre_piloto: PILOTO.nombre,
+                telefono_piloto: PILOTO.telefono,
+                num_identificacion: PILOTO.num_identificacion,
+                placas_vehiculo: PILOTO.placas_vehiculo || '',
+                tipo_vehiculo: PILOTO.tipo_vehiculo || '',
+                color_vehiculo: PILOTO.color_vehiculo || '',
+                direccion_piloto: PILOTO.direccion || '',
+                gps_latitud: lat,
+                gps_longitud: lon,
+                direccion_aproximada: '',
+            })
+        });
+        const alerta = await res.json();
+        const statusDiv = document.getElementById('alerta-status');
+        statusDiv.style.display = 'block';
+        document.getElementById('alerta-msg').textContent = `✅ Alerta enviada: ${alerta.numero_caso}. Ayuda en camino.`;
+    } catch {
+        const statusDiv = document.getElementById('alerta-status');
+        statusDiv.style.display = 'block';
+        document.getElementById('alerta-msg').textContent = '❌ Error al enviar alerta. Intenta de nuevo.';
+    }
+    btn.disabled = false;
+    btn.querySelector('.bp-sub').textContent = 'ALERTA';
+}
+
+// ── SHAKE ──────────────────
+function iniciarShake() {
+    let shakeThreshold = 25;
+    let lastX=null, lastY=null, lastZ=null, lastTime=0;
+    window.addEventListener('devicemotion', (e) => {
+        const acc = e.accelerationIncludingGravity;
+        if (!acc) return;
+        const now = Date.now();
+        if ((now - lastTime) < 300) return;
+        const dx = Math.abs(acc.x - (lastX||0));
+        const dy = Math.abs(acc.y - (lastY||0));
+        const dz = Math.abs(acc.z - (lastZ||0));
+        if ((dx+dy+dz) > shakeThreshold && PILOTO) {
+            lastTime = now;
+            activarAlerta();
+        }
+        lastX = acc.x; lastY = acc.y; lastZ = acc.z;
+    });
+}
+
+// ── CONFIG ──────────────────
+function mostrarConfig() {
+    document.getElementById('paso-panico').style.display = 'none';
+    document.getElementById('paso-config').style.display = 'block';
+    // Fill config
+    document.getElementById('cfg-nombre').value = PILOTO.nombre || '';
+    document.getElementById('cfg-tel').value = PILOTO.telefono || '';
+    document.getElementById('cfg-licencia').value = PILOTO.num_licencia || '';
+    document.getElementById('cfg-placas').value = PILOTO.placas_vehiculo || '';
+    document.getElementById('cfg-tipo').value = PILOTO.tipo_vehiculo || '';
+    document.getElementById('cfg-color').value = PILOTO.color_vehiculo || '';
+    document.getElementById('cfg-dir').value = PILOTO.direccion || '';
+    for (let i=1;i<=5;i++) {
+        document.getElementById(`cfg-c${i}n`).value = PILOTO[`fam_nombre_${i}`] || '';
+        document.getElementById(`cfg-c${i}t`).value = PILOTO[`fam_tel_${i}`] || '';
+    }
+    if (PILOTO.foto_vehiculo) {
+        document.getElementById('cfg-foto-img').src = PILOTO.foto_vehiculo;
+        document.getElementById('cfg-foto-preview').style.display = 'block';
+    }
+}
+
+function previsualizarFotoConfig(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        document.getElementById('cfg-foto-img').src = e.target.result;
+        document.getElementById('cfg-foto-preview').style.display = 'block';
+    };
+    reader.readAsDataURL(file);
+}
+
+async function guardarConfig() {
+    let fotoBase64 = null;
+    const fotoFile = document.getElementById('cfg-foto').files[0];
+    if (fotoFile) {
+        fotoBase64 = await new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const r = Math.min(800/img.width, 800/img.height, 1);
+                    canvas.width = img.width*r; canvas.height = img.height*r;
+                    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+                    resolve(canvas.toDataURL('image/jpeg', 0.6));
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(fotoFile);
+        });
+    }
+    const data = {
+        nombre: document.getElementById('cfg-nombre').value.trim(),
+        telefono: document.getElementById('cfg-tel').value.trim(),
+        num_licencia: document.getElementById('cfg-licencia').value.trim(),
+        placas_vehiculo: document.getElementById('cfg-placas').value.trim(),
+        tipo_vehiculo: document.getElementById('cfg-tipo').value,
+        color_vehiculo: document.getElementById('cfg-color').value.trim(),
+        direccion: document.getElementById('cfg-dir').value.trim(),
+    };
+    if (fotoBase64) data.foto_vehiculo = fotoBase64;
+    for (let i=1;i<=5;i++) {
+        data[`fam_nombre_${i}`] = document.getElementById(`cfg-c${i}n`).value.trim();
+        data[`fam_tel_${i}`] = document.getElementById(`cfg-c${i}t`).value.trim();
+    }
+    try {
+        const res = await fetch(`${API}/api/pilotos/${PILOTO.id_piloto}`, {
+            method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data)
+        });
+        PILOTO = await res.json();
+        sessionStorage.setItem('sisdel_piloto', JSON.stringify(PILOTO));
+        alert('✅ Datos actualizados.');
+        volverPanico();
+    } catch { alert('Error al guardar.'); }
+}
+
+function volverPanico() {
+    document.getElementById('paso-config').style.display = 'none';
+    mostrarPanico();
+}
+
+// ── VOZ ──────────────────
+function grabarVoz() { document.getElementById('modal-voz').style.display='flex'; }
+function cerrarVoz() { document.getElementById('modal-voz').style.display='none'; if(mediaRecorder&&mediaRecorder.state==='recording') mediaRecorder.stop(); }
+
+async function toggleGrabacion() {
+    const btn = document.getElementById('btn-rec');
+    const status = document.getElementById('rec-status');
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+        mediaRecorder.stop();
+        btn.textContent = '🎤';
+        btn.style.borderColor = '#ff8c00';
+        status.textContent = 'Grabación guardada ✅';
+        return;
+    }
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({audio:true});
+        audioChunks = [];
+        mediaRecorder = new MediaRecorder(stream);
+        mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+        mediaRecorder.onstop = () => {
+            const blob = new Blob(audioChunks, {type:'audio/webm'});
+            const url = URL.createObjectURL(blob);
+            document.getElementById('audio-preview').src = url;
+            document.getElementById('audio-preview').style.display = 'block';
+            // Convert to base64
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                vozBase64 = e.target.result;
+                // Save to pilot profile
+                fetch(`${API}/api/pilotos/${PILOTO.id_piloto}`, {
+                    method:'PUT', headers:{'Content-Type':'application/json'},
+                    body: JSON.stringify({voz_alerta: vozBase64})
+                }).catch(()=>{});
+            };
+            reader.readAsDataURL(blob);
+            stream.getTracks().forEach(t=>t.stop());
+        };
+        mediaRecorder.start();
+        btn.textContent = '⏹️';
+        btn.style.borderColor = '#ff3b3b';
+        status.textContent = '🔴 Grabando... presiona para detener';
+    } catch { status.textContent = '❌ No se pudo acceder al micrófono'; }
+}
+</script>
+</body>
+</html>
