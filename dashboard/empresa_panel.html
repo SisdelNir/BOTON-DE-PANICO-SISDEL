@@ -553,7 +553,7 @@ async function verDetalle(id) {
         <div style="margin-bottom:1rem;">
             <div style="display:flex;justify-content:space-between;align-items:center;">
                 <span class="badge ${a.estatus==='ACTIVA'?'badge-activa':a.estatus==='EN_CAMINO'?'badge-camino':'badge-atendida'}" style="font-size:.9rem;padding:.3rem .8rem;">${a.estatus}</span>
-                <span style="color:#6b7294;font-size:.8rem;">${a.numero_caso||''}</span>
+                <span style="font-family:monospace; font-weight:900; color:#8892b0; font-size:.85rem; background:rgba(255,255,255,.05); padding:.3rem .8rem; border-radius:6px; border:1px solid rgba(255,255,255,.1);">📋 CASO ${a.numero_caso||''}</span>
             </div>
             ${cronoHTML}
         </div>
