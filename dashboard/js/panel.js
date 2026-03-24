@@ -165,8 +165,52 @@ function sonarAlarma() {
     } catch {}
 }
 
+function mostrarFlashAlerta(nombre) {
+    // Eliminar flash previo si existe
+    const prev = document.getElementById('sisdel-flash-alerta');
+    if (prev) prev.remove();
+
+    const flash = document.createElement('div');
+    flash.id = 'sisdel-flash-alerta';
+    flash.innerHTML = `
+        <div style="position:fixed;inset:0;z-index:99999;pointer-events:none;display:flex;align-items:center;justify-content:center;background:rgba(255,59,59,.08);animation:flashBg 3s ease forwards;">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:1rem;animation:flashPop .4s cubic-bezier(.175,.885,.32,1.275);">
+                <div style="width:180px;height:180px;border-radius:50%;background:rgba(255,59,59,.85);display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 0 rgba(255,59,59,.9);animation:flashRing 1s ease-out 3;font-size:4rem;">🚨</div>
+                <div style="background:rgba(255,59,59,.9);color:#fff;font-size:1.4rem;font-weight:900;padding:.6rem 2rem;border-radius:14px;letter-spacing:3px;text-shadow:0 2px 6px rgba(0,0,0,.4);box-shadow:0 4px 24px rgba(255,59,59,.5);">⚠️ NUEVA ALERTA</div>
+                <div style="color:#fff;font-size:1rem;font-weight:700;background:rgba(0,0,0,.45);padding:.35rem 1rem;border-radius:8px;">${nombre}</div>
+            </div>
+        </div>`;
+    document.body.appendChild(flash);
+
+    // Auto-remove after 3s
+    setTimeout(() => flash.remove(), 3000);
+
+    // Inject keyframes once
+    if (!document.getElementById('sisdel-flash-style')) {
+        const s = document.createElement('style');
+        s.id = 'sisdel-flash-style';
+        s.textContent = `
+            @keyframes flashRing {
+                0%   { box-shadow: 0 0 0 0 rgba(255,59,59,.9); }
+                70%  { box-shadow: 0 0 0 60px rgba(255,59,59,0); }
+                100% { box-shadow: 0 0 0 0 rgba(255,59,59,0); }
+            }
+            @keyframes flashPop {
+                0%   { transform: scale(0); opacity: 0; }
+                70%  { transform: scale(1.08); }
+                100% { transform: scale(1); opacity: 1; }
+            }
+            @keyframes flashBg {
+                0%   { background: rgba(255,59,59,.12); }
+                100% { background: rgba(255,59,59,0); }
+            }`;
+        document.head.appendChild(s);
+    }
+}
+
 function notificarNuevaEmergencia(nombre) {
     sonarAlarma();
+    mostrarFlashAlerta(nombre);
     let n = 0, orig = document.title;
     const iv = setInterval(() => {
         document.title = n++ % 2 === 0 ? '🚨 ¡NUEVA ALERTA!' : orig;

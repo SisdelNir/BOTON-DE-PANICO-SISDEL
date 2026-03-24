@@ -432,19 +432,48 @@ function verMapaRapido(lat, lon) { document.getElementById('modal-mapa').style.d
 
 // ── NOTIFICACIONES ──────────────────
 function pedirPermisoNotificacion() { if('Notification' in window && Notification.permission==='default') Notification.requestPermission(); }
+function mostrarFlashAlerta(nombre) {
+    const prev = document.getElementById('sisdel-flash-alerta');
+    if (prev) prev.remove();
+    const flash = document.createElement('div');
+    flash.id = 'sisdel-flash-alerta';
+    flash.innerHTML = `
+        <div style="position:fixed;inset:0;z-index:99999;pointer-events:none;display:flex;align-items:center;justify-content:center;background:rgba(255,140,0,.08);animation:flashBg 3s ease forwards;">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:1rem;animation:flashPop .4s cubic-bezier(.175,.885,.32,1.275);">
+                <div style="width:180px;height:180px;border-radius:50%;background:rgba(255,140,0,.9);display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 0 rgba(255,140,0,.9);animation:flashRing 1s ease-out 3;font-size:4rem;">🛡️</div>
+                <div style="background:rgba(255,140,0,.9);color:#fff;font-size:1.4rem;font-weight:900;padding:.6rem 2rem;border-radius:14px;letter-spacing:3px;text-shadow:0 2px 6px rgba(0,0,0,.4);box-shadow:0 4px 24px rgba(255,140,0,.5);">⚠️ ALERTA DE PILOTO</div>
+                <div style="color:#fff;font-size:1rem;font-weight:700;background:rgba(0,0,0,.45);padding:.35rem 1rem;border-radius:8px;">${nombre}</div>
+            </div>
+        </div>`;
+    document.body.appendChild(flash);
+    setTimeout(() => flash.remove(), 3000);
+    if (!document.getElementById('sisdel-flash-style')) {
+        const s = document.createElement('style');
+        s.id = 'sisdel-flash-style';
+        s.textContent = `
+            @keyframes flashRing { 0%{box-shadow:0 0 0 0 rgba(255,140,0,.9);}70%{box-shadow:0 0 0 60px rgba(255,140,0,0);}100%{box-shadow:0 0 0 0 rgba(255,140,0,0);} }
+            @keyframes flashPop  { 0%{transform:scale(0);opacity:0;}70%{transform:scale(1.08);}100%{transform:scale(1);opacity:1;} }
+            @keyframes flashBg   { 0%{background:rgba(255,140,0,.12);}100%{background:rgba(255,140,0,0);} }`;
+        document.head.appendChild(s);
+    }
+}
 function notificarAlerta(a) {
     if ('Notification' in window && Notification.permission==='granted') {
         new Notification('🛡️ Alerta de Piloto', { body: `${a.nombre_piloto} — ${a.placas_vehiculo||'Sin placas'}`, icon:'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🛡️</text></svg>', tag:a.id_alerta });
     }
-    // Alarma sonora
+    mostrarFlashAlerta(`${a.nombre_piloto} — ${a.placas_vehiculo||''}`);
+    // Alarma sonora 3 beeps
     try {
         if (!_audioCtx) _audioCtx = new (window.AudioContext||window.webkitAudioContext)();
-        const o = _audioCtx.createOscillator();
-        const g = _audioCtx.createGain();
-        o.type = 'sine'; o.frequency.setValueAtTime(880, _audioCtx.currentTime);
-        g.gain.setValueAtTime(0.3, _audioCtx.currentTime);
-        o.connect(g); g.connect(_audioCtx.destination);
-        o.start(); o.stop(_audioCtx.currentTime + 0.5);
+        [0, 0.35, 0.7].forEach(t => {
+            const o = _audioCtx.createOscillator();
+            const g = _audioCtx.createGain();
+            o.type = 'square'; o.frequency.setValueAtTime(880, _audioCtx.currentTime + t);
+            g.gain.setValueAtTime(0.4, _audioCtx.currentTime + t);
+            g.gain.exponentialRampToValueAtTime(0.001, _audioCtx.currentTime + t + 0.28);
+            o.connect(g); g.connect(_audioCtx.destination);
+            o.start(_audioCtx.currentTime + t); o.stop(_audioCtx.currentTime + t + 0.28);
+        });
     } catch {}
 }
 
