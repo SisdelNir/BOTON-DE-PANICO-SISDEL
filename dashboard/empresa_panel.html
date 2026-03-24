@@ -145,7 +145,7 @@
 
 <!-- MODAL REGISTRAR PILOTO -->
 <div class="modal-overlay" id="modal-piloto" style="display:none;" onclick="cerrarModalPiloto(event)">
-    <div class="modal-box" style="width:95%;max-width:700px;max-height:92vh;display:flex;flex-direction:column;" onclick="event.stopPropagation()">
+    <div class="modal-box" style="width:95%;max-width:750px;max-height:92vh;display:flex;flex-direction:column;" onclick="event.stopPropagation()">
         <div class="modal-hdr" style="background:linear-gradient(135deg,rgba(255,140,0,.15),rgba(0,0,0,0));">
             <h3>🚗 Registrar Piloto</h3>
             <button class="modal-close" onclick="cerrarModalPiloto()">✕</button>
@@ -153,45 +153,96 @@
         <div class="modal-body" style="flex:1;overflow-y:auto;">
             <form id="form-piloto" onsubmit="guardarPiloto(event)">
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:.7rem;">
-                    <div style="grid-column:1/-1;"><label class="lbl-sm">Nombre Completo *</label><input type="text" id="pl-nombre" required class="form-input inp-sm"></div>
-                    <div><label class="lbl-sm">No. Identificación (DPI) *</label><input type="text" id="pl-dpi" required class="form-input inp-sm"></div>
-                    <div><label class="lbl-sm">Teléfono *</label><input type="tel" id="pl-tel" required class="form-input inp-sm"></div>
-                    <div><label class="lbl-sm">No. Licencia</label><input type="text" id="pl-licencia" class="form-input inp-sm"></div>
-                    <div><label class="lbl-sm">Empresa para la que labora</label><input type="text" id="pl-empresa-labora" class="form-input inp-sm"></div>
-                    <div><label class="lbl-sm">Placas del Vehículo</label><input type="text" id="pl-placas" class="form-input inp-sm"></div>
-                    <div><label class="lbl-sm">Tipo de Vehículo</label>
-                        <select id="pl-tipo" class="form-input inp-sm">
-                            <option value="">Seleccionar</option>
-                            <option value="Sedan">Sedán</option>
-                            <option value="Pickup">Pickup</option>
-                            <option value="Camion">Camión</option>
-                            <option value="Motocicleta">Motocicleta</option>
-                            <option value="Panel">Panel</option>
-                            <option value="Microbus">Microbús</option>
-                            <option value="Bus">Bus</option>
-                            <option value="Otro">Otro</option>
+                    <!-- DPI LLAVE PRIMARIA -->
+                    <div style="grid-column:1/-1;">
+                        <label class="lbl-sm">🪨 Documento de Identificación <span style="color:#ff3b3b;font-size:.65rem;font-weight:900;">(LLAVE PRIMARIA)</span></label>
+                        <input type="text" id="pl-dpi" required class="form-input inp-sm" placeholder="DPI / INE / Cédula — Ingrese primero este dato" style="border-color:#ff8c00;font-size:1.1rem;font-weight:700;">
+                    </div>
+                    <!-- PAÍS -->
+                    <div style="grid-column:1/-1;">
+                        <label class="lbl-sm">🌎 País <span style="color:#6b7294;font-size:.6rem;">(se añade automáticamente al teléfono)</span></label>
+                        <select id="pl-pais" class="form-input inp-sm" onchange="actualizarLadaPiloto()">
+                            <option value="502">🇬🇹 Guatemala (+502)</option>
+                            <option value="52">🇲🇽 México (+52)</option>
+                            <option value="503">🇸🇻 El Salvador (+503)</option>
+                            <option value="504">🇭🇳 Honduras (+504)</option>
+                            <option value="505">🇳🇮 Nicaragua (+505)</option>
+                            <option value="506">🇨🇷 Costa Rica (+506)</option>
+                            <option value="507">🇵🇦 Panamá (+507)</option>
+                            <option value="57">🇨🇴 Colombia (+57)</option>
+                            <option value="1">🇺🇸 USA / Canadá (+1)</option>
+                            <option value="34">🇪🇸 España (+34)</option>
                         </select>
                     </div>
-                    <div><label class="lbl-sm">Color del Vehículo</label><input type="text" id="pl-color" class="form-input inp-sm"></div>
-                    <div style="grid-column:1/-1;"><label class="lbl-sm">Foto del Vehículo</label>
+                    <!-- Nombre -->
+                    <div style="grid-column:1/-1;"><label class="lbl-sm">👤 Nombre Completo *</label><input type="text" id="pl-nombre" required class="form-input inp-sm" placeholder="Nombre completo del piloto"></div>
+                    <!-- Teléfono con lada -->
+                    <div>
+                        <label class="lbl-sm">📱 Teléfono *</label>
+                        <div style="display:flex;gap:.4rem;align-items:center;">
+                            <span id="pl-lada-badge" style="background:#1a1f3e;border:1px solid #2d3366;border-radius:8px;padding:.5rem .7rem;font-size:.85rem;color:#ff8c00;font-weight:700;white-space:nowrap;">+502</span>
+                            <input type="tel" id="pl-tel" required class="form-input inp-sm" placeholder="12345678" style="flex:1;">
+                        </div>
+                    </div>
+                    <!-- Correo -->
+                    <div><label class="lbl-sm">📧 Correo <span style="color:#6b7294;font-size:.6rem;">(opcional)</span></label><input type="email" id="pl-correo" class="form-input inp-sm" placeholder="correo@ejemplo.com"></div>
+                    <!-- Sexo -->
+                    <div><label class="lbl-sm">⚥ Sexo</label>
+                        <select id="pl-sexo" class="form-input inp-sm">
+                            <option value="">— Seleccionar —</option><option value="M">Masculino</option><option value="F">Femenino</option>
+                        </select>
+                    </div>
+                    <!-- Edad -->
+                    <div><label class="lbl-sm">🎂 Edad</label><input type="number" id="pl-edad" min="1" max="150" class="form-input inp-sm" placeholder="Ej: 35"></div>
+                    <!-- Licencia -->
+                    <div><label class="lbl-sm">🪨 No. Licencia</label><input type="text" id="pl-licencia" class="form-input inp-sm" placeholder="Número de licencia"></div>
+                    <!-- Empresa -->
+                    <div><label class="lbl-sm">🏢 Empresa para la que labora</label><input type="text" id="pl-empresa-labora" class="form-input inp-sm"></div>
+                    <!-- Placas -->
+                    <div><label class="lbl-sm">🚗 Placas del Vehículo</label><input type="text" id="pl-placas" class="form-input inp-sm" placeholder="Ej: P-123ABC"></div>
+                    <!-- Tipo -->
+                    <div><label class="lbl-sm">🚛 Tipo de Vehículo</label>
+                        <select id="pl-tipo" class="form-input inp-sm">
+                            <option value="">Seleccionar</option>
+                            <option value="Sedan">Sedán</option><option value="Pickup">Pickup</option>
+                            <option value="Camion">Camión</option><option value="Motocicleta">Motocicleta</option>
+                            <option value="Panel">Panel</option><option value="Microbus">Microbús</option>
+                            <option value="Bus">Bus</option><option value="Otro">Otro</option>
+                        </select>
+                    </div>
+                    <!-- Color -->
+                    <div><label class="lbl-sm">🎨 Color del Vehículo</label><input type="text" id="pl-color" class="form-input inp-sm" placeholder="Ej: Rojo, Blanco..."></div>
+                    <!-- Foto -->
+                    <div style="grid-column:1/-1;"><label class="lbl-sm">📷 Foto del Vehículo</label>
                         <input type="file" id="pl-foto" accept="image/*" class="form-input inp-sm" onchange="previsualizarFoto(event)">
                         <div id="pl-foto-preview" style="display:none;margin-top:.5rem;text-align:center;"><img id="pl-foto-img" style="max-width:200px;max-height:150px;border-radius:8px;border:1px solid #2a2d45;"></div>
                     </div>
-                    <div style="grid-column:1/-1;"><label class="lbl-sm">Dirección</label><input type="text" id="pl-dir" class="form-input inp-sm"></div>
+                    <!-- Dirección -->
+                    <div style="grid-column:1/-1;"><label class="lbl-sm">🏠 Dirección <span style="color:#6b7294;font-size:.6rem;">(opcional)</span></label><input type="text" id="pl-dir" class="form-input inp-sm" placeholder="Calle, Número, Zona, Ciudad"></div>
                 </div>
-                <!-- Contactos emergencia -->
-                <h4 style="font-size:.78rem;color:#ff8c00;text-transform:uppercase;letter-spacing:.5px;margin:1rem 0 .5rem;">📱 Contactos de Emergencia (hasta 5)</h4>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;">
-                    <div><label class="lbl-sm">Nombre Contacto 1</label><input type="text" id="pl-c1n" class="form-input inp-sm"></div>
-                    <div><label class="lbl-sm">Teléfono 1</label><input type="tel" id="pl-c1t" class="form-input inp-sm"></div>
-                    <div><label class="lbl-sm">Nombre Contacto 2</label><input type="text" id="pl-c2n" class="form-input inp-sm"></div>
-                    <div><label class="lbl-sm">Teléfono 2</label><input type="tel" id="pl-c2t" class="form-input inp-sm"></div>
-                    <div><label class="lbl-sm">Nombre Contacto 3</label><input type="text" id="pl-c3n" class="form-input inp-sm"></div>
-                    <div><label class="lbl-sm">Teléfono 3</label><input type="tel" id="pl-c3t" class="form-input inp-sm"></div>
-                    <div><label class="lbl-sm">Nombre Contacto 4</label><input type="text" id="pl-c4n" class="form-input inp-sm"></div>
-                    <div><label class="lbl-sm">Teléfono 4</label><input type="tel" id="pl-c4t" class="form-input inp-sm"></div>
-                    <div><label class="lbl-sm">Nombre Contacto 5</label><input type="text" id="pl-c5n" class="form-input inp-sm"></div>
-                    <div><label class="lbl-sm">Teléfono 5</label><input type="tel" id="pl-c5t" class="form-input inp-sm"></div>
+                <!-- CONTACTOS EMERGENCIA con lada -->
+                <h4 style="font-size:.78rem;color:#ff8c00;text-transform:uppercase;letter-spacing:.5px;margin:1rem 0 .5rem;font-weight:800;">🆘 CONTACTOS DE EMERGENCIA (hasta 5)</h4>
+                <div style="display:flex;flex-direction:column;gap:.5rem;">
+                    <div style="background:rgba(255,140,0,.04);border:1px solid rgba(255,140,0,.2);border-radius:10px;padding:.75rem 1rem;">
+                        <label style="font-size:.75rem;color:#ff8c00;font-weight:700;display:block;margin-bottom:.4rem;">📞 Contacto 1</label>
+                        <div style="display:flex;gap:.4rem;"><input type="text" id="pl-c1n" placeholder="Nombre" class="form-input inp-sm" style="flex:1.2;"><span class="pl-lada-fam" style="background:#1a1f3e;border:1px solid #2d3366;border-radius:8px;padding:.5rem .5rem;font-size:.8rem;color:#ff8c00;font-weight:700;">+502</span><input type="tel" id="pl-c1t" placeholder="Teléfono" class="form-input inp-sm" style="flex:1;"></div>
+                    </div>
+                    <div style="background:rgba(255,140,0,.04);border:1px solid rgba(255,140,0,.2);border-radius:10px;padding:.75rem 1rem;">
+                        <label style="font-size:.75rem;color:#ff8c00;font-weight:700;display:block;margin-bottom:.4rem;">📞 Contacto 2</label>
+                        <div style="display:flex;gap:.4rem;"><input type="text" id="pl-c2n" placeholder="Nombre" class="form-input inp-sm" style="flex:1.2;"><span class="pl-lada-fam" style="background:#1a1f3e;border:1px solid #2d3366;border-radius:8px;padding:.5rem .5rem;font-size:.8rem;color:#ff8c00;font-weight:700;">+502</span><input type="tel" id="pl-c2t" placeholder="Teléfono" class="form-input inp-sm" style="flex:1;"></div>
+                    </div>
+                    <div style="background:rgba(255,140,0,.04);border:1px solid rgba(255,140,0,.2);border-radius:10px;padding:.75rem 1rem;">
+                        <label style="font-size:.75rem;color:#ff8c00;font-weight:700;display:block;margin-bottom:.4rem;">📞 Contacto 3</label>
+                        <div style="display:flex;gap:.4rem;"><input type="text" id="pl-c3n" placeholder="Nombre" class="form-input inp-sm" style="flex:1.2;"><span class="pl-lada-fam" style="background:#1a1f3e;border:1px solid #2d3366;border-radius:8px;padding:.5rem .5rem;font-size:.8rem;color:#ff8c00;font-weight:700;">+502</span><input type="tel" id="pl-c3t" placeholder="Teléfono" class="form-input inp-sm" style="flex:1;"></div>
+                    </div>
+                    <div style="background:rgba(255,140,0,.04);border:1px solid rgba(255,140,0,.2);border-radius:10px;padding:.75rem 1rem;">
+                        <label style="font-size:.75rem;color:#ff8c00;font-weight:700;display:block;margin-bottom:.4rem;">📞 Contacto 4</label>
+                        <div style="display:flex;gap:.4rem;"><input type="text" id="pl-c4n" placeholder="Nombre" class="form-input inp-sm" style="flex:1.2;"><span class="pl-lada-fam" style="background:#1a1f3e;border:1px solid #2d3366;border-radius:8px;padding:.5rem .5rem;font-size:.8rem;color:#ff8c00;font-weight:700;">+502</span><input type="tel" id="pl-c4t" placeholder="Teléfono" class="form-input inp-sm" style="flex:1;"></div>
+                    </div>
+                    <div style="background:rgba(255,140,0,.04);border:1px solid rgba(255,140,0,.2);border-radius:10px;padding:.75rem 1rem;">
+                        <label style="font-size:.75rem;color:#ff8c00;font-weight:700;display:block;margin-bottom:.4rem;">📞 Contacto 5</label>
+                        <div style="display:flex;gap:.4rem;"><input type="text" id="pl-c5n" placeholder="Nombre" class="form-input inp-sm" style="flex:1.2;"><span class="pl-lada-fam" style="background:#1a1f3e;border:1px solid #2d3366;border-radius:8px;padding:.5rem .5rem;font-size:.8rem;color:#ff8c00;font-weight:700;">+502</span><input type="tel" id="pl-c5t" placeholder="Teléfono" class="form-input inp-sm" style="flex:1;"></div>
+                    </div>
                 </div>
                 <div id="pl-codigo-box" style="display:none;margin-top:1rem;padding:.7rem 1rem;background:rgba(255,140,0,.08);border:1px solid rgba(255,140,0,.3);border-radius:10px;text-align:center;">
                     <span style="font-size:.72rem;color:#6b7294;text-transform:uppercase;">Código de Acceso del Piloto</span>
@@ -471,7 +522,14 @@ async function cargarPilotos() {
     } catch {}
 }
 
-function abrirRegistroPiloto() { document.getElementById('modal-piloto').style.display='flex'; }
+function actualizarLadaPiloto() {
+    const codigo = document.getElementById('pl-pais')?.value || '502';
+    const badge = document.getElementById('pl-lada-badge');
+    if (badge) badge.textContent = '+' + codigo;
+    document.querySelectorAll('.pl-lada-fam').forEach(el => el.textContent = '+' + codigo);
+}
+
+function abrirRegistroPiloto() { document.getElementById('modal-piloto').style.display='flex'; actualizarLadaPiloto(); }
 function cerrarModalPiloto(e) { if(e&&e.target!==document.getElementById('modal-piloto')) return; document.getElementById('modal-piloto').style.display='none'; }
 
 function previsualizarFoto(event) {
@@ -487,13 +545,13 @@ function previsualizarFoto(event) {
 
 async function guardarPiloto(event) {
     event.preventDefault();
+    const lada = document.getElementById('pl-pais')?.value || '502';
     let fotoBase64 = '';
     const fotoFile = document.getElementById('pl-foto').files[0];
     if (fotoFile) {
         fotoBase64 = await new Promise((resolve) => {
             const reader = new FileReader();
             reader.onload = (e) => {
-                // Compress
                 const img = new Image();
                 img.onload = () => {
                     const canvas = document.createElement('canvas');
@@ -509,13 +567,22 @@ async function guardarPiloto(event) {
             reader.readAsDataURL(fotoFile);
         });
     }
+    // Prepend lada to phones
+    const telRaw = (document.getElementById('pl-tel').value || '').replace(/\D/g,'');
+    const telefono = telRaw ? lada + telRaw : '';
+    const contactos = {};
+    for (let i = 1; i <= 5; i++) {
+        contactos[`fam_nombre_${i}`] = document.getElementById(`pl-c${i}n`).value.trim();
+        const ctel = (document.getElementById(`pl-c${i}t`).value || '').replace(/\D/g,'');
+        contactos[`fam_tel_${i}`] = ctel ? lada + ctel : '';
+    }
     try {
         const res = await fetch(`${API}/api/pilotos/`, {
             method:'POST', headers:{'Content-Type':'application/json'},
             body: JSON.stringify({
                 id_empresa: EMP.id_empresa,
                 nombre: document.getElementById('pl-nombre').value.trim(),
-                telefono: document.getElementById('pl-tel').value.trim(),
+                telefono: telefono,
                 num_identificacion: document.getElementById('pl-dpi').value.trim(),
                 num_licencia: document.getElementById('pl-licencia').value.trim(),
                 empresa_labora: document.getElementById('pl-empresa-labora').value.trim(),
@@ -524,11 +591,10 @@ async function guardarPiloto(event) {
                 color_vehiculo: document.getElementById('pl-color').value.trim(),
                 foto_vehiculo: fotoBase64,
                 direccion: document.getElementById('pl-dir').value.trim(),
-                fam_nombre_1: document.getElementById('pl-c1n').value.trim(), fam_tel_1: document.getElementById('pl-c1t').value.trim(),
-                fam_nombre_2: document.getElementById('pl-c2n').value.trim(), fam_tel_2: document.getElementById('pl-c2t').value.trim(),
-                fam_nombre_3: document.getElementById('pl-c3n').value.trim(), fam_tel_3: document.getElementById('pl-c3t').value.trim(),
-                fam_nombre_4: document.getElementById('pl-c4n').value.trim(), fam_tel_4: document.getElementById('pl-c4t').value.trim(),
-                fam_nombre_5: document.getElementById('pl-c5n').value.trim(), fam_tel_5: document.getElementById('pl-c5t').value.trim(),
+                sexo: document.getElementById('pl-sexo').value,
+                edad: parseInt(document.getElementById('pl-edad').value) || 0,
+                correo: document.getElementById('pl-correo').value.trim(),
+                ...contactos
             })
         });
         const p = await res.json();
